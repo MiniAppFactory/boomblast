@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -85,6 +86,7 @@ import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonMagenta
 import com.example.ui.theme.NeonPurple
+import com.example.data.BoosterType
 import com.example.utils.SoundManager
 import kotlinx.coroutines.launch
 import kotlin.math.floor
@@ -175,22 +177,32 @@ val BLOCK_THEMES = listOf(
 
 @Composable
 fun BlockBlastGame(
-    highScore: Int,
+    levelNumber: Int,
+    targetScore: Int,
+    shapePoolTier: Int = 3,
     currentTheme: String = "CLASSIC",
     isTr: Boolean = true,
     soundEnabled: Boolean = true,
+    initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
     onSelectTheme: (String) -> Unit = {},
+    onUseBooster: (BoosterType) -> Unit = {},
+    onLinesCleared: (count: Int) -> Unit = {},
     onBack: () -> Unit,
-    onGameOver: (score: Int, coins: Int) -> Unit
+    onLevelComplete: (score: Int, stars: Int) -> Unit,
+    onLevelFailed: (score: Int) -> Unit
 ) {
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
     var comboCount by remember { mutableIntStateOf(0) }
     var isGameOver by remember { mutableStateOf(false) }
-    var coinsEarned by remember { mutableIntStateOf(0) }
+    var isLevelComplete by remember { mutableStateOf(false) }
     var lastClearedText by remember { mutableStateOf("") }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
+    val availableBoosterCounts = remember {
+        mutableStateMapOf<BoosterType, Int>().apply { putAll(initialBoosterCounts) }
+    }
 
     val trayShapes = remember { mutableStateListOf<BlockShape?>() }
 
@@ -247,14 +259,19 @@ fun BlockBlastGame(
         return pr in shape.pattern.indices && pc in shape.pattern[pr].indices && shape.pattern[pr][pc]
     }
 
-    val currentLevel = (score / 300) + 1
-    val levelProgress = ((score % 300).toFloat() / 300f).coerceIn(0f, 1f)
+    val levelProgress = (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f)
+
+    fun computeStars(finalScore: Int, target: Int): Int = when {
+        finalScore >= target * 2 -> 3
+        finalScore >= (target * 1.5f).toInt() -> 2
+        else -> 1
+    }
 
     fun generateNewTray() {
         trayShapes.clear()
         val availablePatterns = when {
-            currentLevel <= 1 -> SHAPE_PATTERNS.take(6) // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-            currentLevel <= 2 -> SHAPE_PATTERNS.take(8) // + L shapes
+            shapePoolTier <= 1 -> SHAPE_PATTERNS.take(6) // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+            shapePoolTier == 2 -> SHAPE_PATTERNS.take(8) // + L shapes
             else -> SHAPE_PATTERNS // All shapes including T-shape and 3x3 square
         }
         repeat(3) { index ->
@@ -279,10 +296,52 @@ fun BlockBlastGame(
             val valid = remainingShapes.any { canPlaceAnywhere(it) }
             if (!valid) {
                 isGameOver = true
-                coinsEarned = score / 10
-                onGameOver(score, coinsEarned)
+                onLevelFailed(score)
             }
         }
+    }
+
+    fun useShuffleBooster() {
+        val owned = availableBoosterCounts[BoosterType.SHUFFLE] ?: 0
+        if (owned <= 0 || isGameOver || isLevelComplete) return
+        generateNewTray()
+        availableBoosterCounts[BoosterType.SHUFFLE] = owned - 1
+        onUseBooster(BoosterType.SHUFFLE)
+        SoundManager.playBeep(soundEnabled)
+    }
+
+    fun applyBoosterAt(row: Int, col: Int) {
+        val type = armedBooster ?: return
+        val owned = availableBoosterCounts[type] ?: 0
+        if (owned <= 0) {
+            armedBooster = null
+            return
+        }
+        when (type) {
+            BoosterType.BOMB -> {
+                for (dr in -1..1) {
+                    for (dc in -1..1) {
+                        val tr = row + dr
+                        val tc = col + dc
+                        if (tr in 0 until gridSize && tc in 0 until gridSize) {
+                            board[tr * gridSize + tc] = 0
+                        }
+                    }
+                }
+            }
+            BoosterType.LINE_CLEAR -> {
+                for (c2 in 0 until gridSize) {
+                    board[row * gridSize + c2] = 0
+                }
+                onLinesCleared(1)
+            }
+            BoosterType.SHUFFLE -> { /* Tepsiden tetiklenir, hücre hedeflemez. */ }
+        }
+        SoundManager.playSuccess(soundEnabled)
+        availableBoosterCounts[type] = owned - 1
+        onUseBooster(type)
+        armedBooster = null
+        checkGameOver()
     }
 
     fun resetGame() {
@@ -291,8 +350,9 @@ fun BlockBlastGame(
         score = 0
         comboCount = 0
         draggedTrayIndex = -1
+        armedBooster = null
         isGameOver = false
-        coinsEarned = 0
+        isLevelComplete = false
         lastClearedText = ""
         generateNewTray()
     }
@@ -350,6 +410,7 @@ fun BlockBlastGame(
 
         val totalLinesCleared = rowsToClear.size + colsToClear.size
         if (totalLinesCleared > 0) {
+            onLinesCleared(totalLinesCleared)
             SoundManager.playSuccess(soundEnabled)
             comboCount++
             val lineBonus = totalLinesCleared * 100 * comboCount
@@ -374,6 +435,13 @@ fun BlockBlastGame(
 
         // Remove used shape from tray
         trayShapes[shapeIndex] = null
+
+        if (!isLevelComplete && score >= targetScore) {
+            isLevelComplete = true
+            SoundManager.playSuccess(soundEnabled)
+            onLevelComplete(score, computeStars(score, targetScore))
+            return
+        }
 
         // If all 3 shapes used, spawn 3 new
         if (trayShapes.all { it == null }) {
@@ -415,7 +483,7 @@ fun BlockBlastGame(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (isTr) "BLOK PATLAT" else "BLOCK BLAST",
+                        text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
                         color = NeonCyan
@@ -494,7 +562,7 @@ fun BlockBlastGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isTr) "SEVİYE $currentLevel" else "LEVEL $currentLevel",
+                            text = if (isTr) "İLERLEME" else "PROGRESS",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonCyan
@@ -521,8 +589,67 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (isTr) "EN YÜKSEK" else "BEST", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                        Text("${maxOf(score, highScore)}", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = NeonGold)
+                        Text(if (isTr) "HEDEF" else "TARGET", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                        Text("$targetScore", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = NeonGold)
+                    }
+                }
+            }
+
+            // Booster Row
+            if (availableBoosterCounts.values.any { it > 0 }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BoosterType.entries.forEach { type ->
+                        val owned = availableBoosterCounts[type] ?: 0
+                        if (owned > 0) {
+                            val isArmed = armedBooster == type
+                            val emoji = when (type) {
+                                BoosterType.BOMB -> "💣"
+                                BoosterType.LINE_CLEAR -> "⚡"
+                                BoosterType.SHUFFLE -> "🔀"
+                            }
+                            Surface(
+                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else Color(0xFF1E293B),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(
+                                        width = if (isArmed) 2.dp else 1.dp,
+                                        color = if (isArmed) NeonGreen else Color(0xFF475569),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        if (type == BoosterType.SHUFFLE) {
+                                            useShuffleBooster()
+                                        } else {
+                                            armedBooster = if (isArmed) null else type
+                                        }
+                                    }
+                                    .testTag("booster_button_${type.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = emoji, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                    if (armedBooster != null) {
+                        Text(
+                            text = if (isTr) "Hedef bir hücreye dokun" else "Tap a target cell",
+                            fontSize = 11.sp,
+                            color = NeonGreen,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
                     }
                 }
             }
@@ -581,6 +708,13 @@ fun BlockBlastGame(
                                             width = 0.5.dp,
                                             color = if (cellVal > 0) Color.Transparent else Color(0xFF334155),
                                             shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .then(
+                                            if (armedBooster != null) {
+                                                Modifier.clickable { applyBoosterAt(r, c) }
+                                            } else {
+                                                Modifier
+                                            }
                                         )
                                         .testTag("block_cell_${r}_${c}")
                                 ) {
@@ -901,20 +1035,16 @@ fun BlockBlastGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isTr) "OYUN BİTTİ!" else "GAME OVER!",
-                            fontSize = 28.sp,
+                            text = if (isTr) "SEVİYE BAŞARISIZ" else "LEVEL FAILED",
+                            fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonMagenta
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(if (isTr) "Toplam Skor" else "Total Score", fontSize = 14.sp, color = Color.Gray)
-                        Text("$score", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.White)
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text("${if (isTr) "Kazanılan Coin" else "Coins Earned"}: +$coinsEarned 🪙", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = NeonGold)
+                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = Color.Gray)
+                        Text("$score / $targetScore", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -927,7 +1057,84 @@ fun BlockBlastGame(
                                 .height(50.dp)
                                 .testTag("block_blast_restart_confirm")
                         ) {
-                            Text(if (isTr) "TEKRAR OYNA" else "PLAY AGAIN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            Text(if (isTr) "TEKRAR DENE" else "RETRY", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = onBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text(if (isTr) "SEVİYE HARİTASINA DÖN" else "BACK TO LEVEL MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Level Complete Modal
+        AnimatedVisibility(
+            visible = isLevelComplete,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonGreen, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isTr) "SEVİYE TAMAMLANDI!" else "LEVEL COMPLETE!",
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonGreen
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val stars = computeStars(score, targetScore)
+                        Row {
+                            repeat(3) { index ->
+                                Text(
+                                    text = if (index < stars) "⭐" else "☆",
+                                    fontSize = 32.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = Color.Gray)
+                        Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = onBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("level_complete_continue_button")
+                        ) {
+                            Text(if (isTr) "DEVAM ET" else "CONTINUE", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         }
                     }
                 }

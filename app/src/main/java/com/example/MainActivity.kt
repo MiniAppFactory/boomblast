@@ -4,33 +4,27 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import com.example.ui.games.blockblast.BlockBlastGame
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.BlastViewModel
+import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.BlastTheBlocksTheme
-import java.util.Locale
 
-// Faz 1 iskeleti: tek ekran, sabit parametreler, no-op callback'ler.
-// Level/güçlendirici/token/persistence Faz 3'te bu Activity'nin yerini alacak navigasyona bağlanacak.
-// Dil seçici (kalıcı, kullanıcı değiştirebilir) Faz 3'te eklenecek; şimdilik sistem diline göre otomatik seçiliyor.
 class MainActivity : ComponentActivity() {
+    private val viewModel: BlastViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val systemIsTr = Locale.getDefault().language.equals("tr", ignoreCase = true)
         setContent {
-            BlastTheBlocksTheme(darkTheme = true) {
+            val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
+            BlastTheBlocksTheme(darkTheme = progress.darkMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    BlockBlastGame(
-                        highScore = 0,
-                        currentTheme = "CLASSIC",
-                        isTr = systemIsTr,
-                        soundEnabled = true,
-                        onSelectTheme = {},
-                        onBack = {},
-                        onGameOver = { _, _ -> }
-                    )
+                    AppNavigation(viewModel = viewModel)
                 }
             }
         }
