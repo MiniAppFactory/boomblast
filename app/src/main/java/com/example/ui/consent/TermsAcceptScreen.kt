@@ -85,9 +85,9 @@ fun TermsAcceptScreen(
 
                 Text(
                     text = if (isTr) {
-                        "Devam etmeden önce lütfen Gizlilik Politikamızı oku ve kabul et."
+                        "Devam etmeden önce lütfen Gizlilik Politikamızı ve Kullanım Şartlarımızı oku ve kabul et."
                     } else {
-                        "Before you continue, please read and accept our Privacy Policy."
+                        "Before you continue, please read and accept our Privacy Policy and Terms of Use."
                     },
                     fontSize = 14.sp,
                     color = palette.textSecondary,
@@ -105,7 +105,7 @@ fun TermsAcceptScreen(
                         .testTag("terms_accept_open_policy_button")
                 ) {
                     Text(
-                        text = if (isTr) "Gizlilik Politikası" else "Privacy Policy",
+                        text = if (isTr) "Gizlilik Politikası ve Kullanım Şartları" else "Privacy Policy & Terms of Use",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = NeonCyan
