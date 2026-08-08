@@ -17,7 +17,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +64,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -1512,14 +1512,10 @@ fun EmbossedBlockCell(
         else -> ""
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier.clip(RoundedCornerShape(6.dp)),
         contentAlignment = Alignment.Center
     ) {
-        // Emoji boyutu hucrenin gercek olculen genisligine oranli olmali —
-        // sabit bir fontSize kucuk tepsi onizlemelerinde tasar, buyuk ana
-        // ızgara hucrelerinde ise kaybolacak kadar kucuk kalirdi (kullanici geri bildirimi).
-        val emojiSizeSp = with(LocalDensity.current) { (maxWidth * 0.62f).toSp() }
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -1584,14 +1580,23 @@ fun EmbossedBlockCell(
                     size = Size((w - 2 * b).coerceAtLeast(0f), ((h - 2 * b) * 0.45f).coerceAtLeast(0f))
                 )
             }
-        }
 
-        if (emoji.isNotEmpty() && !isHover) {
-            Text(
-                text = emoji,
-                fontSize = emojiSizeSp,
-                textAlign = TextAlign.Center
-            )
+            // Tema emojisi burada, ayni Canvas icinde, gercek piksel boyutuna gore
+            // ciziliyor — ayri bir Compose Text kullanmiyoruz çünkü Dp/Sp donusumu
+            // ic ice yerlesik tepsi onizlemesi gibi bazi baglamlarda kutunun disina
+            // tasan/kaybolan sonuçlar veriyordu (kullanici geri bildirimi). Canvas'in
+            // kendi `size` piksel degeri her baglamda dogru oldugu icin bu yontem
+            // ana ızgara hucresinde hem de tepsi onizlemesinde tutarli calisir.
+            if (emoji.isNotEmpty() && !isHover) {
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = size.minDimension * 0.6f
+                }
+                val fm = paint.fontMetrics
+                val textY = h / 2f - (fm.ascent + fm.descent) / 2f
+                drawContext.canvas.nativeCanvas.drawText(emoji, w / 2f, textY, paint)
+            }
         }
     }
 }
