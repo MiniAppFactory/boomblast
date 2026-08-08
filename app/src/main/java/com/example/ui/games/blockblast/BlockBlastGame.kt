@@ -244,7 +244,9 @@ fun BlockBlastGame(
     var cellSizePx by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     val dragCoroutineScope = rememberCoroutineScope()
-    val dragLiftDp = 90.dp
+    // Parcayi parmagin biraz ustune kaldirir ki parmak parcayi tam kapatmasin —
+    // 90dp cok fazla hissettiriyordu (kullanici geri bildirimi), 45dp'ye dusuruldu.
+    val dragLiftDp = 45.dp
 
     fun activeDragShape(): BlockShape? =
         if (draggedTrayIndex in trayShapes.indices) trayShapes[draggedTrayIndex] else null
@@ -264,7 +266,13 @@ fun BlockBlastGame(
         val halfHeightCells = shape.pattern.size / 2f
         val localX = pointerAbsolutePos.x - gridOriginPx.x
         val localY = (pointerAbsolutePos.y - liftPx) - gridOriginPx.y
-        return floor((localY / cellSize) - halfHeightCells).toInt() to floor((localX / cellSize) - halfWidthCells).toInt()
+        // Düz floor() her zaman AŞAĞI/SOLA yuvarlar, en yakın hücreye degil — bu da
+        // istatistiksel olarak yaklasik yarı zamanlarda tam bir hücre sola/yukarı
+        // sistematik kaymaya yol aciyordu (kullanici geri bildirimi: "tam bir kare
+        // kadar kayma var, sola ve yukarı"). +0.5f ekleyerek en yakın hücreye
+        // yuvarlaniyor (floor(x+0.5) == round(x)).
+        return floor((localY / cellSize) - halfHeightCells + 0.5f).toInt() to
+            floor((localX / cellSize) - halfWidthCells + 0.5f).toInt()
     }
 
     fun canPlaceShape(shape: BlockShape, startRow: Int, startCol: Int): Boolean {
@@ -884,13 +892,17 @@ fun BlockBlastGame(
                         .onGloballyPositioned { coords ->
                             gridOriginPx = coords.positionInRoot()
                             cellSizePx = coords.size.width / gridSize.toFloat()
-                        },
-                    verticalArrangement = Arrangement.SpaceEvenly
+                        }
+                    // Not: verticalArrangement = SpaceEvenly idi — grid tam kare
+                    // olmadiginda satirlar arasina/oncesine bosluk ekliyordu, bu da
+                    // gridOriginPx'e gore olculen parmak-hucre eslesmesini kaydiriyordu
+                    // (kullanici geri bildirimi: "tam bir kare kadar kayma var").
+                    // Hucreler zaten weight(1f) ile tam genisligi dolduruyor, arrangement
+                    // gereksiz — kaldirildi, hucreler artik ust-sol kosede sikica diziliyor.
                 ) {
                     for (r in 0 until gridSize) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             for (c in 0 until gridSize) {
                                 val cellVal = board[r * gridSize + c]
