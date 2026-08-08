@@ -5,7 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +35,15 @@ class MainActivity : ComponentActivity() {
             val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
             val consentResolved by adsConsentResolved
             BlastTheBlocksTheme(darkTheme = progress.darkMode) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                // enableEdgeToEdge() icerigin sistem cubuklarinin ARKASINA da cizilmesine
+                // izin veriyor — bunu telafi etmezsek alt banner reklam navigasyon
+                // cubugunun altinda kalir (kullanici geri bildirimi). Tum ekranlara
+                // tek noktadan sistem cubuklari padding'i uygulaniyor.
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                ) {
                     AppNavigation(viewModel = viewModel, adsConsentResolved = consentResolved)
                 }
             }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -454,7 +455,7 @@ fun BlockBlastGame(
     fun placeShape(shapeIndex: Int, shape: BlockShape, startRow: Int, startCol: Int) {
         if (!canPlaceShape(shape, startRow, startCol)) return
 
-        SoundManager.playBeep(soundEnabled)
+        SoundManager.playLock(soundEnabled)
 
         var placedBlocks = 0
         for (r in shape.pattern.indices) {
@@ -503,7 +504,18 @@ fun BlockBlastGame(
             comboCount++
             val lineBonus = totalLinesCleared * 100 * comboCount
             score += lineBonus
-            lastClearedText = if (totalLinesCleared > 1) "MULTI-BLAST! +$lineBonus ($comboCount x COMBO)" else "BLAST! +$lineBonus"
+            // Kombo yukseldikce ovgu kelimesi de yukseliyor (Block Blast!'daki
+            // "Excellent!"/thumbs-up tarzi geri bildirime benzer, kullanici istegi).
+            val praiseWord = when {
+                comboCount >= 5 -> if (isTr) "İNANILMAZ!" else "AMAZING!"
+                comboCount == 4 -> if (isTr) "MÜKEMMEL!" else "EXCELLENT!"
+                comboCount == 3 -> if (isTr) "HARİKA!" else "GREAT!"
+                comboCount == 2 -> if (isTr) "GÜZEL!" else "NICE!"
+                totalLinesCleared > 1 -> if (isTr) "ÇOKLU PATLAMA!" else "MULTI-BLAST!"
+                else -> if (isTr) "PATLAMA!" else "BLAST!"
+            }
+            val praiseEmoji = if (comboCount >= 5) " 🔥" else if (comboCount >= 2) " 👍" else ""
+            lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
 
             // Temizlenen hucreleri kisa bir "flas" animasyonu icin isaretle
             val clearedIndices = mutableSetOf<Int>()
@@ -830,15 +842,29 @@ fun BlockBlastGame(
                     comboCount >= 2 -> Color(0xFFFF6B35)
                     else -> NeonMagenta
                 }
-                Text(
-                    text = lastClearedText,
-                    fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = comboColor,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .padding(vertical = 4.dp)
                         .scale(comboTextScale.value)
-                )
+                ) {
+                    Text(
+                        text = lastClearedText,
+                        fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = comboColor
+                    )
+                    // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
+                    // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
+                    if (comboCount >= 2) {
+                        Text(
+                            text = "${comboCount}x ${if (isTr) "KOMBO" else "COMBO"}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonGold
+                        )
+                    }
+                }
             } else {
                 Spacer(modifier = Modifier.height(20.dp))
             }
@@ -995,7 +1021,7 @@ fun BlockBlastGame(
                                         draggedTrayIndex = i
                                         dragPointerStartGlobal = coords.positionInRoot() + startOffset
                                         dragCoroutineScope.launch { dragOffset.snapTo(Offset.Zero) }
-                                        SoundManager.playBeep(soundEnabled)
+                                        SoundManager.playPickup(soundEnabled)
                                     },
                                     onDrag = { change, amount ->
                                         change.consume()
@@ -1486,10 +1512,14 @@ fun EmbossedBlockCell(
         else -> ""
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier.clip(RoundedCornerShape(6.dp)),
         contentAlignment = Alignment.Center
     ) {
+        // Emoji boyutu hucrenin gercek olculen genisligine oranli olmali —
+        // sabit bir fontSize kucuk tepsi onizlemelerinde tasar, buyuk ana
+        // ızgara hucrelerinde ise kaybolacak kadar kucuk kalirdi (kullanici geri bildirimi).
+        val emojiSizeSp = with(LocalDensity.current) { (maxWidth * 0.62f).toSp() }
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -1559,7 +1589,7 @@ fun EmbossedBlockCell(
         if (emoji.isNotEmpty() && !isHover) {
             Text(
                 text = emoji,
-                fontSize = 12.sp,
+                fontSize = emojiSizeSp,
                 textAlign = TextAlign.Center
             )
         }
