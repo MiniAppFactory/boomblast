@@ -155,6 +155,24 @@ val SHAPE_PATTERNS = listOf(
     listOf(listOf(true, true, true), listOf(true, true, true), listOf(true, true, true))
 )
 
+// SHAPE_PATTERNS ile ayni sirada agirliklar — duz uniform-random secim, 1x1/2'li
+// parcalarin (listede ayri ayri 3 madde olarak sayildiklari icin) orantisiz sik
+// gelmesine yol aciyordu (kullanici geri bildirimi: "çok fazla tek ve ikili
+// geliyor, bu kolaylaştırıyor"). Kucuk parcalar hala cikabilir (stratejik bosluk
+// doldurma icin gerekli) ama artik daha seyrek, buyuk/karmasik sekiller daha sik.
+val SHAPE_WEIGHTS = listOf(
+    1, // 1x1
+    2, // 2x1
+    2, // 1x2
+    3, // 3x1
+    3, // 1x3
+    3, // 2x2
+    3, // L1
+    3, // L2
+    3, // T
+    2  // 3x3
+)
+
 data class BlockThemeOption(
     val id: String,
     val titleTr: String,
@@ -230,6 +248,7 @@ fun BlockBlastGame(
     var isGameOver by remember { mutableStateOf(false) }
     var isLevelComplete by remember { mutableStateOf(false) }
     var lastClearedText by remember { mutableStateOf("") }
+    var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val clearFlashAlpha = remember { Animatable(0f) }
@@ -338,15 +357,26 @@ fun BlockBlastGame(
         // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
         // level modda caller'in verdigi sabit shapePoolTier kullanilir.
         val effectiveTier = if (isEndless) ((score / 300) + 1).coerceAtMost(3) else shapePoolTier
-        val availablePatterns = when {
-            effectiveTier <= 1 -> SHAPE_PATTERNS.take(6) // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-            effectiveTier == 2 -> SHAPE_PATTERNS.take(8) // + L shapes
-            else -> SHAPE_PATTERNS // All shapes including T-shape and 3x3 square
+        val availableCount = when {
+            effectiveTier <= 1 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+            effectiveTier == 2 -> 8 // + L shapes
+            else -> SHAPE_PATTERNS.size // T-shape ve 3x3 dahil hepsi
         }
+        val totalWeight = (0 until availableCount).sumOf { SHAPE_WEIGHTS[it] }
         repeat(3) {
-            val randomPattern = availablePatterns[Random.nextInt(availablePatterns.size)]
+            // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
+            var roll = Random.nextInt(totalWeight)
+            var chosenIndex = availableCount - 1
+            for (idx in 0 until availableCount) {
+                val w = SHAPE_WEIGHTS[idx]
+                if (roll < w) {
+                    chosenIndex = idx
+                    break
+                }
+                roll -= w
+            }
             val randomColor = Random.nextInt(1, BLOCK_COLORS.size + 1)
-            trayShapes.add(BlockShape(id = nextShapeId++, pattern = randomPattern, colorIndex = randomColor))
+            trayShapes.add(BlockShape(id = nextShapeId++, pattern = SHAPE_PATTERNS[chosenIndex], colorIndex = randomColor))
         }
     }
 
@@ -546,16 +576,25 @@ fun BlockBlastGame(
             score += lineBonus
             // Kombo yukseldikce ovgu kelimesi de yukseliyor (Block Blast!'daki
             // "Excellent!"/thumbs-up tarzi geri bildirime benzer, kullanici istegi).
+            // Coklu satir/sutun temizleme HER ZAMAN iyi bir sey — ilk kombo adiminda
+            // bile ("ÇOKLU PATLAMA!") kirmizimsi renkle gosterilmesi "kotu bir sey oldu"
+            // hissi veriyordu (kullanici geri bildirimi) — artik daha cosku dolu.
             val praiseWord = when {
                 comboCount >= 5 -> if (isTr) "İNANILMAZ!" else "AMAZING!"
                 comboCount == 4 -> if (isTr) "MÜKEMMEL!" else "EXCELLENT!"
                 comboCount == 3 -> if (isTr) "HARİKA!" else "GREAT!"
                 comboCount == 2 -> if (isTr) "GÜZEL!" else "NICE!"
-                totalLinesCleared > 1 -> if (isTr) "ÇOKLU PATLAMA!" else "MULTI-BLAST!"
+                totalLinesCleared > 1 -> if (isTr) "SÜPER!" else "SUPER!"
                 else -> if (isTr) "PATLAMA!" else "BLAST!"
             }
-            val praiseEmoji = if (comboCount >= 5) " 🔥" else if (comboCount >= 2) " 👍" else ""
+            val praiseEmoji = when {
+                comboCount >= 5 -> " 🔥"
+                comboCount >= 2 -> " 👍"
+                totalLinesCleared > 1 -> " 🎉"
+                else -> ""
+            }
             lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
+            lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
 
             // Temizlenen hucreleri kisa bir "flas" animasyonu icin isaretle
             val clearedIndices = mutableSetOf<Int>()
@@ -595,7 +634,9 @@ fun BlockBlastGame(
             // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
             if (totalLinesCleared > 1 || comboCount >= 3) {
                 dragCoroutineScope.launch {
-                    val amplitude = 10f
+                    // 10f (raw piksel) neredeyse fark edilmiyordu (kullanici geri
+                    // bildirimi: "ekranda titreme falan olmadı") — 24f'ye yukseltildi.
+                    val amplitude = 24f
                     shakeOffset.snapTo(0f)
                     shakeOffset.animateTo(amplitude, animationSpec = tween(40))
                     shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
@@ -894,10 +935,14 @@ fun BlockBlastGame(
 
             // Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor
             if (lastClearedText.isNotEmpty()) {
+                // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
+                // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
+                // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
+                // gorunuyordu). Taban renk artik yesil, kombo yukseldikce turuncu/altina donuyor.
                 val comboColor = when {
                     comboCount >= 4 -> NeonGold
-                    comboCount >= 2 -> Color(0xFFFF6B35)
-                    else -> NeonMagenta
+                    comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
+                    else -> NeonGreen
                 }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
