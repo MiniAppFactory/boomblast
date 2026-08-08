@@ -88,4 +88,16 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     fun setBlockTheme(theme: String) {
         viewModelScope.launch { repository.setBlockTheme(theme) }
     }
+
+    fun markOnboardingSeen() {
+        viewModelScope.launch { repository.markOnboardingSeen() }
+    }
+
+    fun markTermsAccepted() {
+        viewModelScope.launch { repository.markTermsAccepted() }
+    }
+
+    fun recordEndlessScore(score: Int) {
+        viewModelScope.launch { repository.recordEndlessScore(score) }
+    }
 }

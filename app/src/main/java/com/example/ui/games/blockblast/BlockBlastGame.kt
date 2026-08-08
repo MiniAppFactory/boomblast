@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
@@ -90,14 +91,27 @@ import com.example.data.BoosterType
 import com.example.ui.theme.blastPalette
 import com.example.utils.SoundManager
 import kotlinx.coroutines.launch
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.random.Random
 
 data class BlockShape(
     val id: Int,
     val pattern: List<List<Boolean>>,
     val colorIndex: Int
+)
+
+// Satır/kombo temizlenince fırlayan küçük parçacıklar icin — her biri sabit bir
+// baslangic hucresi + acı/mesafe ile, tek paylasilan bir Animatable ilerleme
+// degeriyle (0f->1f) animasyonlanir, ayrı ayrı Animatable acmaya gerek kalmaz.
+data class BlastParticle(
+    val row: Int,
+    val col: Int,
+    val angle: Float,
+    val distance: Float,
+    val color: Color
 )
 
 val BLOCK_COLORS = listOf(
@@ -185,13 +199,17 @@ fun BlockBlastGame(
     isTr: Boolean = true,
     soundEnabled: Boolean = true,
     darkMode: Boolean = true,
+    isEndless: Boolean = false,
+    bestScore: Int = 0,
     initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
     onSelectTheme: (String) -> Unit = {},
     onUseBooster: (BoosterType) -> Unit = {},
     onLinesCleared: (count: Int) -> Unit = {},
     onBack: () -> Unit,
-    onLevelComplete: (score: Int, stars: Int) -> Unit,
-    onLevelFailed: (score: Int) -> Unit
+    onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
+    onLevelFailed: (score: Int) -> Unit = {},
+    onEndlessGameOver: (score: Int) -> Unit = {},
+    onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() }
 ) {
     val palette = blastPalette(darkMode)
     val gridSize = 8
@@ -204,6 +222,13 @@ fun BlockBlastGame(
     var showThemeDialog by remember { mutableStateOf(false) }
     var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val clearFlashAlpha = remember { Animatable(0f) }
+    var showContinueDialog by remember { mutableStateOf(false) }
+    var continueOffered by remember { mutableStateOf(false) }
+    var isRequestingContinueAd by remember { mutableStateOf(false) }
+    val shakeOffset = remember { Animatable(0f) }
+    val comboTextScale = remember { Animatable(1f) }
+    var particleBurst by remember { mutableStateOf<List<BlastParticle>>(emptyList()) }
+    val particleProgress = remember { Animatable(0f) }
     var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
     val availableBoosterCounts = remember {
         mutableStateMapOf<BoosterType, Int>().apply { putAll(initialBoosterCounts) }
@@ -265,6 +290,7 @@ fun BlockBlastGame(
     }
 
     val levelProgress = (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f)
+    val endlessDifficultyProgress = ((score % 300).toFloat() / 300f).coerceIn(0f, 1f)
 
     fun computeStars(finalScore: Int, target: Int): Int = when {
         finalScore >= target * 2 -> 3
@@ -274,9 +300,12 @@ fun BlockBlastGame(
 
     fun generateNewTray() {
         trayShapes.clear()
+        // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
+        // level modda caller'in verdigi sabit shapePoolTier kullanilir.
+        val effectiveTier = if (isEndless) ((score / 300) + 1).coerceAtMost(3) else shapePoolTier
         val availablePatterns = when {
-            shapePoolTier <= 1 -> SHAPE_PATTERNS.take(6) // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-            shapePoolTier == 2 -> SHAPE_PATTERNS.take(8) // + L shapes
+            effectiveTier <= 1 -> SHAPE_PATTERNS.take(6) // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+            effectiveTier == 2 -> SHAPE_PATTERNS.take(8) // + L shapes
             else -> SHAPE_PATTERNS // All shapes including T-shape and 3x3 square
         }
         repeat(3) { index ->
@@ -300,10 +329,55 @@ fun BlockBlastGame(
         if (remainingShapes.isNotEmpty()) {
             val valid = remainingShapes.any { canPlaceAnywhere(it) }
             if (!valid) {
-                isGameOver = true
-                onLevelFailed(score)
+                if (isEndless && !continueOffered) {
+                    showContinueDialog = true
+                } else {
+                    isGameOver = true
+                    if (isEndless) {
+                        onEndlessGameOver(score)
+                    } else {
+                        onLevelFailed(score)
+                    }
+                }
             }
         }
+    }
+
+    // Sonsuz modda oturum basina bir kez: alt 2 satiri temizleyip devam etme sansi.
+    fun clearBottomRowsForContinue() {
+        for (r in (gridSize - 2) until gridSize) {
+            for (c in 0 until gridSize) {
+                board[r * gridSize + c] = 0
+            }
+        }
+    }
+
+    fun handleContinueWithAd() {
+        if (isRequestingContinueAd) return
+        isRequestingContinueAd = true
+        onRequestContinueAd(
+            {
+                isRequestingContinueAd = false
+                showContinueDialog = false
+                continueOffered = true
+                clearBottomRowsForContinue()
+                checkGameOver()
+            },
+            {
+                isRequestingContinueAd = false
+                showContinueDialog = false
+                continueOffered = true
+                isGameOver = true
+                onEndlessGameOver(score)
+            }
+        )
+    }
+
+    fun handleEndSession() {
+        showContinueDialog = false
+        continueOffered = true
+        isGameOver = true
+        onEndlessGameOver(score)
     }
 
     fun useShuffleBooster() {
@@ -358,6 +432,8 @@ fun BlockBlastGame(
         armedBooster = null
         isGameOver = false
         isLevelComplete = false
+        showContinueDialog = false
+        continueOffered = false
         lastClearedText = ""
         generateNewTray()
     }
@@ -432,6 +508,44 @@ fun BlockBlastGame(
                 clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
             }
 
+            // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
+            // rastgele acı/mesafeyle disari firlat, tek paylasilan Animatable ile animasyonla.
+            particleBurst = clearedIndices.shuffled().take(20).map { index ->
+                val r = index / gridSize
+                val c = index % gridSize
+                val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
+                BlastParticle(
+                    row = r,
+                    col = c,
+                    angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
+                    distance = 28f + Random.nextFloat() * 36f,
+                    color = cellColor
+                )
+            }
+            dragCoroutineScope.launch {
+                particleProgress.snapTo(0f)
+                particleProgress.animateTo(1f, animationSpec = tween(500))
+            }
+
+            // Kombo metni: her patlamada kisa bir "pop" ile buyuyup normale donuyor
+            dragCoroutineScope.launch {
+                comboTextScale.snapTo(1.5f)
+                comboTextScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+            }
+
+            // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
+            if (totalLinesCleared > 1 || comboCount >= 3) {
+                dragCoroutineScope.launch {
+                    val amplitude = 10f
+                    shakeOffset.snapTo(0f)
+                    shakeOffset.animateTo(amplitude, animationSpec = tween(40))
+                    shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
+                    shakeOffset.animateTo(amplitude * 0.6f, animationSpec = tween(60))
+                    shakeOffset.animateTo(-amplitude * 0.6f, animationSpec = tween(60))
+                    shakeOffset.animateTo(0f, animationSpec = tween(60))
+                }
+            }
+
             // Clear cells
             rowsToClear.forEach { r ->
                 for (c in 0 until gridSize) {
@@ -451,7 +565,7 @@ fun BlockBlastGame(
         // Remove used shape from tray
         trayShapes[shapeIndex] = null
 
-        if (!isLevelComplete && score >= targetScore) {
+        if (!isEndless && !isLevelComplete && score >= targetScore) {
             isLevelComplete = true
             SoundManager.playSuccess(soundEnabled)
             onLevelComplete(score, computeStars(score, targetScore))
@@ -498,7 +612,12 @@ fun BlockBlastGame(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
+                        text = when {
+                            isEndless && isTr -> "SONSUZ MOD"
+                            isEndless -> "ENDLESS MODE"
+                            isTr -> "SEVİYE $levelNumber"
+                            else -> "LEVEL $levelNumber"
+                        },
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
                         color = NeonCyan
@@ -584,7 +703,7 @@ fun BlockBlastGame(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         LinearProgressIndicator(
-                            progress = { levelProgress },
+                            progress = { if (isEndless) endlessDifficultyProgress else levelProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)
@@ -604,8 +723,18 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (isTr) "HEDEF" else "TARGET", fontSize = 10.sp, color = palette.textSecondary, fontWeight = FontWeight.Bold)
-                        Text("$targetScore", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = NeonGold)
+                        Text(
+                            text = if (isEndless) { if (isTr) "EN YÜKSEK" else "BEST" } else { if (isTr) "HEDEF" else "TARGET" },
+                            fontSize = 10.sp,
+                            color = palette.textSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isEndless) "${maxOf(score, bestScore)}" else "$targetScore",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = NeonGold
+                        )
                     }
                 }
             }
@@ -669,14 +798,21 @@ fun BlockBlastGame(
                 }
             }
 
-            // Combo Text Banner
+            // Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor
             if (lastClearedText.isNotEmpty()) {
+                val comboColor = when {
+                    comboCount >= 4 -> NeonGold
+                    comboCount >= 2 -> Color(0xFFFF6B35)
+                    else -> NeonMagenta
+                }
                 Text(
                     text = lastClearedText,
-                    fontSize = 13.sp,
+                    fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonMagenta,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    color = comboColor,
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .scale(comboTextScale.value)
                 )
             } else {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -689,9 +825,11 @@ fun BlockBlastGame(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
                     .border(2.dp, Brush.linearGradient(listOf(NeonCyan, NeonPurple)), RoundedCornerShape(16.dp))
                     .padding(6.dp)
             ) {
+              Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -764,6 +902,27 @@ fun BlockBlastGame(
                         }
                     }
                 }
+
+                // Parcacik patlamasi overlay — grid'in tamamini kaplayan, tikanmayan (izin vermeyen) bir Canvas
+                if (particleBurst.isNotEmpty() && particleProgress.value < 1f) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val progress = particleProgress.value
+                        val alpha = (1f - progress).coerceIn(0f, 1f)
+                        val cellSizeCanvas = size.width / gridSize
+                        particleBurst.forEach { particle ->
+                            val originX = (particle.col + 0.5f) * cellSizeCanvas
+                            val originY = (particle.row + 0.5f) * cellSizeCanvas
+                            val dx = cos(particle.angle) * particle.distance * progress
+                            val dy = sin(particle.angle) * particle.distance * progress
+                            drawCircle(
+                                color = particle.color.copy(alpha = alpha),
+                                radius = 4f + 3f * (1f - progress),
+                                center = Offset(originX + dx, originY + dy)
+                            )
+                        }
+                    }
+                }
+              }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1033,6 +1192,85 @@ fun BlockBlastGame(
             }
         }
 
+        // Sonsuz Mod — "Devam Et?" diyalogu (oturum basina bir kez)
+        AnimatedVisibility(
+            visible = showContinueDialog,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonGreen, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isTr) "DEVAM ETMEK İSTER MİSİN?" else "WANT TO CONTINUE?",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonGreen,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = if (isTr) "Reklam izleyip alt sıraları temizleyerek skorunla devam edebilirsin" else "Watch an ad to clear some space and keep your score going",
+                            fontSize = 13.sp,
+                            color = palette.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = { handleContinueWithAd() },
+                            enabled = !isRequestingContinueAd,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("continue_watch_ad_button")
+                        ) {
+                            Text(
+                                text = if (isTr) "REKLAM İZLE VE DEVAM ET" else "WATCH AD TO CONTINUE",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { handleEndSession() },
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("continue_end_session_button")
+                        ) {
+                            Text(if (isTr) "BİTİR" else "END", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
         // Game Over Modal
         AnimatedVisibility(
             visible = isGameOver,
@@ -1058,7 +1296,12 @@ fun BlockBlastGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isTr) "SEVİYE BAŞARISIZ" else "LEVEL FAILED",
+                            text = when {
+                                isEndless && isTr -> "OYUN BİTTİ"
+                                isEndless -> "GAME OVER"
+                                isTr -> "SEVİYE BAŞARISIZ"
+                                else -> "LEVEL FAILED"
+                            },
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonMagenta
@@ -1067,7 +1310,12 @@ fun BlockBlastGame(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = palette.textSecondary)
-                        Text("$score / $targetScore", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        Text(
+                            text = if (isEndless) "$score" else "$score / $targetScore",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = palette.textPrimary
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -1091,7 +1339,7 @@ fun BlockBlastGame(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
-                            Text(if (isTr) "SEVİYE HARİTASINA DÖN" else "BACK TO LEVEL MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                            Text(if (isTr) "HARİTAYA DÖN" else "BACK TO MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }

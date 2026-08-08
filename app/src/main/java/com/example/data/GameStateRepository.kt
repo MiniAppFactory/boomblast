@@ -26,6 +26,9 @@ class GameStateRepository(private val context: Context) {
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val IS_TR = booleanPreferencesKey("is_tr")
         val BLOCK_THEME = stringPreferencesKey("block_theme")
+        val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
+        val ENDLESS_HIGH_SCORE = intPreferencesKey("endless_high_score")
+        val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
 
         val MISSION_WEEK_ID = stringPreferencesKey("mission_week_id")
         val MISSION_PROGRESS = stringPreferencesKey("mission_progress")
@@ -42,7 +45,10 @@ class GameStateRepository(private val context: Context) {
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
             darkMode = prefs[Keys.DARK_MODE] ?: true,
             isTr = prefs[Keys.IS_TR] ?: true,
-            blockTheme = prefs[Keys.BLOCK_THEME] ?: "CLASSIC"
+            blockTheme = prefs[Keys.BLOCK_THEME] ?: "CLASSIC",
+            hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,
+            endlessHighScore = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0,
+            hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false
         )
     }
 
@@ -128,6 +134,23 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun setBlockTheme(theme: String) {
         context.gameDataStore.edit { it[Keys.BLOCK_THEME] = theme }
+    }
+
+    suspend fun markOnboardingSeen() {
+        context.gameDataStore.edit { it[Keys.HAS_SEEN_ONBOARDING] = true }
+    }
+
+    suspend fun markTermsAccepted() {
+        context.gameDataStore.edit { it[Keys.HAS_ACCEPTED_TERMS] = true }
+    }
+
+    suspend fun recordEndlessScore(score: Int) {
+        context.gameDataStore.edit { prefs ->
+            val current = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0
+            if (score > current) {
+                prefs[Keys.ENDLESS_HIGH_SCORE] = score
+            }
+        }
     }
 
     // --- Haftalık görevler ---

@@ -15,7 +15,10 @@ data class PlayerProgress(
     val musicEnabled: Boolean = true,
     val darkMode: Boolean = true,
     val isTr: Boolean = true,
-    val blockTheme: String = "CLASSIC"
+    val blockTheme: String = "CLASSIC",
+    val hasSeenOnboarding: Boolean = false,
+    val endlessHighScore: Int = 0,
+    val hasAcceptedTerms: Boolean = false
 )
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS }

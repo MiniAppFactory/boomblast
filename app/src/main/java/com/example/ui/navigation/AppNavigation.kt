@@ -20,9 +20,11 @@ import com.example.ads.BannerAdView
 import com.example.ads.RewardedAdManager
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
+import com.example.ui.consent.TermsAcceptScreen
 import com.example.ui.games.blockblast.BlockBlastGame
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
+import com.example.ui.onboarding.OnboardingScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.shop.LoadoutScreen
 
@@ -30,6 +32,7 @@ object Routes {
     const val LEVEL_MAP = "level_map"
     const val LOADOUT = "loadout/{level}"
     const val GAME = "game/{level}"
+    const val ENDLESS_GAME = "endless_game"
     const val MISSIONS = "missions"
     const val SETTINGS = "settings"
 
@@ -54,19 +57,36 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
         composable(Routes.LEVEL_MAP) {
             // Banner sadece menu ekraninda — oyun/izgara alanina asla eklenmiyor
             // (bkz. plan: "Banner ads only in places where they do not damage gameplay").
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    LevelMapScreen(
-                        progress = progress,
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        LevelMapScreen(
+                            progress = progress,
+                            isTr = progress.isTr,
+                            darkMode = progress.darkMode,
+                            onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
+                            onOpenMissions = { navController.navigate(Routes.MISSIONS) },
+                            onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                            onOpenEndlessMode = { navController.navigate(Routes.ENDLESS_GAME) }
+                        )
+                    }
+                    if (adsConsentResolved) {
+                        BannerAdView()
+                    }
+                }
+
+                if (!progress.hasAcceptedTerms) {
+                    TermsAcceptScreen(
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
-                        onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
-                        onOpenMissions = { navController.navigate(Routes.MISSIONS) },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                        onAccept = { viewModel.markTermsAccepted() }
                     )
-                }
-                if (adsConsentResolved) {
-                    BannerAdView()
+                } else if (!progress.hasSeenOnboarding) {
+                    OnboardingScreen(
+                        isTr = progress.isTr,
+                        darkMode = progress.darkMode,
+                        onFinish = { viewModel.markOnboardingSeen() }
+                    )
                 }
             }
         }
@@ -77,27 +97,34 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
         ) { backStackEntry ->
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forLevel(level)
-            LoadoutScreen(
-                levelNumber = level,
-                targetScore = definition.targetScore,
-                progress = progress,
-                isTr = progress.isTr,
-                darkMode = progress.darkMode,
-                onBuyBooster = { type -> viewModel.buyBooster(type) },
-                onWatchAdForTokens = {
-                    val activity = context.findActivity()
-                    if (activity != null) {
-                        RewardedAdManager.loadAndShow(
-                            context = context,
-                            activity = activity,
-                            onRewardEarned = { viewModel.watchAdForTokens() },
-                            onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ }
-                        )
-                    }
-                },
-                onStartLevel = { navController.navigate(Routes.game(level)) },
-                onBack = { navController.popBackStack() }
-            )
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LoadoutScreen(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        progress = progress,
+                        isTr = progress.isTr,
+                        darkMode = progress.darkMode,
+                        onBuyBooster = { type -> viewModel.buyBooster(type) },
+                        onWatchAdForTokens = {
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { viewModel.watchAdForTokens() },
+                                    onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ }
+                                )
+                            }
+                        },
+                        onStartLevel = { navController.navigate(Routes.game(level)) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
         }
 
         composable(
@@ -124,28 +151,74 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
             )
         }
 
-        composable(Routes.MISSIONS) {
-            MissionsScreen(
-                missionProgress = missions,
+        composable(Routes.ENDLESS_GAME) {
+            BlockBlastGame(
+                levelNumber = 0,
+                targetScore = Int.MAX_VALUE,
+                isEndless = true,
+                bestScore = progress.endlessHighScore,
+                currentTheme = progress.blockTheme,
                 isTr = progress.isTr,
+                soundEnabled = progress.soundEnabled,
                 darkMode = progress.darkMode,
-                onClaim = { id -> viewModel.claimMission(id) },
-                onBack = { navController.popBackStack() }
+                initialBoosterCounts = progress.ownedBoosters,
+                onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
+                onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                onBack = { navController.popBackStack() },
+                onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
+                onRequestContinueAd = { onGranted, onDenied ->
+                    val activity = context.findActivity()
+                    if (activity != null) {
+                        RewardedAdManager.loadAndShow(
+                            context = context,
+                            activity = activity,
+                            onRewardEarned = onGranted,
+                            onFailure = onDenied
+                        )
+                    } else {
+                        onDenied()
+                    }
+                }
             )
         }
 
+        composable(Routes.MISSIONS) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    MissionsScreen(
+                        missionProgress = missions,
+                        isTr = progress.isTr,
+                        darkMode = progress.darkMode,
+                        onClaim = { id -> viewModel.claimMission(id) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
         composable(Routes.SETTINGS) {
-            SettingsScreen(
-                soundEnabled = progress.soundEnabled,
-                musicEnabled = progress.musicEnabled,
-                darkMode = progress.darkMode,
-                isTr = progress.isTr,
-                onToggleSound = { viewModel.setSoundEnabled(it) },
-                onToggleMusic = { viewModel.setMusicEnabled(it) },
-                onToggleDarkMode = { viewModel.setDarkMode(it) },
-                onSelectLanguage = { viewModel.setLanguage(it) },
-                onBack = { navController.popBackStack() }
-            )
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    SettingsScreen(
+                        soundEnabled = progress.soundEnabled,
+                        musicEnabled = progress.musicEnabled,
+                        darkMode = progress.darkMode,
+                        isTr = progress.isTr,
+                        onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onToggleMusic = { viewModel.setMusicEnabled(it) },
+                        onToggleDarkMode = { viewModel.setDarkMode(it) },
+                        onSelectLanguage = { viewModel.setLanguage(it) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
         }
     }
 }
