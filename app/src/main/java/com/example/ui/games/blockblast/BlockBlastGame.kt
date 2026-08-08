@@ -1,8 +1,11 @@
 package com.example.ui.games.blockblast
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -10,6 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,10 +46,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +62,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.ui.theme.BlockBlue
 import com.example.ui.theme.BlockGreen
 import com.example.ui.theme.BlockOrange
@@ -72,6 +86,9 @@ import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonMagenta
 import com.example.ui.theme.NeonPurple
 import com.example.utils.SoundManager
+import kotlinx.coroutines.launch
+import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 data class BlockShape(
@@ -170,13 +187,65 @@ fun BlockBlastGame(
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
     var comboCount by remember { mutableIntStateOf(0) }
-    var selectedShapeIndex by remember { mutableIntStateOf(-1) }
     var isGameOver by remember { mutableStateOf(false) }
     var coinsEarned by remember { mutableIntStateOf(0) }
     var lastClearedText by remember { mutableStateOf("") }
     var showThemeDialog by remember { mutableStateOf(false) }
 
     val trayShapes = remember { mutableStateListOf<BlockShape?>() }
+
+    // Sürükle-bırak durumu: tepsideki hangi parça sürükleniyor, parmağın ekran üzerindeki
+    // mutlak konumu ve ızgaranın piksel koordinatları — hedef hücreyi hesaplamak için gerekli.
+    var draggedTrayIndex by remember { mutableIntStateOf(-1) }
+    val dragOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    var dragPointerStartGlobal by remember { mutableStateOf(Offset.Zero) }
+    var rootOriginPx by remember { mutableStateOf(Offset.Zero) }
+    var gridOriginPx by remember { mutableStateOf(Offset.Zero) }
+    var cellSizePx by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val dragCoroutineScope = rememberCoroutineScope()
+    val dragLiftDp = 90.dp
+
+    fun activeDragShape(): BlockShape? =
+        if (draggedTrayIndex in trayShapes.indices) trayShapes[draggedTrayIndex] else null
+
+    fun currentHoverCell(): Pair<Int, Int>? {
+        val cellSize = cellSizePx
+        if (cellSize <= 0f || activeDragShape() == null) return null
+        val liftPx = with(density) { dragLiftDp.toPx() }
+        val pointerAbsolutePos = dragPointerStartGlobal + dragOffset.value
+        val localX = pointerAbsolutePos.x - gridOriginPx.x
+        val localY = (pointerAbsolutePos.y - liftPx) - gridOriginPx.y
+        return floor(localY / cellSize).toInt() to floor(localX / cellSize).toInt()
+    }
+
+    fun canPlaceShape(shape: BlockShape, startRow: Int, startCol: Int): Boolean {
+        for (r in shape.pattern.indices) {
+            for (c in shape.pattern[r].indices) {
+                if (shape.pattern[r][c]) {
+                    val targetR = startRow + r
+                    val targetC = startCol + c
+                    if (targetR !in 0 until gridSize || targetC !in 0 until gridSize) return false
+                    if (board[targetR * gridSize + targetC] != 0) return false
+                }
+            }
+        }
+        return true
+    }
+
+    fun isCurrentDropValid(): Boolean {
+        val shape = activeDragShape() ?: return false
+        val (r, c) = currentHoverCell() ?: return false
+        return canPlaceShape(shape, r, c)
+    }
+
+    fun isCellInDragFootprint(row: Int, col: Int): Boolean {
+        val shape = activeDragShape() ?: return false
+        val (hr, hc) = currentHoverCell() ?: return false
+        val pr = row - hr
+        val pc = col - hc
+        return pr in shape.pattern.indices && pc in shape.pattern[pr].indices && shape.pattern[pr][pc]
+    }
 
     val currentLevel = (score / 300) + 1
     val levelProgress = ((score % 300).toFloat() / 300f).coerceIn(0f, 1f)
@@ -193,20 +262,6 @@ fun BlockBlastGame(
             val randomColor = Random.nextInt(1, BLOCK_COLORS.size + 1)
             trayShapes.add(BlockShape(id = index, pattern = randomPattern, colorIndex = randomColor))
         }
-    }
-
-    fun canPlaceShape(shape: BlockShape, startRow: Int, startCol: Int): Boolean {
-        for (r in shape.pattern.indices) {
-            for (c in shape.pattern[r].indices) {
-                if (shape.pattern[r][c]) {
-                    val targetR = startRow + r
-                    val targetC = startCol + c
-                    if (targetR !in 0 until gridSize || targetC !in 0 until gridSize) return false
-                    if (board[targetR * gridSize + targetC] != 0) return false
-                }
-            }
-        }
-        return true
     }
 
     fun canPlaceAnywhere(shape: BlockShape): Boolean {
@@ -235,7 +290,7 @@ fun BlockBlastGame(
         repeat(gridSize * gridSize) { board.add(0) }
         score = 0
         comboCount = 0
-        selectedShapeIndex = -1
+        draggedTrayIndex = -1
         isGameOver = false
         coinsEarned = 0
         lastClearedText = ""
@@ -248,7 +303,7 @@ fun BlockBlastGame(
         }
     }
 
-    fun placeShape(shape: BlockShape, startRow: Int, startCol: Int) {
+    fun placeShape(shapeIndex: Int, shape: BlockShape, startRow: Int, startCol: Int) {
         if (!canPlaceShape(shape, startRow, startCol)) return
 
         SoundManager.playBeep(soundEnabled)
@@ -318,8 +373,7 @@ fun BlockBlastGame(
         }
 
         // Remove used shape from tray
-        trayShapes[selectedShapeIndex] = null
-        selectedShapeIndex = -1
+        trayShapes[shapeIndex] = null
 
         // If all 3 shapes used, spawn 3 new
         if (trayShapes.all { it == null }) {
@@ -333,6 +387,7 @@ fun BlockBlastGame(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0F172A))
+            .onGloballyPositioned { rootOriginPx = it.positionInRoot() }
             .padding(16.dp)
     ) {
         Column(
@@ -496,7 +551,12 @@ fun BlockBlastGame(
                     .padding(6.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coords ->
+                            gridOriginPx = coords.positionInRoot()
+                            cellSizePx = coords.size.width / gridSize.toFloat()
+                        },
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
                     for (r in 0 until gridSize) {
@@ -506,8 +566,7 @@ fun BlockBlastGame(
                         ) {
                             for (c in 0 until gridSize) {
                                 val cellVal = board[r * gridSize + c]
-                                val selectedShape = if (selectedShapeIndex in trayShapes.indices) trayShapes[selectedShapeIndex] else null
-                                val isHoverValid = selectedShape != null && canPlaceShape(selectedShape, r, c)
+                                val inDragFootprint = isCellInDragFootprint(r, c)
 
                                 Box(
                                     modifier = Modifier
@@ -515,7 +574,7 @@ fun BlockBlastGame(
                                         .aspectRatio(1f)
                                         .padding(1.5.dp)
                                         .background(
-                                            if (cellVal == 0 && !isHoverValid) Color(0xFF0F172A) else Color.Transparent,
+                                            if (cellVal == 0 && !inDragFootprint) Color(0xFF0F172A) else Color.Transparent,
                                             shape = RoundedCornerShape(6.dp)
                                         )
                                         .border(
@@ -523,19 +582,24 @@ fun BlockBlastGame(
                                             color = if (cellVal > 0) Color.Transparent else Color(0xFF334155),
                                             shape = RoundedCornerShape(6.dp)
                                         )
-                                        .clickable {
-                                            if (selectedShape != null) {
-                                                placeShape(selectedShape, r, c)
-                                            }
-                                        }
                                         .testTag("block_cell_${r}_${c}")
                                 ) {
-                                    if (cellVal > 0 || isHoverValid) {
+                                    if (cellVal > 0) {
                                         EmbossedBlockCell(
                                             colorIndex = cellVal,
                                             theme = currentTheme,
-                                            isHover = cellVal == 0 && isHoverValid,
                                             modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    if (inDragFootprint) {
+                                        val dropValid = isCurrentDropValid()
+                                        val tint = if (dropValid) NeonGreen else Color(0xFFF87171)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(tint.copy(alpha = 0.55f))
+                                                .border(1.dp, tint, RoundedCornerShape(6.dp))
                                         )
                                     }
                                 }
@@ -548,11 +612,7 @@ fun BlockBlastGame(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = if (selectedShapeIndex != -1) {
-                    if (isTr) "Izgarada bir yere dokunarak yerleştir!" else "Tap grid to place shape!"
-                } else {
-                    if (isTr) "Aşağıdan bir blok seçin:" else "Pick a block below:"
-                },
+                text = if (isTr) "Bir bloğu sürükleyip ızgaraya bırakın" else "Drag a block onto the grid",
                 fontSize = 12.sp,
                 color = Color.LightGray,
                 fontWeight = FontWeight.Medium
@@ -570,34 +630,60 @@ fun BlockBlastGame(
             ) {
                 for (i in 0 until 3) {
                     val shape = trayShapes.getOrNull(i)
-                    val isSelected = selectedShapeIndex == i
-
-                    val scaleFactor by animateFloatAsState(
-                        targetValue = if (isSelected) 1.15f else 1.0f,
-                        animationSpec = tween(150, easing = FastOutSlowInEasing),
-                        label = "scale"
-                    )
+                    val isBeingDragged = draggedTrayIndex == i
+                    var itemCoords by remember(i) { mutableStateOf<LayoutCoordinates?>(null) }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(100.dp)
                             .padding(4.dp)
-                            .scale(scaleFactor)
+                            .onGloballyPositioned { itemCoords = it }
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) Color(0xFF334155) else Color(0xFF1E293B))
+                            .background(if (isBeingDragged) Color(0xFF334155) else Color(0xFF1E293B))
                             .border(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) NeonCyan else Color(0xFF475569),
+                                width = 1.dp,
+                                color = Color(0xFF475569),
                                 shape = RoundedCornerShape(12.dp)
                             )
-                            .clickable(enabled = shape != null) {
-                                selectedShapeIndex = if (selectedShapeIndex == i) -1 else i
+                            .pointerInput(shape?.id) {
+                                if (shape == null) return@pointerInput
+                                detectDragGestures(
+                                    onDragStart = { startOffset ->
+                                        val coords = itemCoords ?: return@detectDragGestures
+                                        draggedTrayIndex = i
+                                        dragPointerStartGlobal = coords.positionInRoot() + startOffset
+                                        dragCoroutineScope.launch { dragOffset.snapTo(Offset.Zero) }
+                                        SoundManager.playBeep(soundEnabled)
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragCoroutineScope.launch { dragOffset.snapTo(dragOffset.value + amount) }
+                                    },
+                                    onDragEnd = {
+                                        val hover = currentHoverCell()
+                                        if (isCurrentDropValid() && hover != null) {
+                                            placeShape(i, shape, hover.first, hover.second)
+                                            draggedTrayIndex = -1
+                                        } else {
+                                            dragCoroutineScope.launch {
+                                                dragOffset.animateTo(Offset.Zero, animationSpec = spring())
+                                                draggedTrayIndex = -1
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        dragCoroutineScope.launch {
+                                            dragOffset.animateTo(Offset.Zero, animationSpec = spring())
+                                            draggedTrayIndex = -1
+                                        }
+                                    }
+                                )
                             }
                             .testTag("tray_shape_$i"),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (shape != null) {
+                        if (shape != null && !isBeingDragged) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -623,8 +709,53 @@ fun BlockBlastGame(
                                     }
                                 }
                             }
-                        } else {
+                        } else if (shape == null) {
                             Text(if (isTr) "BOŞ" else "EMPTY", fontSize = 11.sp, color = Color.DarkGray)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sürüklenen parçanın parmağı takip eden önizlemesi (tam şekil, geçerliyse yeşil/geçersizse kırmızı)
+        activeDragShape()?.let { draggedShape ->
+            val liftPx = with(density) { dragLiftDp.toPx() }
+            val ghostCellPx = with(density) { 26.dp.toPx() }
+            val shapeWidthPx = draggedShape.pattern[0].size * ghostCellPx
+            val shapeHeightPx = draggedShape.pattern.size * ghostCellPx
+            val pointerAbs = dragPointerStartGlobal + dragOffset.value
+            val left = pointerAbs.x - rootOriginPx.x - shapeWidthPx / 2f
+            val top = (pointerAbs.y - liftPx) - rootOriginPx.y - shapeHeightPx / 2f
+            val dropValid = isCurrentDropValid()
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+                    .zIndex(10f)
+            ) {
+                Column {
+                    draggedShape.pattern.forEach { rowPattern ->
+                        Row {
+                            rowPattern.forEach { active ->
+                                Box(modifier = Modifier.size(26.dp).padding(1.dp)) {
+                                    if (active) {
+                                        if (dropValid) {
+                                            EmbossedBlockCell(
+                                                colorIndex = draggedShape.colorIndex,
+                                                theme = currentTheme,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFFF87171).copy(alpha = 0.85f))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
