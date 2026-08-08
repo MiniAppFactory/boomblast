@@ -180,15 +180,12 @@ val BLOCK_THEMES = listOf(
         icon = "🍩",
         descriptionTr = "Donut, çikolata, bisküvi ve şeker",
         descriptionEn = "Donut, chocolate, cookie, candy"
-    ),
-    BlockThemeOption(
-        id = "MIXED",
-        titleTr = "Karma Küpler",
-        titleEn = "Mixed Fun",
-        icon = "🎲",
-        descriptionTr = "Meyve, tatlı ve kristal karışımı",
-        descriptionEn = "Mix of fruits, sweets & crystals"
     )
+    // Not: "MIXED" (zar) temasi kaldirildi — Unicode zar yuzu karakterleri
+    // (⚀-⚅) bazi cihazlarda/fontlarda hic render olmuyordu (kullanici geri
+    // bildirimi: "hiç gözükmüyor"). EmbossedBlockCell'deki "MIXED" case'i de
+    // kaldirildi, DataStore'da hala "MIXED" kayitli olan cihazlar guvenli
+    // sekilde duz/klasik renkli kupe (emoji'siz) dusuyor.
 )
 
 @Composable
@@ -1498,15 +1495,6 @@ fun EmbossedBlockCell(
             4 -> "🧁"
             5 -> "🍬"
             0 -> "🧇"
-            else -> ""
-        }
-        "MIXED" -> when (colorIndex % 6) {
-            1 -> "🍉"
-            2 -> "🍩"
-            3 -> "🧀"
-            4 -> "🍓"
-            5 -> "🍪"
-            0 -> "🍇"
             else -> ""
         }
         else -> ""
