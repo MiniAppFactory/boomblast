@@ -26,14 +26,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonPurple
+import com.example.ui.theme.blastPalette
 
 @Composable
 fun SettingsScreen(
@@ -47,10 +48,11 @@ fun SettingsScreen(
     onSelectLanguage: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
+    val palette = blastPalette(darkMode)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(palette.background)
             .padding(16.dp)
     ) {
         Row(
@@ -58,7 +60,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack, modifier = Modifier.testTag("settings_back_button")) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = palette.textPrimary)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -75,25 +77,28 @@ fun SettingsScreen(
             label = if (isTr) "Ses Efektleri" else "Sound Effects",
             checked = soundEnabled,
             onCheckedChange = onToggleSound,
-            testTag = "settings_sound_switch"
+            testTag = "settings_sound_switch",
+            palette = palette
         )
         SettingsSwitchRow(
             label = if (isTr) "Müzik" else "Music",
             checked = musicEnabled,
             onCheckedChange = onToggleMusic,
-            testTag = "settings_music_switch"
+            testTag = "settings_music_switch",
+            palette = palette
         )
         SettingsSwitchRow(
             label = if (isTr) "Koyu Mod" else "Dark Mode",
             checked = darkMode,
             onCheckedChange = onToggleDarkMode,
-            testTag = "settings_dark_mode_switch"
+            testTag = "settings_dark_mode_switch",
+            palette = palette
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            colors = CardDefaults.cardColors(containerColor = palette.card),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
         ) {
@@ -102,7 +107,7 @@ fun SettingsScreen(
                     text = if (isTr) "Dil" else "Language",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = palette.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -110,13 +115,15 @@ fun SettingsScreen(
                         label = "Türkçe",
                         selected = isTr,
                         onClick = { onSelectLanguage(true) },
-                        testTag = "settings_lang_tr"
+                        testTag = "settings_lang_tr",
+                        palette = palette
                     )
                     LanguageOption(
                         label = "English",
                         selected = !isTr,
                         onClick = { onSelectLanguage(false) },
-                        testTag = "settings_lang_en"
+                        testTag = "settings_lang_en",
+                        palette = palette
                     )
                 }
             }
@@ -129,10 +136,11 @@ private fun SettingsSwitchRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    testTag: String
+    testTag: String,
+    palette: BlastPalette
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
     ) {
@@ -141,7 +149,7 @@ private fun SettingsSwitchRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+            Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = palette.textPrimary)
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
@@ -157,18 +165,19 @@ private fun LanguageOption(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    testTag: String
+    testTag: String,
+    palette: BlastPalette
 ) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) NeonPurple.copy(alpha = 0.25f) else Color(0xFF0F172A)
+            containerColor = if (selected) NeonPurple.copy(alpha = 0.25f) else palette.background
         ),
         shape = RoundedCornerShape(10.dp),
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .border(
                 width = if (selected) 2.dp else 1.dp,
-                color = if (selected) NeonPurple else Color(0xFF334155),
+                color = if (selected) NeonPurple else palette.cardBorder,
                 shape = RoundedCornerShape(10.dp)
             )
             .clickable(onClick = onClick)
@@ -178,7 +187,7 @@ private fun LanguageOption(
             text = label,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = palette.textPrimary,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
         )
     }

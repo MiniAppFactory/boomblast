@@ -38,14 +38,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BoosterType
 import com.example.data.PlayerProgress
+import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonPurple
-
-private val LoadoutBg = Color(0xFF0F172A)
-private val LoadoutCard = Color(0xFF1E293B)
-private val LoadoutCardAlt = Color(0xFF334155)
+import com.example.ui.theme.blastPalette
 
 /**
  * Pre-level loadout screen: lets the player review the level target, spend
@@ -57,15 +55,17 @@ fun LoadoutScreen(
     targetScore: Int,
     progress: PlayerProgress,
     isTr: Boolean,
+    darkMode: Boolean,
     onBuyBooster: (BoosterType) -> Unit,
     onWatchAdForTokens: () -> Unit,
     onStartLevel: () -> Unit,
     onBack: () -> Unit
 ) {
+    val palette = blastPalette(darkMode)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(LoadoutBg)
+            .background(palette.background)
             .padding(16.dp)
     ) {
         Column(
@@ -87,7 +87,7 @@ fun LoadoutScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = palette.textPrimary
                     )
                 }
 
@@ -101,7 +101,7 @@ fun LoadoutScreen(
                     Text(
                         text = if (isTr) "$targetScore puan hedefi" else "$targetScore point target",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = palette.textSecondary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -132,7 +132,7 @@ fun LoadoutScreen(
                 text = if (isTr) "TAKIMINI HAZIRLA" else "PREPARE YOUR LOADOUT",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = palette.textPrimary
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -150,11 +150,12 @@ fun LoadoutScreen(
                         owned = progress.ownedBoosters[type] ?: 0,
                         canAfford = progress.tokens >= type.tokenPrice,
                         isTr = isTr,
+                        palette = palette,
                         onBuy = { onBuyBooster(type) }
                     )
                 }
 
-                WatchAdCard(isTr = isTr, onWatchAdForTokens = onWatchAdForTokens)
+                WatchAdCard(isTr = isTr, palette = palette, onWatchAdForTokens = onWatchAdForTokens)
 
                 Spacer(modifier = Modifier.height(4.dp))
             }
@@ -189,6 +190,7 @@ private fun BoosterCard(
     owned: Int,
     canAfford: Boolean,
     isTr: Boolean,
+    palette: BlastPalette,
     onBuy: () -> Unit
 ) {
     val icon = when (type) {
@@ -208,11 +210,11 @@ private fun BoosterCard(
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = LoadoutCard),
+        colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, LoadoutCardAlt, RoundedCornerShape(14.dp))
+            .border(1.dp, palette.cardBorder, RoundedCornerShape(14.dp))
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -237,21 +239,21 @@ private fun BoosterCard(
                         text = name,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = palette.textPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
-                        color = LoadoutCardAlt,
+                        color = palette.cardAlt,
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
                             text = (if (isTr) "Sahip: " else "Owned: ") + owned,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Gray,
+                            color = palette.textSecondary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -260,7 +262,7 @@ private fun BoosterCard(
                 Text(
                     text = description,
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = palette.textSecondary
                 )
             }
 
@@ -269,8 +271,8 @@ private fun BoosterCard(
             Button(
                 onClick = onBuy,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (canAfford) NeonCyan else LoadoutCardAlt,
-                    disabledContainerColor = LoadoutCardAlt
+                    containerColor = if (canAfford) NeonCyan else palette.cardAlt,
+                    disabledContainerColor = palette.cardAlt
                 ),
                 shape = RoundedCornerShape(10.dp),
                 enabled = canAfford,
@@ -281,13 +283,13 @@ private fun BoosterCard(
                         text = if (isTr) "SATIN AL" else "BUY",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (canAfford) Color.Black else Color.Gray
+                        color = if (canAfford) Color.Black else palette.textSecondary
                     )
                     Text(
                         text = "${type.tokenPrice} 🪙",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (canAfford) Color.Black else Color.Gray
+                        color = if (canAfford) Color.Black else palette.textSecondary
                     )
                 }
             }
@@ -298,10 +300,11 @@ private fun BoosterCard(
 @Composable
 private fun WatchAdCard(
     isTr: Boolean,
+    palette: BlastPalette,
     onWatchAdForTokens: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = LoadoutCard),
+        colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -336,7 +339,7 @@ private fun WatchAdCard(
                 Text(
                     text = if (isTr) "Ücretsiz bonus token kazan" else "Earn free bonus tokens",
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = palette.textSecondary
                 )
             }
 

@@ -43,35 +43,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.PlayerProgress
 import com.example.game.LevelGenerator
+import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonPurple
-
-// Dark/neon palette shared with BlockBlastGame.kt so this screen reads as part of the same app.
-private val ScreenBg = Color(0xFF0F172A)
-private val CardBg = Color(0xFF1E293B)
-private val CardBgLocked = Color(0xFF161F2E)
+import com.example.ui.theme.blastPalette
 
 @Composable
 fun LevelMapScreen(
     progress: PlayerProgress,
     isTr: Boolean,
+    darkMode: Boolean,
     onSelectLevel: (Int) -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val palette = blastPalette(darkMode)
     val lastLevel = progress.highestUnlockedLevel + 3
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ScreenBg)
+            .background(palette.background)
             .padding(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             LevelMapHeader(
                 progress = progress,
                 isTr = isTr,
+                palette = palette,
                 onOpenMissions = onOpenMissions,
                 onOpenSettings = onOpenSettings
             )
@@ -94,6 +94,7 @@ fun LevelMapScreen(
                         unlocked = unlocked,
                         stars = stars,
                         isTr = isTr,
+                        palette = palette,
                         onClick = { if (unlocked) onSelectLevel(levelNumber) }
                     )
                 }
@@ -106,6 +107,7 @@ fun LevelMapScreen(
 private fun LevelMapHeader(
     progress: PlayerProgress,
     isTr: Boolean,
+    palette: BlastPalette,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -167,7 +169,7 @@ private fun LevelMapHeader(
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = if (isTr) "Ayarlar" else "Settings",
-                    tint = Color.White
+                    tint = palette.textPrimary
                 )
             }
         }
@@ -180,18 +182,19 @@ private fun LevelCard(
     unlocked: Boolean,
     stars: Int?,
     isTr: Boolean,
+    palette: BlastPalette,
     onClick: () -> Unit
 ) {
     val targetScore = LevelGenerator.forLevel(levelNumber).targetScore
     val borderBrush = if (unlocked) {
         Brush.linearGradient(listOf(NeonCyan, NeonPurple))
     } else {
-        Brush.linearGradient(listOf(Color(0xFF334155), Color(0xFF334155)))
+        Brush.linearGradient(listOf(palette.cardBorder, palette.cardBorder))
     }
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (unlocked) CardBg else CardBgLocked
+            containerColor = if (unlocked) palette.card else palette.cardAlt
         ),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
@@ -214,7 +217,7 @@ private fun LevelCard(
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(
-                            if (unlocked) NeonCyan.copy(alpha = 0.18f) else Color(0xFF1E293B)
+                            if (unlocked) NeonCyan.copy(alpha = 0.18f) else palette.card
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -242,13 +245,13 @@ private fun LevelCard(
                         text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (unlocked) Color.White else Color.Gray
+                        color = if (unlocked) palette.textPrimary else palette.textSecondary
                     )
                     Text(
                         text = if (isTr) "Hedef: $targetScore" else "Target: $targetScore",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (unlocked) Color.Gray else Color.DarkGray
+                        color = palette.textSecondary
                     )
                 }
             }

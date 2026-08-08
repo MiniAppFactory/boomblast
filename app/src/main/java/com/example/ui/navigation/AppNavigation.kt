@@ -59,6 +59,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                     LevelMapScreen(
                         progress = progress,
                         isTr = progress.isTr,
+                        darkMode = progress.darkMode,
                         onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
                         onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) }
@@ -81,6 +82,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 targetScore = definition.targetScore,
                 progress = progress,
                 isTr = progress.isTr,
+                darkMode = progress.darkMode,
                 onBuyBooster = { type -> viewModel.buyBooster(type) },
                 onWatchAdForTokens = {
                     val activity = context.findActivity()
@@ -111,6 +113,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 currentTheme = progress.blockTheme,
                 isTr = progress.isTr,
                 soundEnabled = progress.soundEnabled,
+                darkMode = progress.darkMode,
                 initialBoosterCounts = progress.ownedBoosters,
                 onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                 onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
@@ -125,6 +128,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
             MissionsScreen(
                 missionProgress = missions,
                 isTr = progress.isTr,
+                darkMode = progress.darkMode,
                 onClaim = { id -> viewModel.claimMission(id) },
                 onBack = { navController.popBackStack() }
             )

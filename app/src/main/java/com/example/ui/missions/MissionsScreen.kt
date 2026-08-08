@@ -38,28 +38,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.WeeklyMissionDef
 import com.example.data.WeeklyMissionProgress
+import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
-
-private val ScreenBg = Color(0xFF0F172A)
-private val CardBg = Color(0xFF1E293B)
-private val TrackColor = Color(0xFF334155)
+import com.example.ui.theme.blastPalette
 
 @Composable
 fun MissionsScreen(
     missionProgress: WeeklyMissionProgress,
     isTr: Boolean,
+    darkMode: Boolean,
     onClaim: (String) -> Unit,
     onBack: () -> Unit
 ) {
+    val palette = blastPalette(darkMode)
     val allClaimed = missionProgress.missions.isNotEmpty() &&
         missionProgress.missions.all { it.id in missionProgress.claimed }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ScreenBg)
+            .background(palette.background)
             .padding(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -78,7 +78,7 @@ fun MissionsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = palette.textPrimary
                     )
                 }
 
@@ -138,6 +138,7 @@ fun MissionsScreen(
                         currentCount = missionProgress.progress[mission.id] ?: 0,
                         isClaimed = mission.id in missionProgress.claimed,
                         isTr = isTr,
+                        palette = palette,
                         onClaim = { onClaim(mission.id) }
                     )
                 }
@@ -152,6 +153,7 @@ private fun MissionCard(
     currentCount: Int,
     isClaimed: Boolean,
     isTr: Boolean,
+    palette: BlastPalette,
     onClaim: () -> Unit
 ) {
     val target = if (mission.target > 0) mission.target else 1
@@ -160,7 +162,7 @@ private fun MissionCard(
     val isClaimable = isComplete && !isClaimed
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = CardBg),
+        colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -176,7 +178,7 @@ private fun MissionCard(
                     text = if (isTr) mission.titleTr else mission.titleEn,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = palette.textPrimary,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -203,7 +205,7 @@ private fun MissionCard(
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
                 color = if (isComplete) NeonGreen else NeonCyan,
-                trackColor = TrackColor
+                trackColor = palette.cardAlt
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -212,7 +214,7 @@ private fun MissionCard(
                 text = "${currentCount.coerceAtMost(mission.target)} / ${mission.target}",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Gray
+                color = palette.textSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -220,7 +222,7 @@ private fun MissionCard(
             when {
                 isClaimed -> {
                     Surface(
-                        color = Color(0xFF334155),
+                        color = palette.cardAlt,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -236,14 +238,14 @@ private fun MissionCard(
                             Icon(
                                 imageVector = Icons.Filled.Check,
                                 contentDescription = null,
-                                tint = Color.Gray
+                                tint = palette.textSecondary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (isTr) "Alındı" else "Claimed",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Gray
+                                color = palette.textSecondary
                             )
                         }
                     }
@@ -272,8 +274,8 @@ private fun MissionCard(
                         onClick = {},
                         enabled = false,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF334155),
-                            disabledContainerColor = Color(0xFF334155)
+                            containerColor = palette.cardAlt,
+                            disabledContainerColor = palette.cardAlt
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
@@ -284,7 +286,7 @@ private fun MissionCard(
                             text = if (isTr) "TOPLA" else "CLAIM",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.Gray
+                            color = palette.textSecondary
                         )
                     }
                 }

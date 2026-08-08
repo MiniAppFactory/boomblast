@@ -87,6 +87,7 @@ import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonMagenta
 import com.example.ui.theme.NeonPurple
 import com.example.data.BoosterType
+import com.example.ui.theme.blastPalette
 import com.example.utils.SoundManager
 import kotlinx.coroutines.launch
 import kotlin.math.floor
@@ -183,6 +184,7 @@ fun BlockBlastGame(
     currentTheme: String = "CLASSIC",
     isTr: Boolean = true,
     soundEnabled: Boolean = true,
+    darkMode: Boolean = true,
     initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
     onSelectTheme: (String) -> Unit = {},
     onUseBooster: (BoosterType) -> Unit = {},
@@ -191,6 +193,7 @@ fun BlockBlastGame(
     onLevelComplete: (score: Int, stars: Int) -> Unit,
     onLevelFailed: (score: Int) -> Unit
 ) {
+    val palette = blastPalette(darkMode)
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
@@ -199,6 +202,8 @@ fun BlockBlastGame(
     var isLevelComplete by remember { mutableStateOf(false) }
     var lastClearedText by remember { mutableStateOf("") }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val clearFlashAlpha = remember { Animatable(0f) }
     var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
     val availableBoosterCounts = remember {
         mutableStateMapOf<BoosterType, Int>().apply { putAll(initialBoosterCounts) }
@@ -411,11 +416,21 @@ fun BlockBlastGame(
         val totalLinesCleared = rowsToClear.size + colsToClear.size
         if (totalLinesCleared > 0) {
             onLinesCleared(totalLinesCleared)
-            SoundManager.playSuccess(soundEnabled)
+            SoundManager.playBlast(soundEnabled)
             comboCount++
             val lineBonus = totalLinesCleared * 100 * comboCount
             score += lineBonus
             lastClearedText = if (totalLinesCleared > 1) "MULTI-BLAST! +$lineBonus ($comboCount x COMBO)" else "BLAST! +$lineBonus"
+
+            // Temizlenen hucreleri kisa bir "flas" animasyonu icin isaretle
+            val clearedIndices = mutableSetOf<Int>()
+            rowsToClear.forEach { r -> for (c in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
+            colsToClear.forEach { c -> for (r in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
+            recentlyClearedCells = clearedIndices
+            dragCoroutineScope.launch {
+                clearFlashAlpha.snapTo(1f)
+                clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
+            }
 
             // Clear cells
             rowsToClear.forEach { r ->
@@ -454,7 +469,7 @@ fun BlockBlastGame(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(palette.background)
             .onGloballyPositioned { rootOriginPx = it.positionInRoot() }
             .padding(16.dp)
     ) {
@@ -477,7 +492,7 @@ fun BlockBlastGame(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = palette.textPrimary
                     )
                 }
 
@@ -539,7 +554,7 @@ fun BlockBlastGame(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f).padding(end = 4.dp)
                 ) {
@@ -547,13 +562,13 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (isTr) "SKOR" else "SCORE", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                        Text("$score", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text(if (isTr) "SKOR" else "SCORE", fontSize = 10.sp, color = palette.textSecondary, fontWeight = FontWeight.Bold)
+                        Text("$score", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = palette.textPrimary)
                     }
                 }
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1.1f).padding(horizontal = 2.dp)
                 ) {
@@ -575,13 +590,13 @@ fun BlockBlastGame(
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
                             color = NeonCyan,
-                            trackColor = Color(0xFF334155)
+                            trackColor = palette.cardAlt
                         )
                     }
                 }
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f).padding(start = 4.dp)
                 ) {
@@ -589,7 +604,7 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (isTr) "HEDEF" else "TARGET", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                        Text(if (isTr) "HEDEF" else "TARGET", fontSize = 10.sp, color = palette.textSecondary, fontWeight = FontWeight.Bold)
                         Text("$targetScore", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = NeonGold)
                     }
                 }
@@ -613,13 +628,13 @@ fun BlockBlastGame(
                                 BoosterType.SHUFFLE -> "🔀"
                             }
                             Surface(
-                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else Color(0xFF1E293B),
+                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .border(
                                         width = if (isArmed) 2.dp else 1.dp,
-                                        color = if (isArmed) NeonGreen else Color(0xFF475569),
+                                        color = if (isArmed) NeonGreen else palette.cardBorder,
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                     .clickable {
@@ -637,7 +652,7 @@ fun BlockBlastGame(
                                 ) {
                                     Text(text = emoji, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                                 }
                             }
                         }
@@ -669,7 +684,7 @@ fun BlockBlastGame(
 
             // 8x8 Main Grid
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                colors = CardDefaults.cardColors(containerColor = palette.card),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -701,12 +716,12 @@ fun BlockBlastGame(
                                         .aspectRatio(1f)
                                         .padding(1.5.dp)
                                         .background(
-                                            if (cellVal == 0 && !inDragFootprint) Color(0xFF0F172A) else Color.Transparent,
+                                            if (cellVal == 0 && !inDragFootprint) palette.emptyCell else Color.Transparent,
                                             shape = RoundedCornerShape(6.dp)
                                         )
                                         .border(
                                             width = 0.5.dp,
-                                            color = if (cellVal > 0) Color.Transparent else Color(0xFF334155),
+                                            color = if (cellVal > 0) Color.Transparent else palette.cardBorder,
                                             shape = RoundedCornerShape(6.dp)
                                         )
                                         .then(
@@ -736,6 +751,14 @@ fun BlockBlastGame(
                                                 .border(1.dp, tint, RoundedCornerShape(6.dp))
                                         )
                                     }
+                                    if ((r * gridSize + c) in recentlyClearedCells && clearFlashAlpha.value > 0f) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(NeonGold.copy(alpha = clearFlashAlpha.value * 0.85f))
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -748,7 +771,7 @@ fun BlockBlastGame(
             Text(
                 text = if (isTr) "Bir bloğu sürükleyip ızgaraya bırakın" else "Drag a block onto the grid",
                 fontSize = 12.sp,
-                color = Color.LightGray,
+                color = palette.textSecondary,
                 fontWeight = FontWeight.Medium
             )
 
@@ -774,10 +797,10 @@ fun BlockBlastGame(
                             .padding(4.dp)
                             .onGloballyPositioned { itemCoords = it }
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isBeingDragged) Color(0xFF334155) else Color(0xFF1E293B))
+                            .background(if (isBeingDragged) palette.cardAlt else palette.card)
                             .border(
                                 width = 1.dp,
-                                color = Color(0xFF475569),
+                                color = palette.cardBorder,
                                 shape = RoundedCornerShape(12.dp)
                             )
                             .pointerInput(shape?.id) {
@@ -844,7 +867,7 @@ fun BlockBlastGame(
                                 }
                             }
                         } else if (shape == null) {
-                            Text(if (isTr) "BOŞ" else "EMPTY", fontSize = 11.sp, color = Color.DarkGray)
+                            Text(if (isTr) "BOŞ" else "EMPTY", fontSize = 11.sp, color = palette.textSecondary)
                         }
                     }
                 }
@@ -906,7 +929,7 @@ fun BlockBlastGame(
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
@@ -939,14 +962,14 @@ fun BlockBlastGame(
                                 val isSelected = currentTheme == theme.id
                                 Card(
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) NeonPurple.copy(alpha = 0.25f) else Color(0xFF0F172A)
+                                        containerColor = if (isSelected) NeonPurple.copy(alpha = 0.25f) else palette.background
                                     ),
                                     shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .border(
                                             width = if (isSelected) 2.dp else 1.dp,
-                                            color = if (isSelected) NeonPurple else Color(0xFF334155),
+                                            color = if (isSelected) NeonPurple else palette.cardBorder,
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
@@ -967,13 +990,13 @@ fun BlockBlastGame(
                                                 text = if (isTr) theme.titleTr else theme.titleEn,
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color.White
+                                                color = palette.textPrimary
                                             )
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = if (isTr) theme.descriptionTr else theme.descriptionEn,
                                                 fontSize = 11.sp,
-                                                color = Color.Gray
+                                                color = palette.textSecondary
                                             )
                                         }
                                         if (isSelected) {
@@ -999,11 +1022,11 @@ fun BlockBlastGame(
 
                         Button(
                             onClick = { showThemeDialog = false },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (isTr) "KAPAT" else "CLOSE", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(if (isTr) "KAPAT" else "CLOSE", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }
@@ -1023,7 +1046,7 @@ fun BlockBlastGame(
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
@@ -1043,8 +1066,8 @@ fun BlockBlastGame(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = Color.Gray)
-                        Text("$score / $targetScore", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = palette.textSecondary)
+                        Text("$score / $targetScore", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
 
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -1064,11 +1087,11 @@ fun BlockBlastGame(
 
                         Button(
                             onClick = onBack,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
-                            Text(if (isTr) "SEVİYE HARİTASINA DÖN" else "BACK TO LEVEL MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(if (isTr) "SEVİYE HARİTASINA DÖN" else "BACK TO LEVEL MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }
@@ -1088,7 +1111,7 @@ fun BlockBlastGame(
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
@@ -1120,8 +1143,8 @@ fun BlockBlastGame(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = Color.Gray)
-                        Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = palette.textSecondary)
+                        Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
 
                         Spacer(modifier = Modifier.height(24.dp))
 
