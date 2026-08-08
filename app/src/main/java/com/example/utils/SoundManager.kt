@@ -176,18 +176,22 @@ object SoundManager {
     }
 
     private fun buildBlastTrack(): AudioTrack {
+        // Balon patlamasi hissi: perde hizlica yuksekten alcaga kayan kisa bir ton
+        // ("pop"), ustel sonen zarfla — onceki gurultu+thump karisimindan cok daha
+        // "balonumsu" (kullanici istegi: "block patlayınca çıkan ses balon patlaması olsun").
         val sampleRate = 44100
-        val durationMs = 180
+        val durationMs = 140
         val numSamples = sampleRate * durationMs / 1000
         val samples = ShortArray(numSamples)
-        val random = Random(42)
+        var phase = 0.0
 
         for (i in 0 until numSamples) {
             val t = i.toFloat() / numSamples
-            val envelope = (1f - t) * (1f - t) // hizli sonen kuadratik zarf
-            val noise = random.nextFloat() * 2f - 1f
-            val thump = sin(2.0 * Math.PI * 150.0 * i / sampleRate).toFloat()
-            val sample = ((noise * 0.55f + thump * 0.45f) * envelope * Short.MAX_VALUE * 0.75f)
+            val envelope = Math.exp(-6.5 * t).toFloat() // hizli sonen ustel "pop" zarfi
+            val freq = 950.0 - 600.0 * t // 950Hz'den 350Hz'e hizli dusen perde
+            phase += 2.0 * Math.PI * freq / sampleRate
+            val tone = sin(phase).toFloat()
+            val sample = (tone * envelope * Short.MAX_VALUE * 0.8f)
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 

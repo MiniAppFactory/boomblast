@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -102,6 +103,13 @@ data class BlockShape(
     val id: Int,
     val pattern: List<List<Boolean>>,
     val colorIndex: Int
+)
+
+// Sonsuz Mod'da "reklamla devam et" icin — tahtayi ve skoru bir onceki
+// hamleye geri saracak sekilde saklanan anlik goruntu.
+data class GameSnapshot(
+    val board: List<Int>,
+    val score: Int
 )
 
 // Satır/kombo temizlenince fırlayan küçük parçacıklar icin — her biri sabit bir
@@ -204,6 +212,7 @@ fun BlockBlastGame(
     onUseBooster: (BoosterType) -> Unit = {},
     onLinesCleared: (count: Int) -> Unit = {},
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
@@ -213,6 +222,10 @@ fun BlockBlastGame(
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
+    // Sonsuz Mod'da "reklamla devam et" icin son birkac hamlenin anlik goruntusu —
+    // en fazla MAX_MOVE_HISTORY kadar tutulur, "3 hamle geri al" bunu kullanir.
+    val moveHistory = remember { mutableStateListOf<GameSnapshot>() }
+    val MAX_MOVE_HISTORY = 5
     var comboCount by remember { mutableIntStateOf(0) }
     var isGameOver by remember { mutableStateOf(false) }
     var isLevelComplete by remember { mutableStateOf(false) }
@@ -233,6 +246,15 @@ fun BlockBlastGame(
     }
 
     val trayShapes = remember { mutableStateListOf<BlockShape?>() }
+
+    // Her yeni parcaya GERCEKTEN benzersiz bir id vermek icin sayac — sadece tepsi
+    // pozisyonunu (0/1/2) kullanmak KRITIK bir bug'a yol aciyordu: pointerInput(shape?.id)
+    // yalnizca id DEGISTIGINDE surukleme algilayicisini yeniden baslatir, ama id her
+    // zaman ayni slot pozisyonuna esitse (id=index), tepsi yenilenince ayni id tekrar
+    // kullanilir ve Compose bunu "degisiklik yok" sanip ESKI/BAYAT parca referansiyla
+    // calismaya devam eder — kullanici "3'lu koydum 9'lu ciktu" gibi somut, tekrarlanabilir
+    // hatalar bildirdi. Artik her BlockShape'e global, hic tekrar etmeyen bir id veriliyor.
+    var nextShapeId by remember { mutableIntStateOf(0) }
 
     // Sürükle-bırak durumu: tepsideki hangi parça sürükleniyor, parmağın ekran üzerindeki
     // mutlak konumu ve ızgaranın piksel koordinatları — hedef hücreyi hesaplamak için gerekli.
@@ -321,10 +343,10 @@ fun BlockBlastGame(
             effectiveTier == 2 -> SHAPE_PATTERNS.take(8) // + L shapes
             else -> SHAPE_PATTERNS // All shapes including T-shape and 3x3 square
         }
-        repeat(3) { index ->
+        repeat(3) {
             val randomPattern = availablePatterns[Random.nextInt(availablePatterns.size)]
             val randomColor = Random.nextInt(1, BLOCK_COLORS.size + 1)
-            trayShapes.add(BlockShape(id = index, pattern = randomPattern, colorIndex = randomColor))
+            trayShapes.add(BlockShape(id = nextShapeId++, pattern = randomPattern, colorIndex = randomColor))
         }
     }
 
@@ -356,13 +378,20 @@ fun BlockBlastGame(
         }
     }
 
-    // Sonsuz modda oturum basina bir kez: alt 2 satiri temizleyip devam etme sansi.
-    fun clearBottomRowsForContinue() {
-        for (r in (gridSize - 2) until gridSize) {
-            for (c in 0 until gridSize) {
-                board[r * gridSize + c] = 0
-            }
-        }
+    // Sonsuz modda oturum basina bir kez: son 3 hamleyi geri alip devam etme sansi.
+    // Onceden alt 2 satiri korusuzca temizliyorduk, ama bu MEVCUT tepsideki
+    // parcalar icin yer acmayabiliyordu — kullanici "izlese de sifirda basliyor"
+    // diye bildirdi (fiilen oynanamaz kaliyordu). Gercek bir gecmis hamleye
+    // (tahta + skor) donup USTUNE yeni bir tepsi vermek cok daha guvenilir:
+    // o an tahta zaten oynanabilirdi (oyun devam ediyordu), yeni tepsi de
+    // eski tikanmayi tekrarlama ihtimalini dusurur.
+    fun undoMovesForContinue(count: Int) {
+        val targetIndex = (moveHistory.size - count).coerceAtLeast(0)
+        val snapshot = moveHistory.getOrNull(targetIndex) ?: return
+        for (i in board.indices) board[i] = snapshot.board[i]
+        score = snapshot.score
+        while (moveHistory.size > targetIndex) moveHistory.removeAt(moveHistory.size - 1)
+        generateNewTray()
     }
 
     fun handleContinueWithAd() {
@@ -373,7 +402,7 @@ fun BlockBlastGame(
                 isRequestingContinueAd = false
                 showContinueDialog = false
                 continueOffered = true
-                clearBottomRowsForContinue()
+                undoMovesForContinue(3)
                 checkGameOver()
             },
             {
@@ -440,6 +469,7 @@ fun BlockBlastGame(
         board.clear()
         repeat(gridSize * gridSize) { board.add(0) }
         score = 0
+        moveHistory.clear()
         comboCount = 0
         draggedTrayIndex = -1
         armedBooster = null
@@ -459,6 +489,11 @@ fun BlockBlastGame(
 
     fun placeShape(shapeIndex: Int, shape: BlockShape, startRow: Int, startCol: Int) {
         if (!canPlaceShape(shape, startRow, startCol)) return
+
+        if (isEndless) {
+            moveHistory.add(GameSnapshot(board = board.toList(), score = score))
+            while (moveHistory.size > MAX_MOVE_HISTORY) moveHistory.removeAt(0)
+        }
 
         SoundManager.playLock(soundEnabled)
 
@@ -672,6 +707,23 @@ fun BlockBlastGame(
                                 color = NeonPurple
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Oyun icindeyken ayarlara (ses/tema/dil) hic erisim yoktu — kullanici
+                    // ses kapatmak/ayar degistirmek icin geri cikmak zorunda kaliyordu, bu da
+                    // Sonsuz Mod'daki mevcut oturumu tamamen sifirliyordu (kullanici geri
+                    // bildirimi). Artik oyun ekranindan dogrudan Ayarlar'a gidilebiliyor.
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag("block_blast_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = if (isTr) "Ayarlar" else "Settings",
+                            tint = palette.textPrimary
+                        )
                     }
 
                     Spacer(modifier = Modifier.width(6.dp))
@@ -919,7 +971,13 @@ fun BlockBlastGame(
                                         )
                                         .border(
                                             width = 0.5.dp,
-                                            color = if (cellVal > 0) Color.Transparent else palette.cardBorder,
+                                            // Dolu hucreler arasinda ONCEDEN sinir tamamen
+                                            // saydamdi — aynı renkteki iki AYRI parca yan yana
+                                            // gelince tek buyuk blok gibi gorunuyor, kullanici
+                                            // bunu "parca farkli sekle donustu" sanip yanlis
+                                            // yorumluyordu. Artik dolu hucrelerde de hafif bir
+                                            // koyu sinir var, her parca gorsel olarak ayirt edilebiliyor.
+                                            color = if (cellVal > 0) palette.background.copy(alpha = 0.35f) else palette.cardBorder,
                                             shape = RoundedCornerShape(6.dp)
                                         )
                                         .then(
@@ -1290,7 +1348,7 @@ fun BlockBlastGame(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = if (isTr) "Reklam izleyip alt sıraları temizleyerek skorunla devam edebilirsin" else "Watch an ad to clear some space and keep your score going",
+                            text = if (isTr) "Reklam izleyip son 3 hamleni geri alarak devam edebilirsin" else "Watch an ad to undo your last 3 moves and keep playing",
                             fontSize = 13.sp,
                             color = palette.textSecondary,
                             textAlign = TextAlign.Center
