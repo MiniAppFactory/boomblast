@@ -169,7 +169,11 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
                 onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                 onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                musicEnabled = progress.musicEnabled,
+                onToggleSound = { viewModel.setSoundEnabled(it) },
+                onToggleMusic = { viewModel.setMusicEnabled(it) },
+                onToggleDarkMode = { viewModel.setDarkMode(it) },
+                onSelectLanguage = { viewModel.setLanguage(it) },
                 onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
                 onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
             )
@@ -195,7 +199,11 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onBack = { navController.popBackStack() },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        musicEnabled = progress.musicEnabled,
+                        onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onToggleMusic = { viewModel.setMusicEnabled(it) },
+                        onToggleDarkMode = { viewModel.setDarkMode(it) },
+                        onSelectLanguage = { viewModel.setLanguage(it) },
                         onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()

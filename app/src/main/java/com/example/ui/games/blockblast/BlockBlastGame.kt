@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.BlockBlue
 import com.example.ui.theme.BlockGreen
 import com.example.ui.theme.BlockOrange
@@ -230,7 +231,17 @@ fun BlockBlastGame(
     onUseBooster: (BoosterType) -> Unit = {},
     onLinesCleared: (count: Int) -> Unit = {},
     onBack: () -> Unit,
-    onOpenSettings: () -> Unit = {},
+    // Ayarlar navController.navigate() ile ayri bir hedefe gitmiyor — Navigation
+    // Compose ekrandan ayrilinca bu composable'i komposizyondan atip geri donunce
+    // yeniden olusturuyordu, bu da tum remember durumunu (tahta/skor/tepsi)
+    // sifirliyordu (kullanici geri bildirimi: "renk/dil degistirirsen oyun sifirlar").
+    // Ayarlar artik AYNI composable icinde bir overlay olarak gosteriliyor, oyun
+    // ekranindan hic ayrilinmiyor.
+    musicEnabled: Boolean = true,
+    onToggleSound: (Boolean) -> Unit = {},
+    onToggleMusic: (Boolean) -> Unit = {},
+    onToggleDarkMode: (Boolean) -> Unit = {},
+    onSelectLanguage: (Boolean) -> Unit = {},
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
@@ -250,6 +261,7 @@ fun BlockBlastGame(
     var lastClearedText by remember { mutableStateOf("") }
     var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val clearFlashAlpha = remember { Animatable(0f) }
     var showContinueDialog by remember { mutableStateOf(false) }
@@ -757,7 +769,7 @@ fun BlockBlastGame(
                     // Sonsuz Mod'daki mevcut oturumu tamamen sifirliyordu (kullanici geri
                     // bildirimi). Artik oyun ekranindan dogrudan Ayarlar'a gidilebiliyor.
                     IconButton(
-                        onClick = onOpenSettings,
+                        onClick = { showSettingsDialog = true },
                         modifier = Modifier.testTag("block_blast_settings_button")
                     ) {
                         Icon(
@@ -1355,6 +1367,24 @@ fun BlockBlastGame(
                         }
                     }
                 }
+            }
+        }
+
+        // Ayarlar overlay — ayri bir navigasyon hedefi degil, ayni composable
+        // icinde tam ekran bir katman (bkz. yukaridaki parametre yorumu).
+        if (showSettingsDialog) {
+            Box(modifier = Modifier.fillMaxSize().zIndex(30f)) {
+                SettingsScreen(
+                    soundEnabled = soundEnabled,
+                    musicEnabled = musicEnabled,
+                    darkMode = darkMode,
+                    isTr = isTr,
+                    onToggleSound = onToggleSound,
+                    onToggleMusic = onToggleMusic,
+                    onToggleDarkMode = onToggleDarkMode,
+                    onSelectLanguage = onSelectLanguage,
+                    onBack = { showSettingsDialog = false }
+                )
             }
         }
 

@@ -176,44 +176,46 @@ object SoundManager {
     }
 
     private fun buildBlastTrack(): AudioTrack {
-        // Balon patlamasi hissi: perde hizlica yuksekten alcaga kayan kisa bir ton
-        // ("pop"), ustel sonen zarfla — onceki gurultu+thump karisimindan cok daha
-        // "balonumsu" (kullanici istegi: "block patlayınca çıkan ses balon patlaması olsun").
+        // Coskulu "basari cini" sesi: yukselen 3 notali parlak bir akor (C5-E5-G5,
+        // major arpej — klasik "basari/kazanma" motifi), her nota bir oktav ustu
+        // harmonikle zenginlestirilip "bell" tinisi kazandiriyor, sonunda kisa bir
+        // parlaklik/shimmer var. Onceki tek-tonlu dusen "pop" sesi duz/cirkin
+        // buluyordu kullanici ("çok köt bir ses daha çoşkulu olmalı") — bu tasarim
+        // gercek muzikal bir yukselis + harmonik zenginlik iceriyor.
         val sampleRate = 44100
-        val durationMs = 140
-        val numSamples = sampleRate * durationMs / 1000
-        val samples = ShortArray(numSamples)
-        var phase = 0.0
+        val noteFreqs = doubleArrayOf(523.25, 659.25, 783.99) // C5, E5, G5
+        val noteDurationMs = 70
+        val noteSamples = sampleRate * noteDurationMs / 1000
+        val sparkleSamples = sampleRate * 50 / 1000
+        val samples = ShortArray(noteSamples * noteFreqs.size + sparkleSamples)
+        val random = Random(11)
 
-        for (i in 0 until numSamples) {
-            val t = i.toFloat() / numSamples
-            val envelope = Math.exp(-6.5 * t).toFloat() // hizli sonen ustel "pop" zarfi
-            val freq = 950.0 - 600.0 * t // 950Hz'den 350Hz'e hizli dusen perde
-            phase += 2.0 * Math.PI * freq / sampleRate
-            val tone = sin(phase).toFloat()
-            val sample = (tone * envelope * Short.MAX_VALUE * 0.8f)
-            samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        var offset = 0
+        for (freq in noteFreqs) {
+            var phase = 0.0
+            var phase2 = 0.0
+            for (i in 0 until noteSamples) {
+                val t = i.toFloat() / noteSamples
+                // sin(pi*t): 0'dan baslayip 0'da biten yumusak zarf — notalar arasi
+                // tiklama/cat sesi olmadan gecis saglar.
+                val envelope = sin(Math.PI * t).toFloat().coerceAtLeast(0f)
+                phase += 2.0 * Math.PI * freq / sampleRate
+                phase2 += 2.0 * Math.PI * (freq * 2.0) / sampleRate
+                val fundamental = sin(phase).toFloat()
+                val octaveHarmonic = sin(phase2).toFloat() * 0.35f
+                val sample = ((fundamental + octaveHarmonic) * envelope * Short.MAX_VALUE * 0.55f)
+                samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            }
+            offset += noteSamples
+        }
+        for (i in 0 until sparkleSamples) {
+            val t = i.toFloat() / sparkleSamples
+            val envelope = (1f - t) * (1f - t)
+            val noise = random.nextFloat() * 2f - 1f
+            val sample = (noise * envelope * Short.MAX_VALUE * 0.25f)
+            samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 
-        val bufferSizeBytes = numSamples * 2
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build()
-            )
-            .setBufferSizeInBytes(bufferSizeBytes)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .build()
-        track.write(samples, 0, samples.size)
-        return track
+        return buildStaticTrack(sampleRate, samples)
     }
 }
