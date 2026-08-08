@@ -175,35 +175,45 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
         }
 
         composable(Routes.ENDLESS_GAME) {
-            BlockBlastGame(
-                levelNumber = 0,
-                targetScore = Int.MAX_VALUE,
-                isEndless = true,
-                bestScore = progress.endlessHighScore,
-                currentTheme = progress.blockTheme,
-                isTr = progress.isTr,
-                soundEnabled = progress.soundEnabled,
-                darkMode = progress.darkMode,
-                initialBoosterCounts = progress.ownedBoosters,
-                onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
-                onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
-                onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
-                onBack = { navController.popBackStack() },
-                onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
-                onRequestContinueAd = { onGranted, onDenied ->
-                    val activity = context.findActivity()
-                    if (activity != null) {
-                        RewardedAdManager.loadAndShow(
-                            context = context,
-                            activity = activity,
-                            onRewardEarned = onGranted,
-                            onFailure = onDenied
-                        )
-                    } else {
-                        onDenied()
-                    }
+            // Sonsuz Mod oturumlari seviye oyunlarindan cok daha uzun surebiliyor —
+            // level GAME ekraninin aksine burada banner alt cubukta gosteriliyor
+            // (kullanici geri bildirimi: uzun oturumlarda hic reklam gorunmuyordu).
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    BlockBlastGame(
+                        levelNumber = 0,
+                        targetScore = Int.MAX_VALUE,
+                        isEndless = true,
+                        bestScore = progress.endlessHighScore,
+                        currentTheme = progress.blockTheme,
+                        isTr = progress.isTr,
+                        soundEnabled = progress.soundEnabled,
+                        darkMode = progress.darkMode,
+                        initialBoosterCounts = progress.ownedBoosters,
+                        onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
+                        onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onBack = { navController.popBackStack() },
+                        onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
+                        onRequestContinueAd = { onGranted, onDenied ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = onGranted,
+                                    onFailure = onDenied
+                                )
+                            } else {
+                                onDenied()
+                            }
+                        }
+                    )
                 }
-            )
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
         }
 
         composable(Routes.MISSIONS) {

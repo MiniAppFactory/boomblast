@@ -253,12 +253,20 @@ fun BlockBlastGame(
 
     fun currentHoverCell(): Pair<Int, Int>? {
         val cellSize = cellSizePx
-        if (cellSize <= 0f || activeDragShape() == null) return null
+        val shape = activeDragShape() ?: return null
+        if (cellSize <= 0f) return null
         val liftPx = with(density) { dragLiftDp.toPx() }
         val pointerAbsolutePos = dragPointerStartGlobal + dragOffset.value
+        // Ghost onizleme parmagin MERKEZINE gore ciziliyor (bkz. asagidaki ghost Box'in
+        // "left/top = pointer - shapeSize/2" hesabi) — hover hucresi de ayni merkezleme
+        // ofsetini uygulamali, yoksa kullanicinin gordugu onizleme ile gercek yerlesim/
+        // temizleme mantiginin kullandigi hucre birbirini tutmaz (buyuk sekillerde parca
+        // gorunenden kaymis yere yerlesir, beklenmedik satir/sutun temizlenir).
+        val halfWidthCells = shape.pattern[0].size / 2f
+        val halfHeightCells = shape.pattern.size / 2f
         val localX = pointerAbsolutePos.x - gridOriginPx.x
         val localY = (pointerAbsolutePos.y - liftPx) - gridOriginPx.y
-        return floor(localY / cellSize).toInt() to floor(localX / cellSize).toInt()
+        return floor((localY / cellSize) - halfHeightCells).toInt() to floor((localX / cellSize) - halfWidthCells).toInt()
     }
 
     fun canPlaceShape(shape: BlockShape, startRow: Int, startCol: Int): Boolean {
@@ -290,7 +298,6 @@ fun BlockBlastGame(
     }
 
     val levelProgress = (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f)
-    val endlessDifficultyProgress = ((score % 300).toFloat() / 300f).coerceIn(0f, 1f)
 
     fun computeStars(finalScore: Int, target: Int): Int = when {
         finalScore >= target * 2 -> 3
@@ -695,22 +702,40 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = if (isTr) "İLERLEME" else "PROGRESS",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NeonCyan
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { if (isEndless) endlessDifficultyProgress else levelProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = NeonCyan,
-                            trackColor = palette.cardAlt
-                        )
+                        if (isEndless) {
+                            // Sonsuz Mod'da sabit bir hedef olmadigi icin ilerleme cubugunun
+                            // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
+                            Text(
+                                text = if (isTr) "KOMBO" else "COMBO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = if (comboCount >= 2) NeonGold else NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (comboCount > 0) "${comboCount}x" else "—",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (comboCount >= 2) NeonGold else palette.textPrimary
+                            )
+                        } else {
+                            Text(
+                                text = if (isTr) "İLERLEME" else "PROGRESS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { levelProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = NeonCyan,
+                                trackColor = palette.cardAlt
+                            )
+                        }
                     }
                 }
 
@@ -1036,7 +1061,10 @@ fun BlockBlastGame(
         // Sürüklenen parçanın parmağı takip eden önizlemesi (tam şekil, geçerliyse yeşil/geçersizse kırmızı)
         activeDragShape()?.let { draggedShape ->
             val liftPx = with(density) { dragLiftDp.toPx() }
-            val ghostCellPx = with(density) { 26.dp.toPx() }
+            // Ghost'un kendi hucre boyutu, gercek grid hucre boyutuyla (cellSizePx) ayni olmali —
+            // aksi halde onizleme, gercekte yerlesecegi alandan farkli buyuklukte gorunur.
+            val ghostCellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+            val ghostCellPx = with(density) { ghostCellDp.toPx() }
             val shapeWidthPx = draggedShape.pattern[0].size * ghostCellPx
             val shapeHeightPx = draggedShape.pattern.size * ghostCellPx
             val pointerAbs = dragPointerStartGlobal + dragOffset.value
@@ -1053,7 +1081,7 @@ fun BlockBlastGame(
                     draggedShape.pattern.forEach { rowPattern ->
                         Row {
                             rowPattern.forEach { active ->
-                                Box(modifier = Modifier.size(26.dp).padding(1.dp)) {
+                                Box(modifier = Modifier.size(ghostCellDp).padding(1.dp)) {
                                     if (active) {
                                         if (dropValid) {
                                             EmbossedBlockCell(
