@@ -1,13 +1,23 @@
 package com.example.ui.navigation
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.ads.BannerAdView
+import com.example.ads.RewardedAdManager
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
 import com.example.ui.games.blockblast.BlockBlastGame
@@ -27,21 +37,37 @@ object Routes {
     fun game(level: Int) = "game/$level"
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @Composable
-fun AppNavigation(viewModel: BlastViewModel) {
+fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
     val navController = rememberNavController()
     val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     NavHost(navController = navController, startDestination = Routes.LEVEL_MAP) {
         composable(Routes.LEVEL_MAP) {
-            LevelMapScreen(
-                progress = progress,
-                isTr = progress.isTr,
-                onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
-                onOpenMissions = { navController.navigate(Routes.MISSIONS) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
-            )
+            // Banner sadece menu ekraninda — oyun/izgara alanina asla eklenmiyor
+            // (bkz. plan: "Banner ads only in places where they do not damage gameplay").
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LevelMapScreen(
+                        progress = progress,
+                        isTr = progress.isTr,
+                        onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
+                        onOpenMissions = { navController.navigate(Routes.MISSIONS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
         }
 
         composable(
@@ -56,7 +82,17 @@ fun AppNavigation(viewModel: BlastViewModel) {
                 progress = progress,
                 isTr = progress.isTr,
                 onBuyBooster = { type -> viewModel.buyBooster(type) },
-                onWatchAdForTokens = { viewModel.watchAdForTokens() },
+                onWatchAdForTokens = {
+                    val activity = context.findActivity()
+                    if (activity != null) {
+                        RewardedAdManager.loadAndShow(
+                            context = context,
+                            activity = activity,
+                            onRewardEarned = { viewModel.watchAdForTokens() },
+                            onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ }
+                        )
+                    }
+                },
                 onStartLevel = { navController.navigate(Routes.game(level)) },
                 onBack = { navController.popBackStack() }
             )
