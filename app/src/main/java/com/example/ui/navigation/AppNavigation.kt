@@ -24,11 +24,13 @@ import com.example.ui.consent.TermsAcceptScreen
 import com.example.ui.games.blockblast.BlockBlastGame
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
+import com.example.ui.modeselect.ModeSelectScreen
 import com.example.ui.onboarding.OnboardingScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.shop.LoadoutScreen
 
 object Routes {
+    const val MODE_SELECT = "mode_select"
     const val LEVEL_MAP = "level_map"
     const val LOADOUT = "loadout/{level}"
     const val GAME = "game/{level}"
@@ -53,21 +55,23 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    NavHost(navController = navController, startDestination = Routes.LEVEL_MAP) {
-        composable(Routes.LEVEL_MAP) {
+    NavHost(navController = navController, startDestination = Routes.MODE_SELECT) {
+        composable(Routes.MODE_SELECT) {
             // Banner sadece menu ekraninda — oyun/izgara alanina asla eklenmiyor
             // (bkz. plan: "Banner ads only in places where they do not damage gameplay").
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
-                        LevelMapScreen(
-                            progress = progress,
+                        ModeSelectScreen(
                             isTr = progress.isTr,
                             darkMode = progress.darkMode,
-                            onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
+                            tokens = progress.tokens,
+                            endlessBestScore = progress.endlessHighScore,
+                            highestUnlockedLevel = progress.highestUnlockedLevel,
+                            onOpenLevels = { navController.navigate(Routes.LEVEL_MAP) },
+                            onOpenEndless = { navController.navigate(Routes.ENDLESS_GAME) },
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
-                            onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                            onOpenEndlessMode = { navController.navigate(Routes.ENDLESS_GAME) }
+                            onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                         )
                     }
                     if (adsConsentResolved) {
@@ -87,6 +91,25 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         darkMode = progress.darkMode,
                         onFinish = { viewModel.markOnboardingSeen() }
                     )
+                }
+            }
+        }
+
+        composable(Routes.LEVEL_MAP) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LevelMapScreen(
+                        progress = progress,
+                        isTr = progress.isTr,
+                        darkMode = progress.darkMode,
+                        onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
+                        onOpenMissions = { navController.navigate(Routes.MISSIONS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
                 }
             }
         }

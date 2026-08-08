@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
@@ -59,7 +59,7 @@ fun LevelMapScreen(
     onSelectLevel: (Int) -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenEndlessMode: () -> Unit
+    onBack: () -> Unit
 ) {
     val palette = blastPalette(darkMode)
     val lastLevel = progress.highestUnlockedLevel + 3
@@ -76,16 +76,8 @@ fun LevelMapScreen(
                 isTr = isTr,
                 palette = palette,
                 onOpenMissions = onOpenMissions,
-                onOpenSettings = onOpenSettings
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            EndlessModeCard(
-                bestScore = progress.endlessHighScore,
-                isTr = isTr,
-                palette = palette,
-                onClick = onOpenEndlessMode
+                onOpenSettings = onOpenSettings,
+                onBack = onBack
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -121,7 +113,8 @@ private fun LevelMapHeader(
     isTr: Boolean,
     palette: BlastPalette,
     onOpenMissions: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onBack: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -130,12 +123,25 @@ private fun LevelMapHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = if (isTr) "SEVİYELER" else "LEVELS",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Black,
-            color = NeonCyan
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.testTag("level_map_back_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = if (isTr) "Geri" else "Back",
+                    tint = palette.textPrimary
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (isTr) "SEVİYELER" else "LEVELS",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                color = NeonCyan
+            )
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Token balance pill
@@ -182,81 +188,6 @@ private fun LevelMapHeader(
                     imageVector = Icons.Default.Settings,
                     contentDescription = if (isTr) "Ayarlar" else "Settings",
                     tint = palette.textPrimary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EndlessModeCard(
-    bestScore: Int,
-    isTr: Boolean,
-    palette: BlastPalette,
-    onClick: () -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = palette.card),
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.5.dp, Brush.linearGradient(listOf(NeonGreen, NeonGold)), RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .testTag("level_map_endless_mode_button")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(NeonGreen.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AllInclusive,
-                        contentDescription = null,
-                        tint = NeonGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = palette.textPrimary
-                    )
-                    Text(
-                        text = if (isTr) "Hedefsiz oyna, yüksek skor kovala" else "Play freely, chase a high score",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = palette.textSecondary
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = if (isTr) "EN YÜKSEK" else "BEST",
-                    fontSize = 10.sp,
-                    color = palette.textSecondary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "$bestScore",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = NeonGold
                 )
             }
         }
