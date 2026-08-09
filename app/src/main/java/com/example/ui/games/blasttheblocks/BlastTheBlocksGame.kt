@@ -1,5 +1,6 @@
 package com.example.ui.games.blasttheblocks
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -352,6 +353,10 @@ fun BlastTheBlocksGame(
     var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    // Faz 38: kullanici "sonsuz oyunda geri tusuna basinca hemen ana menuye
+    // cikmasin, teyit alsin" dedi — Sonsuz Mod'da hem sistem geri tusu/jesti
+    // hem oyun ici geri oku artik dogrudan cikmiyor, once bu onay ekranini aciyor.
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val clearFlashAlpha = remember { Animatable(0f) }
     // Faz 21: cizgi tamamlanir tamamlanmaz, hucreler HALA DOLUYKEN kisa bir
@@ -359,6 +364,18 @@ fun BlastTheBlocksGame(
     // renkli kenarlik + sparkle) — gercek temizleme bu glow'dan hemen sonra
     // gerceklesiyor, boylece oyuncu "bu satirlar patlayacak" anini gorebiliyor.
     var glowingClearCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+
+    // Faz 38: Sonsuz Mod'da sistem geri tusu/jesti artik dogrudan menuye
+    // cikmiyor — once "cikmak istedigine emin misin" onay ekranini aciyor
+    // (kullanici geri bildirimi: yanlislikla cikip skoru kaybetme riski).
+    // Seviyeli Mod'da davranis DEGISMEDI (kullanicinin acikca "sonsuz oyunda"
+    // dedigi kapsam disinda kalmasin diye).
+    if (isEndless) {
+        BackHandler(enabled = !isGameOver && !isLevelComplete) {
+            showExitConfirmDialog = true
+        }
+    }
+
     val glowPulse = remember { Animatable(0f) }
     val glowBrush = remember {
         Brush.sweepGradient(listOf(NeonCyan, NeonGold, NeonPurple, NeonGreen, NeonCyan))
@@ -1046,7 +1063,13 @@ fun BlastTheBlocksGame(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = onBack,
+                    onClick = {
+                        if (isEndless && !isGameOver && !isLevelComplete) {
+                            showExitConfirmDialog = true
+                        } else {
+                            onBack()
+                        }
+                    },
                     modifier = Modifier.testTag("block_blast_back_button")
                 ) {
                     Icon(
@@ -1950,6 +1973,95 @@ fun BlastTheBlocksGame(
                                 .testTag("continue_end_session_button")
                         ) {
                             Text(language.pick(tr = "BİTİR", en = "END", it = "FINE", fr = "FIN", es = "FIN"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Faz 38: Sonsuz Mod'da "cikmak istedigine emin misin" onay ekrani —
+        // hem sistem geri tusu/jesti (BackHandler) hem oyun ici geri oku
+        // buraya yonleniyor, kullanicinin yanlislikla mevcut skoru/serisini
+        // kaybetmesini onlemek icin.
+        AnimatedVisibility(
+            visible = showExitConfirmDialog,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "ÇIKMAK İSTEDİĞİNE EMİN MİSİN?", en = "ARE YOU SURE YOU WANT TO EXIT?", it = "SEI SICURO DI VOLER USCIRE?", fr = "ÊTES-VOUS SÛR DE VOULOIR QUITTER ?", es = "¿SEGURO QUE QUIERES SALIR?"),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonMagenta,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = language.pick(tr = "Mevcut skorun ve serin kaybolacak", en = "Your current score and streak will be lost", it = "Il tuo punteggio e la tua serie attuali andranno persi", fr = "Votre score et votre série actuels seront perdus", es = "Se perderán tu puntuación y racha actuales"),
+                            fontSize = 13.sp,
+                            color = palette.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = { showExitConfirmDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("exit_confirm_cancel_button")
+                        ) {
+                            Text(
+                                text = language.pick(tr = "OYUNA DEVAM ET", en = "KEEP PLAYING", it = "CONTINUA A GIOCARE", fr = "CONTINUER À JOUER", es = "SEGUIR JUGANDO"),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                showExitConfirmDialog = false
+                                onBack()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("exit_confirm_exit_button")
+                        ) {
+                            Text(
+                                text = language.pick(tr = "ÇIK", en = "EXIT", it = "ESCI", fr = "QUITTER", es = "SALIR"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = palette.textPrimary
+                            )
                         }
                     }
                 }

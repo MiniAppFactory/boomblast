@@ -26,9 +26,11 @@ import com.example.ui.BlastViewModel
 import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlastTheBlocksTheme
+import com.example.ads.AdIds
 import com.example.ui.theme.blastPalette
 import com.example.utils.TextToSpeechManager
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
@@ -46,6 +48,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Faz 38: gelistirici/ekip cihazlarinda RELEASE build test edilirken
+        // gercek kendi reklamlarimizi izlemis/tiklamis olmayalim diye (AdMob
+        // "invalid traffic" politikasi) — bu cihazlara her zaman guvenli
+        // test/house reklamlari gosterilir (bkz. AdIds.developerTestDeviceIds).
+        MobileAds.setRequestConfiguration(
+            RequestConfiguration.Builder()
+                .setTestDeviceIds(AdIds.developerTestDeviceIds)
+                .build()
+        )
         MobileAds.initialize(applicationContext) {}
         // Faz 34: kombo ovgu kelimelerini (Good!/Great!/Amazing! vb.) sesli
         // soylemek icin — asenkron init, TTS motoru hazir olana kadar

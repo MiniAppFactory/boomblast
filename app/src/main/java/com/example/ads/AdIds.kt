@@ -16,4 +16,19 @@ object AdIds {
 
     fun bannerAdUnitId(): String = if (BuildConfig.DEBUG) TEST_BANNER_AD_UNIT_ID else PRODUCTION_BANNER_AD_UNIT_ID
     fun rewardedAdUnitId(): String = if (BuildConfig.DEBUG) TEST_REWARDED_AD_UNIT_ID else PRODUCTION_REWARDED_AD_UNIT_ID
+
+    // Faz 38: gelistiricinin/ekibin kendi cihazlarinda RELEASE build (gercek
+    // prodüksiyon reklam ID'leri) test edilirken, AdMob'un "kendi reklamini
+    // izleme/tiklama" (invalid traffic) politikasi ihlal edilmesin diye —
+    // buradaki cihazlara HER ZAMAN Google'in guvenli test/house reklamlari
+    // gosterilir, gercek kullanicilar etkilenmez. Her yeni test cihazinin
+    // ID'si, o cihazda ilk reklam istegi yapildiginda logcat'te "Ads" etiketiyle
+    // otomatik yazdirilir (ornek: "Use RequestConfiguration.Builder()
+    // .setTestDeviceIds(Arrays.asList(\"XXXX\")) to get test ads on this device.").
+    val developerTestDeviceIds = listOf(
+        "4EC2D32786F16937AF9963145EA0E233" // Samsung Galaxy S8 (proje test cihazi)
+        // S22 Ultra (kullanicinin kendi telefonu) buraya eklenecek — ID'si
+        // henuz alinamadi (cihaz USB baglantisi kesildi), tekrar baglaninca
+        // logcat'ten okunup eklenmeli.
+    )
 }
