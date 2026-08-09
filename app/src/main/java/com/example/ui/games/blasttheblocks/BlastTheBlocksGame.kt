@@ -936,7 +936,7 @@ fun BlastTheBlocksGame(
                             isTr -> "SEVİYE $levelNumber"
                             else -> "LEVEL $levelNumber"
                         },
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Black,
                         color = NeonCyan,
                         maxLines = 1,
@@ -987,7 +987,7 @@ fun BlastTheBlocksGame(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(2.dp))
 
                     IconButton(
                         onClick = { resetGame() },

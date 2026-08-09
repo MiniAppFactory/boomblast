@@ -8,7 +8,7 @@ object WeeklyMissionGenerator {
 
     private val POOL = listOf(
         WeeklyMissionDef("complete_5_levels", "5 Seviye Tamamla", "Complete 5 Levels", target = 5, rewardTokens = 25, type = MissionType.COMPLETE_LEVELS),
-        WeeklyMissionDef("complete_15_levels", "15 Seviye Tamamla", "Complete 15 Levels", target = 15, rewardTokens = 60, type = MissionType.COMPLETE_LEVELS),
+        WeeklyMissionDef("complete_15_levels", "15 Seviye Tamamla", "Complete 15 Levels", target = 15, rewardTokens = 40, type = MissionType.COMPLETE_LEVELS),
         WeeklyMissionDef("clear_100_lines", "100 Satır/Sütun Patlat", "Clear 100 Lines", target = 100, rewardTokens = 30, type = MissionType.CLEAR_LINES),
         WeeklyMissionDef("clear_300_lines", "300 Satır/Sütun Patlat", "Clear 300 Lines", target = 300, rewardTokens = 70, type = MissionType.CLEAR_LINES),
         WeeklyMissionDef("use_5_boosters", "5 Güçlendirici Kullan", "Use 5 Boosters", target = 5, rewardTokens = 20, type = MissionType.USE_BOOSTERS),
