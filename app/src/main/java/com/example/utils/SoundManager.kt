@@ -167,20 +167,34 @@ object SoundManager {
         return buildStaticTrack(sampleRate, samples)
     }
 
+    // Faz 32: onceki tasarim IKI SAF SINUS tonunu (1400Hz + 180Hz) TAM AYNI sure
+    // boyunca birlikte calıyordu — kullanici bunun "iğrenç bir akordiyon sesi
+    // gibi" oldugunu belirtti (iki sabit perdenin birlikte cinlemesi tam olarak
+    // bir akor/nefesli calgi tinisi verir). Muzikal perde YOK — gurultu tabanli,
+    // cok kisa bir "tik" (mekanik klik) + neredeyse hissedilir olmayan, TEK
+    // darbelik bir alcak "thud" (saglam oturma hissi, surdurulmus ton degil).
     private fun buildLockTrack(): AudioTrack {
-        // Kisa, sert bir "click/lock" — parcanin ızgaraya oturdugu hissi.
-        // Yuksek frekansli kisa bir tik + hafif dusuk frekansli thump, hizli sonum.
         val sampleRate = 44100
-        val durationMs = 65
+        val durationMs = 55
         val numSamples = sampleRate * durationMs / 1000
         val samples = ShortArray(numSamples)
+        val random = Random(3)
 
         for (i in 0 until numSamples) {
             val t = i.toFloat() / numSamples
-            val envelope = (1f - t).let { it * it * it } // cok hizli sonen kubik zarf
-            val click = sin(2.0 * Math.PI * 1400.0 * i / sampleRate).toFloat()
-            val thump = sin(2.0 * Math.PI * 180.0 * i / sampleRate).toFloat()
-            val sample = ((click * 0.5f + thump * 0.5f) * envelope * Short.MAX_VALUE * 0.95f)
+
+            // Tik: genis bantli gurultu, cok hizli sonuyor — perde hissi yok,
+            // sadece mekanik bir "klik".
+            val tickEnvelope = exp(-t * 70f)
+            val tick = (random.nextFloat() * 2f - 1f) * tickEnvelope
+
+            // Thud: tek bir kisa alcak-frekans darbesi, SURDURULMUS bir ton
+            // DEGIL — sadece birkac donguluk bir "oturma" hissi.
+            val thudEnvelope = exp(-t * 30f)
+            val thud = sin(2.0 * Math.PI * 130.0 * i / sampleRate).toFloat() * thudEnvelope
+
+            val mixed = tick * 0.7f + thud * 0.55f
+            val sample = mixed * Short.MAX_VALUE * 0.95f
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return buildStaticTrack(sampleRate, samples)
@@ -216,51 +230,46 @@ object SoundManager {
         return track
     }
 
-    // Faz 28: onceki 3-notali muzikal akor kullanici tarafindan "mekanik cirkin
-    // bir ses, patlama sesi gibi degil, balon patlaması gibi de degil" olarak
-    // reddedildi. Tasarim BASTAN yapildi — muzikal nota YOK, bunun yerine gercek
-    // oyun SFX kutuphanelerindeki standart "patlama/pop" yapisi kullanildi:
-    //   1) "crack": genis bantli, hizli sonen filtrelenmis gurultu (patlamanin
-    //      sert, kirilma hissi veren ilk anı)
-    //   2) "boom": pitch'i hizla dusen alcak frekansli bir sub-thump (agirlik/guc)
-    //   3) "click": cok kisa, yuksek frekansli bir tik (atagi sertlestirir, "pop")
-    // Ucu birlikte, hizli atak + eksponansiyel sonumle karisiyor.
+    // Faz 32: Faz 28'deki tasarim kullaniciya "kağıt yırtılmasına benziyor" geldi
+    // — kok neden, "crack" katmaninin tek-kutuplu alcak-gecirgen FILTRELENMIS
+    // gurultu olmasiydi (bu, ses tasariminda klasik olarak TAM OLARAK kağıt/
+    // kırışma dokusu sentezlemek icin kullanilan teknik). Filtrelenmis gurultu
+    // tamamen kaldirildi — yerine HAM (filtresiz), cok hizli sonen bir "punch"
+    // (gercek bir patlamanin sert ilk darbesi), guclu bir "boom" (agirlik) ve
+    // aralarinda kopru gorevi goren kisa bir gövde katmani kullanildi.
     private fun buildBlastTrack(): AudioTrack {
         val sampleRate = 44100
-        val durationMs = 210
+        val durationMs = 260
         val numSamples = sampleRate * durationMs / 1000
         val samples = ShortArray(numSamples)
         val random = Random(11)
 
-        var lowPassState = 0f
         for (i in 0 until numSamples) {
             val t = i.toFloat() / numSamples
 
-            // Crack: beyaz gurultu, hafif alcak-gecirgen filtrelenip sertligi
-            // biraz yumusatiliyor, cok hizli sonuyor (patlamanin "kirilma" ani).
-            val crackEnvelope = exp(-t * 13f)
-            val noise = random.nextFloat() * 2f - 1f
-            lowPassState += (noise - lowPassState) * 0.55f
-            val crack = lowPassState * crackEnvelope
+            // Punch: HAM (filtresiz) gurultu, cok hizli sonuyor — "crinkle/kağıt"
+            // dokusu veren filtrelemeden kacinilarak gercek bir "snap/crack" verir.
+            val punchEnvelope = exp(-t * 45f)
+            val punch = (random.nextFloat() * 2f - 1f) * punchEnvelope
 
-            // Boom: 190Hz'den 60Hz'e hizla dusen bir sub-thump — patlamaya
-            // "agirlik" ve "guc" katan alcak frekansli katman.
-            val boomFreq = 190.0 - 130.0 * (1.0 - exp(-t * 6.0))
-            val boomEnvelope = exp(-t * 4.5f)
+            // Boom: 170Hz'den 50Hz'e hizla dusen, agirlikli bir sub-thump —
+            // patlamanin asil gucu/agirligi burada.
+            val boomFreq = 170.0 - 120.0 * (1.0 - exp(-t * 5.0))
+            val boomEnvelope = exp(-t * 3.2f)
             val boomPhase = 2.0 * Math.PI * boomFreq * i / sampleRate
             val boom = sin(boomPhase).toFloat() * boomEnvelope
 
-            // Click: cok kisa, yuksek frekansli bir tik — atagi sertlestirip
-            // "pop" hissi katıyor, ilk birkaç milisaniyede kayboluyor.
-            val clickEnvelope = exp(-t * 55f)
-            val click = sin(2.0 * Math.PI * 2600.0 * i / sampleRate).toFloat() * clickEnvelope
+            // Body: punch ile boom arasinda kopruleme yapan, orta sureli bir
+            // gurultu govdesi — "ince/havasiz" degil, dolgun bir patlama hissi.
+            val bodyEnvelope = exp(-t * 10f)
+            val body = (random.nextFloat() * 2f - 1f) * 0.5f * bodyEnvelope
 
-            val mixed = crack * 0.6f + boom * 0.8f + click * 0.22f
+            val mixed = punch * 0.5f + boom * 0.85f + body * 0.35f
             // Faz 29: yumusak dogrusal-olmayan doyum (tanh) — RMS enerjisini
             // (algilanan yuksekligi) tepe genligi ASMADAN artirir, gercek patlama
             // kayitlarindaki hafif "gritty" karakterin de bir kismini verir —
             // profesyonel oyun SFX masterlamada standart bir "loudness" teknigi.
-            val drive = 1.6f
+            val drive = 1.5f
             val saturated = tanh(mixed * drive) / tanh(drive)
             val sample = saturated * Short.MAX_VALUE * 0.98f
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
