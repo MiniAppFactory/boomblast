@@ -60,7 +60,7 @@ object NotificationHelper {
             val manager = context.getSystemService(NotificationManager::class.java) ?: return
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 manager.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Blast the Blocks", NotificationManager.IMPORTANCE_DEFAULT)
+                    NotificationChannel(CHANNEL_ID, "Boom Blocks", NotificationManager.IMPORTANCE_DEFAULT)
                 )
             }
         }

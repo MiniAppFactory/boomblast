@@ -78,7 +78,7 @@ fun TermsAcceptScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = language.pick(tr = "Blast the Blocks'a Hoş Geldin!", en = "Welcome to Blast the Blocks!", it = "Benvenuto in Blast the Blocks!", fr = "Bienvenue dans Blast the Blocks !", es = "¡Bienvenido a Blast the Blocks!"),
+                    text = language.pick(tr = "Boom Blocks'a Hoş Geldin!", en = "Welcome to Boom Blocks!", it = "Benvenuto in Boom Blocks!", fr = "Bienvenue dans Boom Blocks !", es = "¡Bienvenido a Boom Blocks!"),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = palette.textPrimary,

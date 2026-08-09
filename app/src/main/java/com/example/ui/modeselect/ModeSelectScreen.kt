@@ -110,7 +110,7 @@ fun ModeSelectScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Blast the Blocks",
+                            text = "Boom Blocks",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
                             color = palette.textPrimary
