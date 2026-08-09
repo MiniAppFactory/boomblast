@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBars
@@ -16,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.BlastViewModel
 import com.example.ui.navigation.AppNavigation
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlastTheBlocksTheme
+import com.example.ui.theme.blastPalette
 import com.google.android.gms.ads.MobileAds
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
@@ -34,17 +38,29 @@ class MainActivity : ComponentActivity() {
         setContent {
             val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
             val consentResolved by adsConsentResolved
+            val skin = BlastSkin.fromId(progress.uiSkin)
+            val backgroundColor = blastPalette(skin, progress.darkMode).background
             BlastTheBlocksTheme(darkTheme = progress.darkMode) {
-                // enableEdgeToEdge() icerigin sistem cubuklarinin ARKASINA da cizilmesine
-                // izin veriyor — bunu telafi etmezsek alt banner reklam navigasyon
-                // cubugunun altinda kalir (kullanici geri bildirimi). Tum ekranlara
-                // tek noktadan sistem cubuklari padding'i uygulaniyor.
+                // Faz 24: onceden TUM icerik (arka plan dahil) sistem cubuklarindan
+                // padding ile itiliyordu — bu da durum/navigasyon cubugu ARKASINDA
+                // oyunun rengi degil, cihazin varsayilan SIYAH zemininin gorunmesine
+                // yol aciyordu ("ekranı kaplamıyor" — kullanici S20'de fark etti,
+                // gercek cihazda uiautomator ile dogrulandi: icerik tam olarak sistem
+                // cubugu sinirinda bitiyor ama arkasi renksiz kaliyor). Artik arka
+                // plan katmani PADDING'SIZ, tum fiziksel ekrani (sistem cubuklarinin
+                // ARKASI dahil) kapliyor; sadece etkilesimli icerik (butonlar, banner
+                // reklam) dokunulabilir kalmasi icin sistem cubuklarindan icerlek.
                 Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.systemBars)
+                    modifier = Modifier.fillMaxSize(),
+                    color = backgroundColor
                 ) {
-                    AppNavigation(viewModel = viewModel, adsConsentResolved = consentResolved)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.systemBars)
+                    ) {
+                        AppNavigation(viewModel = viewModel, adsConsentResolved = consentResolved)
+                    }
                 }
             }
         }
