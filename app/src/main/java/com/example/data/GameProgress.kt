@@ -15,7 +15,7 @@ data class PlayerProgress(
     val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,
     val darkMode: Boolean = true,
-    val isTr: Boolean = true,
+    val language: AppLanguage = AppLanguage.TR,
     val blockTheme: String = "CLASSIC",
     val uiSkin: String = "DEFAULT",
     val hasSeenOnboarding: Boolean = false,
@@ -31,10 +31,16 @@ data class WeeklyMissionDef(
     val id: String,
     val titleTr: String,
     val titleEn: String,
+    val titleIt: String,
+    val titleFr: String,
+    val titleEs: String,
     val target: Int,
     val rewardTokens: Int,
     val type: MissionType
-)
+) {
+    fun title(language: AppLanguage): String =
+        language.pick(tr = titleTr, en = titleEn, it = titleIt, fr = titleFr, es = titleEs)
+}
 
 data class WeeklyMissionProgress(
     val weekId: String,

@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
@@ -53,13 +55,13 @@ fun SettingsScreen(
     soundVolume: Float = 0.5f,
     musicEnabled: Boolean,
     darkMode: Boolean,
-    isTr: Boolean,
+    language: AppLanguage,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onToggleSound: (Boolean) -> Unit,
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit,
     onToggleDarkMode: (Boolean) -> Unit,
-    onSelectLanguage: (Boolean) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
     notificationsEnabled: Boolean = true,
     onToggleNotifications: (Boolean) -> Unit = {},
@@ -95,7 +97,7 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isTr) "AYARLAR" else "SETTINGS",
+                text = language.pick(tr = "AYARLAR", en = "SETTINGS", it = "IMPOSTAZIONI", fr = "PARAMÈTRES", es = "AJUSTES"),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
                 color = NeonCyan
@@ -110,7 +112,7 @@ fun SettingsScreen(
 
         SettingsSwitchRow(
             icon = "🔊",
-            label = if (isTr) "Ses Efektleri" else "Sound Effects",
+            label = language.pick(tr = "Ses Efektleri", en = "Sound Effects", it = "Effetti Sonori", fr = "Effets Sonores", es = "Efectos de Sonido"),
             checked = soundEnabled,
             onCheckedChange = onToggleSound,
             testTag = "settings_sound_switch",
@@ -132,7 +134,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isTr) "Ses Şiddeti" else "Sound Volume",
+                        text = language.pick(tr = "Ses Şiddeti", en = "Sound Volume", it = "Volume Suoni", fr = "Volume Sonore", es = "Volumen de Sonido"),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (soundEnabled) palette.textPrimary else palette.textSecondary
@@ -155,7 +157,7 @@ fun SettingsScreen(
         }
         SettingsSwitchRow(
             icon = "🎵",
-            label = if (isTr) "Müzik" else "Music",
+            label = language.pick(tr = "Müzik", en = "Music", it = "Musica", fr = "Musique", es = "Música"),
             checked = musicEnabled,
             onCheckedChange = onToggleMusic,
             testTag = "settings_music_switch",
@@ -163,7 +165,7 @@ fun SettingsScreen(
         )
         SettingsSwitchRow(
             icon = "🌙",
-            label = if (isTr) "Koyu Mod" else "Dark Mode",
+            label = language.pick(tr = "Koyu Mod", en = "Dark Mode", it = "Modalità Scura", fr = "Mode Sombre", es = "Modo Oscuro"),
             checked = darkMode,
             onCheckedChange = onToggleDarkMode,
             testTag = "settings_dark_mode_switch",
@@ -171,7 +173,7 @@ fun SettingsScreen(
         )
         SettingsSwitchRow(
             icon = "🔔",
-            label = if (isTr) "Hatırlatma Bildirimleri" else "Reminder Notifications",
+            label = language.pick(tr = "Hatırlatma Bildirimleri", en = "Reminder Notifications", it = "Notifiche di Promemoria", fr = "Notifications de Rappel", es = "Notificaciones de Recordatorio"),
             checked = notificationsEnabled,
             onCheckedChange = onToggleNotifications,
             testTag = "settings_notifications_switch",
@@ -187,27 +189,33 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = if (isTr) "Dil" else "Language",
+                    text = language.pick(tr = "Dil", en = "Language", it = "Lingua", fr = "Langue", es = "Idioma"),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = palette.textPrimary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LanguageOption(
-                        label = "Türkçe",
-                        selected = isTr,
-                        onClick = { onSelectLanguage(true) },
-                        testTag = "settings_lang_tr",
-                        palette = palette
-                    )
-                    LanguageOption(
-                        label = "English",
-                        selected = !isTr,
-                        onClick = { onSelectLanguage(false) },
-                        testTag = "settings_lang_en",
-                        palette = palette
-                    )
+                // Faz 35: onceden hardcoded 2 secenekli (TR/EN) bir Row'du —
+                // 5 dile cikinca veri-tabanli hale getirildi (AppLanguage.entries
+                // uzerinden dongu), yatay kaydirilabilir LazyRow ile (asagidaki
+                // "Görünüm" skin galerisiyle ayni desen), 5'i yan yana sigmasa bile
+                // tasma olmuyor.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(AppLanguage.entries.toList()) { lang ->
+                        LanguageOption(
+                            label = lang.pick(
+                                tr = "Türkçe",
+                                en = "English",
+                                it = "Italiano",
+                                fr = "Français",
+                                es = "Español"
+                            ),
+                            selected = language == lang,
+                            onClick = { onSelectLanguage(lang) },
+                            testTag = "settings_lang_${lang.code}",
+                            palette = palette
+                        )
+                    }
                 }
             }
         }
@@ -223,7 +231,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = if (isTr) "Görünüm" else "Appearance",
+                    text = language.pick(tr = "Görünüm", en = "Appearance", it = "Aspetto", fr = "Apparence", es = "Apariencia"),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = palette.textPrimary
@@ -233,7 +241,7 @@ fun SettingsScreen(
                     items(BlastSkin.entries.toList()) { candidate ->
                         SkinOption(
                             skinOption = candidate,
-                            label = if (isTr) candidate.labelTr else candidate.labelEn,
+                            label = candidate.label(language),
                             selected = candidate == skin,
                             onClick = { onSelectSkin(candidate) },
                             palette = palette

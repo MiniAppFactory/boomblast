@@ -36,8 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
 import com.example.data.BoosterType
 import com.example.data.PlayerProgress
+import com.example.data.pick
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
@@ -54,7 +56,7 @@ fun LoadoutScreen(
     levelNumber: Int,
     targetScore: Int,
     progress: PlayerProgress,
-    isTr: Boolean,
+    language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onBuyBooster: (BoosterType) -> Unit,
@@ -101,7 +103,7 @@ fun LoadoutScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
+                        text = language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber"),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Black,
                         color = NeonCyan,
@@ -109,7 +111,7 @@ fun LoadoutScreen(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
-                        text = if (isTr) "HEDEF: $targetScore" else "TARGET: $targetScore",
+                        text = language.pick(tr = "HEDEF: $targetScore", en = "TARGET: $targetScore", it = "OBIETTIVO: $targetScore", fr = "OBJECTIF : $targetScore", es = "OBJETIVO: $targetScore"),
                         fontSize = 11.sp,
                         color = palette.textSecondary,
                         fontWeight = FontWeight.Bold,
@@ -141,7 +143,7 @@ fun LoadoutScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = if (isTr) "TAKIMINI HAZIRLA" else "PREPARE YOUR LOADOUT",
+                text = language.pick(tr = "TAKIMINI HAZIRLA", en = "PREPARE YOUR LOADOUT", it = "PREPARA IL TUO EQUIPAGGIAMENTO", fr = "PRÉPARE TON ÉQUIPEMENT", es = "PREPARA TU EQUIPO"),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = palette.textPrimary
@@ -161,13 +163,13 @@ fun LoadoutScreen(
                         type = type,
                         owned = progress.ownedBoosters[type] ?: 0,
                         canAfford = progress.tokens >= type.tokenPrice,
-                        isTr = isTr,
+                        language = language,
                         palette = palette,
                         onBuy = { onBuyBooster(type) }
                     )
                 }
 
-                WatchAdCard(isTr = isTr, palette = palette, onWatchAdForTokens = onWatchAdForTokens)
+                WatchAdCard(language = language, palette = palette, onWatchAdForTokens = onWatchAdForTokens)
 
                 Spacer(modifier = Modifier.height(4.dp))
             }
@@ -186,7 +188,7 @@ fun LoadoutScreen(
                     .testTag("loadout_start_button")
             ) {
                 Text(
-                    text = if (isTr) "BAŞLA" else "START",
+                    text = language.pick(tr = "BAŞLA", en = "START", it = "INIZIA", fr = "COMMENCER", es = "EMPEZAR"),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
                     color = Color.Black
@@ -201,7 +203,7 @@ private fun BoosterCard(
     type: BoosterType,
     owned: Int,
     canAfford: Boolean,
-    isTr: Boolean,
+    language: AppLanguage,
     palette: BlastPalette,
     onBuy: () -> Unit
 ) {
@@ -220,14 +222,14 @@ private fun BoosterCard(
         BoosterType.SHUFFLE -> NeonPurple
     }
     val name = when (type) {
-        BoosterType.BOMB -> if (isTr) "BOMBA" else "BOMB"
-        BoosterType.LINE_CLEAR -> if (isTr) "SATIR TEMİZLE" else "LINE CLEAR"
-        BoosterType.SHUFFLE -> if (isTr) "KARIŞTIR" else "SHUFFLE"
+        BoosterType.BOMB -> language.pick(tr = "BOMBA", en = "BOMB", it = "BOMBA", fr = "BOMBE", es = "BOMBA")
+        BoosterType.LINE_CLEAR -> language.pick(tr = "SATIR TEMİZLE", en = "LINE CLEAR", it = "ELIMINA LINEA", fr = "EFFACER LIGNE", es = "LIMPIAR LÍNEA")
+        BoosterType.SHUFFLE -> language.pick(tr = "KARIŞTIR", en = "SHUFFLE", it = "MESCOLA", fr = "MÉLANGER", es = "MEZCLAR")
     }
     val description = when (type) {
-        BoosterType.BOMB -> if (isTr) "3x3 alanı yok eder" else "Destroys a 3x3 area"
-        BoosterType.LINE_CLEAR -> if (isTr) "Bir satır/sütunu anında temizler" else "Instantly clears a row/column"
-        BoosterType.SHUFFLE -> if (isTr) "Tepsiyi parça harcamadan yeniler" else "Refreshes the tray without using a piece"
+        BoosterType.BOMB -> language.pick(tr = "3x3 alanı yok eder", en = "Destroys a 3x3 area", it = "Distrugge un'area 3x3", fr = "Détruit une zone 3x3", es = "Destruye un área de 3x3")
+        BoosterType.LINE_CLEAR -> language.pick(tr = "Bir satır/sütunu anında temizler", en = "Instantly clears a row/column", it = "Elimina istantaneamente una riga/colonna", fr = "Efface instantanément une ligne/colonne", es = "Limpia instantáneamente una fila/columna")
+        BoosterType.SHUFFLE -> language.pick(tr = "Tepsiyi parça harcamadan yeniler", en = "Refreshes the tray without using a piece", it = "Rinnova il vassoio senza usare un pezzo", fr = "Renouvelle le plateau sans utiliser une pièce", es = "Renueva la bandeja sin usar una pieza")
     }
 
     Card(
@@ -271,7 +273,7 @@ private fun BoosterCard(
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = (if (isTr) "Sahip: " else "Owned: ") + owned,
+                            text = language.pick(tr = "Sahip: ", en = "Owned: ", it = "Posseduti: ", fr = "Possédés : ", es = "Poseídos: ") + owned,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = palette.textSecondary,
@@ -301,7 +303,7 @@ private fun BoosterCard(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (isTr) "SATIN AL" else "BUY",
+                        text = language.pick(tr = "SATIN AL", en = "BUY", it = "ACQUISTA", fr = "ACHETER", es = "COMPRAR"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (canAfford) Color.Black else palette.textSecondary
@@ -320,7 +322,7 @@ private fun BoosterCard(
 
 @Composable
 private fun WatchAdCard(
-    isTr: Boolean,
+    language: AppLanguage,
     palette: BlastPalette,
     onWatchAdForTokens: () -> Unit
 ) {
@@ -356,13 +358,13 @@ private fun WatchAdCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isTr) "Reklam izle: +Token" else "Watch ad: +Tokens",
+                    text = language.pick(tr = "Reklam izle: +Token", en = "Watch ad: +Tokens", it = "Guarda annuncio: +Token", fr = "Regarder pub : +Jetons", es = "Ver anuncio: +Fichas"),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonGold
                 )
                 Text(
-                    text = if (isTr) "Ücretsiz bonus token kazan" else "Earn free bonus tokens",
+                    text = language.pick(tr = "Ücretsiz bonus token kazan", en = "Earn free bonus tokens", it = "Ottieni token bonus gratis", fr = "Gagnez des jetons bonus gratuits", es = "Gana fichas bonus gratis"),
                     fontSize = 11.sp,
                     color = palette.textSecondary
                 )
@@ -373,7 +375,7 @@ private fun WatchAdCard(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
-                    text = if (isTr) "İZLE" else "WATCH",
+                    text = language.pick(tr = "İZLE", en = "WATCH", it = "GUARDA", fr = "REGARDER", es = "VER"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonGold,

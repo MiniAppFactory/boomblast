@@ -102,7 +102,9 @@ import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonMagenta
 import com.example.ui.theme.NeonPurple
+import com.example.data.AppLanguage
 import com.example.data.BoosterType
+import com.example.data.pick
 import com.example.ui.theme.blastPalette
 import com.example.utils.SoundManager
 import com.example.utils.TextToSpeechManager
@@ -202,35 +204,65 @@ data class BlockThemeOption(
     val id: String,
     val titleTr: String,
     val titleEn: String,
+    val titleIt: String,
+    val titleFr: String,
+    val titleEs: String,
     val icon: String,
     val descriptionTr: String,
-    val descriptionEn: String
-)
+    val descriptionEn: String,
+    val descriptionIt: String,
+    val descriptionFr: String,
+    val descriptionEs: String
+) {
+    fun title(language: AppLanguage): String =
+        language.pick(tr = titleTr, en = titleEn, it = titleIt, fr = titleFr, es = titleEs)
+
+    fun description(language: AppLanguage): String =
+        language.pick(tr = descriptionTr, en = descriptionEn, it = descriptionIt, fr = descriptionFr, es = descriptionEs)
+}
 
 val BLOCK_THEMES = listOf(
     BlockThemeOption(
         id = "CLASSIC",
         titleTr = "Klasik 3D Kabartma",
         titleEn = "Classic 3D Bevel",
+        titleIt = "Rilievo 3D Classico",
+        titleFr = "Relief 3D Classique",
+        titleEs = "Relieve 3D Clásico",
         icon = "🧊",
         descriptionTr = "3D kabartmalı kristal bloklar",
-        descriptionEn = "3D embossed crystal blocks"
+        descriptionEn = "3D embossed crystal blocks",
+        descriptionIt = "Blocchi di cristallo 3D in rilievo",
+        descriptionFr = "Blocs de cristal 3D en relief",
+        descriptionEs = "Bloques de cristal 3D en relieve"
     ),
     BlockThemeOption(
         id = "FRUIT",
         titleTr = "Meyve Küpleri",
         titleEn = "Fruit Cubes",
+        titleIt = "Cubi di Frutta",
+        titleFr = "Cubes de Fruits",
+        titleEs = "Cubos de Fruta",
         icon = "🍉",
         descriptionTr = "Karpuz, peynir, çilek ve portakal",
-        descriptionEn = "Watermelon, cheese, strawberry, orange"
+        descriptionEn = "Watermelon, cheese, strawberry, orange",
+        descriptionIt = "Anguria, formaggio, fragola e arancia",
+        descriptionFr = "Pastèque, fromage, fraise et orange",
+        descriptionEs = "Sandía, queso, fresa y naranja"
     ),
     BlockThemeOption(
         id = "SWEETS",
         titleTr = "Şekerleme & Tatlı",
         titleEn = "Sweets & Donuts",
+        titleIt = "Dolci & Ciambelle",
+        titleFr = "Bonbons & Donuts",
+        titleEs = "Dulces y Donuts",
         icon = "🍩",
         descriptionTr = "Donut, çikolata, bisküvi ve şeker",
-        descriptionEn = "Donut, chocolate, cookie, candy"
+        descriptionEn = "Donut, chocolate, cookie, candy",
+        descriptionIt = "Donut, cioccolato, biscotto e caramella",
+        descriptionFr = "Donut, chocolat, biscuit et bonbon",
+        descriptionEs = "Donut, chocolate, galleta y caramelo"
     )
     // Not: "MIXED" (zar) temasi kaldirildi — Unicode zar yuzu karakterleri
     // (⚀-⚅) bazi cihazlarda/fontlarda hic render olmuyordu (kullanici geri
@@ -239,11 +271,22 @@ val BLOCK_THEMES = listOf(
     // sekilde duz/klasik renkli kupe (emoji'siz) dusuyor.
 )
 
-// Faz 34: kombo kademesi basina TEK sabit kelime yerine kucuk bir esanlamli
+// Faz 34/35: kombo kademesi basina TEK sabit kelime yerine kucuk bir esanlamli
 // havuzdan rastgele secim yapmak icin — ayni kombo seviyesinde bile her
-// seferinde ayni kelime gelmesin diye.
-private fun praiseFrom(isTr: Boolean, trPool: List<String>, enPool: List<String>): String {
-    return if (isTr) trPool.random() else enPool.random()
+// seferinde ayni kelime gelmesin diye. Faz 35'te 5 dile cikarildi.
+private fun praiseFrom(
+    language: AppLanguage,
+    trPool: List<String>,
+    enPool: List<String>,
+    itPool: List<String>,
+    frPool: List<String>,
+    esPool: List<String>
+): String = when (language) {
+    AppLanguage.TR -> trPool.random()
+    AppLanguage.EN -> enPool.random()
+    AppLanguage.IT -> itPool.random()
+    AppLanguage.FR -> frPool.random()
+    AppLanguage.ES -> esPool.random()
 }
 
 @Composable
@@ -252,7 +295,7 @@ fun BlastTheBlocksGame(
     targetScore: Int,
     shapePoolTier: Int = 3,
     currentTheme: String = "CLASSIC",
-    isTr: Boolean = true,
+    language: AppLanguage = AppLanguage.TR,
     soundEnabled: Boolean = true,
     darkMode: Boolean = true,
     isEndless: Boolean = false,
@@ -274,7 +317,7 @@ fun BlastTheBlocksGame(
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
-    onSelectLanguage: (Boolean) -> Unit = {},
+    onSelectLanguage: (AppLanguage) -> Unit = {},
     uiSkin: BlastSkin = BlastSkin.DEFAULT,
     onSelectSkin: (BlastSkin) -> Unit = {},
     notificationsEnabled: Boolean = true,
@@ -765,14 +808,59 @@ fun BlastTheBlocksGame(
             // Faz 34: kullanici "hep aynısı geliyor" dedi — her kademede TEK
             // sabit kelime yerine kucuk bir esanlamli havuzdan rastgele seciliyor,
             // boylece ayni kombo seviyesinde bile degisken tepki alınıyor.
-            val praiseWord = when {
-                excitement >= 5 -> praiseFrom(isTr, listOf("İNANILMAZ!", "EFSANE!", "DURDURULAMAZ!"), listOf("AMAZING!", "LEGENDARY!", "UNSTOPPABLE!"))
-                excitement == 4 -> praiseFrom(isTr, listOf("MÜKEMMEL!", "MUHTEŞEM!", "OLAĞANÜSTÜ!"), listOf("EXCELLENT!", "FANTASTIC!", "INCREDIBLE!"))
-                excitement == 3 -> praiseFrom(isTr, listOf("HARİKA!", "ÇOK İYİ!", "BAŞARILI!"), listOf("GREAT!", "AWESOME!", "SMOOTH!"))
-                excitement == 2 -> praiseFrom(isTr, listOf("GÜZEL!", "İYİ İŞ!", "AFERİN!"), listOf("NICE!", "GOOD!", "SWEET!"))
-                excitement == 1 -> praiseFrom(isTr, listOf("SÜPER!", "GÜZEL!", "İYİ!"), listOf("SUPER!", "NICE!", "GOOD!"))
-                else -> praiseFrom(isTr, listOf("PATLAMA!", "GÜZEL!"), listOf("BLAST!", "NICE!"))
+            // Faz 34c: kullanici "yazi secili dilde kalsin ama SES her zaman
+            // Ingilizce olsun, Turkce TTS sesleri pek güzel değil" dedi — bu
+            // yuzden ekranda gosterilen kelime (language'a gore) ile TTS'e
+            // gonderilen kelime artik BAGIMSIZ: ikisi de ayni kademenin
+            // havuzundan geliyor ama SES her zaman enPool'dan seciliyor.
+            // Faz 35: 5 dile cikarildi.
+            data class PraisePools(val tr: List<String>, val en: List<String>, val it: List<String>, val fr: List<String>, val es: List<String>)
+            val pools = when {
+                excitement >= 5 -> PraisePools(
+                    listOf("İNANILMAZ!", "EFSANE!", "DURDURULAMAZ!"),
+                    listOf("AMAZING!", "LEGENDARY!", "UNSTOPPABLE!"),
+                    listOf("INCREDIBILE!", "LEGGENDARIO!", "INARRESTABILE!"),
+                    listOf("INCROYABLE!", "LÉGENDAIRE!", "IMPARABLE!"),
+                    listOf("INCREÍBLE!", "LEGENDARIO!", "IMPARABLE!")
+                )
+                excitement == 4 -> PraisePools(
+                    listOf("MÜKEMMEL!", "MUHTEŞEM!", "OLAĞANÜSTÜ!"),
+                    listOf("EXCELLENT!", "FANTASTIC!", "INCREDIBLE!"),
+                    listOf("ECCELLENTE!", "FANTASTICO!", "STRAORDINARIO!"),
+                    listOf("EXCELLENT!", "FANTASTIQUE!", "EXTRAORDINAIRE!"),
+                    listOf("EXCELENTE!", "FANTÁSTICO!", "EXTRAORDINARIO!")
+                )
+                excitement == 3 -> PraisePools(
+                    listOf("HARİKA!", "ÇOK İYİ!", "BAŞARILI!"),
+                    listOf("GREAT!", "AWESOME!", "SMOOTH!"),
+                    listOf("FANTASTICO!", "GRANDIOSO!", "PERFETTO!"),
+                    listOf("GÉNIAL!", "IMPRESSIONNANT!", "PARFAIT!"),
+                    listOf("GENIAL!", "IMPRESIONANTE!", "PERFECTO!")
+                )
+                excitement == 2 -> PraisePools(
+                    listOf("GÜZEL!", "İYİ İŞ!", "AFERİN!"),
+                    listOf("NICE!", "GOOD!", "SWEET!"),
+                    listOf("BELLO!", "BRAVO!", "OTTIMO!"),
+                    listOf("BIEN!", "BRAVO!", "SUPER!"),
+                    listOf("BIEN!", "BUEN TRABAJO!", "GENIAL!")
+                )
+                excitement == 1 -> PraisePools(
+                    listOf("SÜPER!", "GÜZEL!", "İYİ!"),
+                    listOf("SUPER!", "NICE!", "GOOD!"),
+                    listOf("SUPER!", "BELLO!", "BENE!"),
+                    listOf("SUPER!", "BIEN!", "JOLI!"),
+                    listOf("SÚPER!", "BIEN!", "BUENO!")
+                )
+                else -> PraisePools(
+                    listOf("PATLAMA!", "GÜZEL!"),
+                    listOf("BLAST!", "NICE!"),
+                    listOf("BOTTO!", "BELLO!"),
+                    listOf("BOUM!", "BIEN!"),
+                    listOf("BUM!", "BIEN!")
+                )
             }
+            val praiseWord = praiseFrom(language, pools.tr, pools.en, pools.it, pools.fr, pools.es)
+            val speechWord = pools.en.random()
             val praiseEmoji = when {
                 excitement >= 5 -> " 🔥"
                 excitement >= 2 -> " 👍"
@@ -793,24 +881,24 @@ fun BlastTheBlocksGame(
             // seferinde birebir ayni "robotik" tonlamayla cikmiyor.
             if (lastClearWasCelebration && soundEnabled) {
                 TextToSpeechManager.speakPraise(
-                    text = praiseWord,
-                    isTr = isTr,
+                    text = speechWord,
+                    isTr = false,
                     excitementLevel = excitement
                 )
             }
 
             sessionLinesCleared += totalLinesCleared
             when {
-                comboCount == 3 -> maybeUnlockAchievement("combo_3", if (isTr) "🔥 3x Kombo!" else "🔥 3x Combo!")
-                comboCount == 5 -> maybeUnlockAchievement("combo_5", if (isTr) "🔥 5x Kombo — İnanılmaz!" else "🔥 5x Combo — Amazing!")
+                comboCount == 3 -> maybeUnlockAchievement("combo_3", language.pick(tr = "🔥 3x Kombo!", en = "🔥 3x Combo!", it = "🔥 3x Combo!", fr = "🔥 3x Combo!", es = "🔥 3x Combo!"))
+                comboCount == 5 -> maybeUnlockAchievement("combo_5", language.pick(tr = "🔥 5x Kombo — İnanılmaz!", en = "🔥 5x Combo — Amazing!", it = "🔥 5x Combo — Incredibile!", fr = "🔥 5x Combo — Incroyable!", es = "🔥 5x Combo — Increíble!"))
             }
             when {
                 sessionLinesCleared >= 10 && sessionLinesCleared - totalLinesCleared < 10 ->
-                    maybeUnlockAchievement("lines_10", if (isTr) "🏅 10 satır temizledin!" else "🏅 10 lines cleared!")
+                    maybeUnlockAchievement("lines_10", language.pick(tr = "🏅 10 satır temizledin!", en = "🏅 10 lines cleared!", it = "🏅 10 linee eliminate!", fr = "🏅 10 lignes effacées!", es = "🏅 ¡10 líneas eliminadas!"))
                 sessionLinesCleared >= 25 && sessionLinesCleared - totalLinesCleared < 25 ->
-                    maybeUnlockAchievement("lines_25", if (isTr) "🏅 25 satır temizledin!" else "🏅 25 lines cleared!")
+                    maybeUnlockAchievement("lines_25", language.pick(tr = "🏅 25 satır temizledin!", en = "🏅 25 lines cleared!", it = "🏅 25 linee eliminate!", fr = "🏅 25 lignes effacées!", es = "🏅 ¡25 líneas eliminadas!"))
                 sessionLinesCleared >= 50 && sessionLinesCleared - totalLinesCleared < 50 ->
-                    maybeUnlockAchievement("lines_50", if (isTr) "🏅 50 satır — harikasın!" else "🏅 50 lines — you're on fire!")
+                    maybeUnlockAchievement("lines_50", language.pick(tr = "🏅 50 satır — harikasın!", en = "🏅 50 lines — you're on fire!", it = "🏅 50 linee — sei in fiamme!", fr = "🏅 50 lignes — tu es en feu!", es = "🏅 50 líneas — ¡estás que ardes!"))
             }
 
             val clearedIndices = mutableSetOf<Int>()
@@ -978,11 +1066,10 @@ fun BlastTheBlocksGame(
                     modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp)
                 ) {
                     Text(
-                        text = when {
-                            isEndless && isTr -> "SONSUZ MOD"
-                            isEndless -> "ENDLESS MODE"
-                            isTr -> "SEVİYE $levelNumber"
-                            else -> "LEVEL $levelNumber"
+                        text = if (isEndless) {
+                            language.pick(tr = "SONSUZ MOD", en = "ENDLESS MODE", it = "MODALITÀ INFINITA", fr = "MODE INFINI", es = "MODO INFINITO")
+                        } else {
+                            language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber")
                         },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Black,
@@ -1018,7 +1105,7 @@ fun BlastTheBlocksGame(
                             Text(text = activeTheme.icon, fontSize = 13.sp)
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (isTr) "TEMA" else "THEME",
+                                text = language.pick(tr = "TEMA", en = "THEME", it = "TEMA", fr = "THÈME", es = "TEMA"),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NeonPurple
@@ -1036,7 +1123,7 @@ fun BlastTheBlocksGame(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = if (isTr) "Ayarlar" else "Settings",
+                            contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
                             tint = palette.textPrimary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1073,7 +1160,7 @@ fun BlastTheBlocksGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = (if (isTr) "🎯 SKOR" else "🎯 SCORE"),
+                            text = language.pick(tr = "🎯 SKOR", en = "🎯 SCORE", it = "🎯 PUNTEGGIO", fr = "🎯 SCORE", es = "🎯 PUNTUACIÓN"),
                             fontSize = 10.sp,
                             color = palette.textSecondary,
                             fontWeight = FontWeight.Bold
@@ -1122,7 +1209,7 @@ fun BlastTheBlocksGame(
                             // Sonsuz Mod'da sabit bir hedef olmadigi icin ilerleme cubugunun
                             // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
                             Text(
-                                text = if (isTr) "🔥 KOMBO" else "🔥 COMBO",
+                                text = language.pick(tr = "🔥 KOMBO", en = "🔥 COMBO", it = "🔥 COMBO", fr = "🔥 COMBO", es = "🔥 COMBO"),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 color = if (comboCount >= 2) NeonGold else NeonCyan
@@ -1136,7 +1223,7 @@ fun BlastTheBlocksGame(
                             )
                         } else {
                             Text(
-                                text = if (isTr) "📈 İLERLEME" else "📈 PROGRESS",
+                                text = language.pick(tr = "📈 İLERLEME", en = "📈 PROGRESS", it = "📈 PROGRESSO", fr = "📈 PROGRÈS", es = "📈 PROGRESO"),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonCyan
@@ -1175,9 +1262,9 @@ fun BlastTheBlocksGame(
                     ) {
                         Text(
                             text = if (isEndless) {
-                                if (isTr) "🏆 EN YÜKSEK" else "🏆 BEST"
+                                language.pick(tr = "🏆 EN YÜKSEK", en = "🏆 BEST", it = "🏆 MIGLIORE", fr = "🏆 MEILLEUR", es = "🏆 MEJOR")
                             } else {
-                                if (isTr) "🏁 HEDEF" else "🏁 TARGET"
+                                language.pick(tr = "🏁 HEDEF", en = "🏁 TARGET", it = "🏁 OBIETTIVO", fr = "🏁 OBJECTIF", es = "🏁 OBJETIVO")
                             },
                             fontSize = 10.sp,
                             color = palette.textSecondary,
@@ -1242,7 +1329,7 @@ fun BlastTheBlocksGame(
                     }
                     if (armedBooster != null) {
                         Text(
-                            text = if (isTr) "Hedef bir hücreye dokun" else "Tap a target cell",
+                            text = language.pick(tr = "Hedef bir hücreye dokun", en = "Tap a target cell", it = "Tocca una cella bersaglio", fr = "Touchez une case cible", es = "Toca una celda objetivo"),
                             fontSize = 11.sp,
                             color = NeonGreen,
                             fontWeight = FontWeight.Medium,
@@ -1279,7 +1366,7 @@ fun BlastTheBlocksGame(
                     // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
                     if (comboCount >= 2) {
                         Text(
-                            text = "${comboCount}x ${if (isTr) "KOMBO" else "COMBO"}",
+                            text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonGold
@@ -1442,7 +1529,7 @@ fun BlastTheBlocksGame(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = if (isTr) "Bir bloğu sürükleyip ızgaraya bırakın" else "Drag a block onto the grid",
+                text = language.pick(tr = "Bir bloğu sürükleyip ızgaraya bırakın", en = "Drag a block onto the grid", it = "Trascina un blocco sulla griglia", fr = "Faites glisser un bloc sur la grille", es = "Arrastra un bloque a la cuadrícula"),
                 fontSize = 12.sp,
                 color = palette.textSecondary,
                 fontWeight = FontWeight.Medium
@@ -1596,7 +1683,7 @@ fun BlastTheBlocksGame(
                     .zIndex(25f)
             ) {
                 Text(
-                    text = if (isTr) "⬇️ Bir parçayı ızgaraya sürükle" else "⬇️ Drag a piece onto the grid",
+                    text = language.pick(tr = "⬇️ Bir parçayı ızgaraya sürükle", en = "⬇️ Drag a piece onto the grid", it = "⬇️ Trascina un pezzo sulla griglia", fr = "⬇️ Glissez une pièce sur la grille", es = "⬇️ Arrastra una pieza a la cuadrícula"),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonCyan,
@@ -1681,7 +1768,7 @@ fun BlastTheBlocksGame(
                             Icon(imageVector = Icons.Default.Palette, contentDescription = "Theme", tint = NeonPurple)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isTr) "BLOK TEMASI SEÇİN" else "SELECT BLOCK THEME",
+                                text = language.pick(tr = "BLOK TEMASI SEÇİN", en = "SELECT BLOCK THEME", it = "SELEZIONA TEMA BLOCCHI", fr = "CHOISIR LE THÈME DES BLOCS", es = "SELECCIONA TEMA DE BLOQUES"),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonPurple
@@ -1720,14 +1807,14 @@ fun BlastTheBlocksGame(
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = if (isTr) theme.titleTr else theme.titleEn,
+                                                text = theme.title(language),
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = palette.textPrimary
                                             )
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
-                                                text = if (isTr) theme.descriptionTr else theme.descriptionEn,
+                                                text = theme.description(language),
                                                 fontSize = 11.sp,
                                                 color = palette.textSecondary
                                             )
@@ -1738,7 +1825,7 @@ fun BlastTheBlocksGame(
                                                 shape = RoundedCornerShape(6.dp)
                                             ) {
                                                 Text(
-                                                    text = if (isTr) "SEÇİLİ" else "ACTIVE",
+                                                    text = language.pick(tr = "SEÇİLİ", en = "ACTIVE", it = "ATTIVO", fr = "ACTIF", es = "ACTIVO"),
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = NeonGreen,
@@ -1759,7 +1846,7 @@ fun BlastTheBlocksGame(
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (isTr) "KAPAT" else "CLOSE", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                            Text(language.pick(tr = "KAPAT", en = "CLOSE", it = "CHIUDI", fr = "FERMER", es = "CERRAR"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }
@@ -1775,7 +1862,7 @@ fun BlastTheBlocksGame(
                     soundVolume = soundVolume,
                     musicEnabled = musicEnabled,
                     darkMode = darkMode,
-                    isTr = isTr,
+                    language = language,
                     skin = uiSkin,
                     onToggleSound = onToggleSound,
                     onSoundVolumeChange = onSoundVolumeChange,
@@ -1815,7 +1902,7 @@ fun BlastTheBlocksGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isTr) "DEVAM ETMEK İSTER MİSİN?" else "WANT TO CONTINUE?",
+                            text = language.pick(tr = "DEVAM ETMEK İSTER MİSİN?", en = "WANT TO CONTINUE?", it = "VUOI CONTINUARE?", fr = "VOULEZ-VOUS CONTINUER?", es = "¿QUIERES CONTINUAR?"),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonGreen,
@@ -1825,7 +1912,7 @@ fun BlastTheBlocksGame(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = if (isTr) "Reklam izleyip son 3 hamleni geri alarak devam edebilirsin" else "Watch an ad to undo your last 3 moves and keep playing",
+                            text = language.pick(tr = "Reklam izleyip son 3 hamleni geri alarak devam edebilirsin", en = "Watch an ad to undo your last 3 moves and keep playing", it = "Guarda un annuncio per annullare le ultime 3 mosse e continuare", fr = "Regardez une pub pour annuler vos 3 derniers coups et continuer", es = "Mira un anuncio para deshacer tus últimos 3 movimientos y seguir jugando"),
                             fontSize = 13.sp,
                             color = palette.textSecondary,
                             textAlign = TextAlign.Center
@@ -1844,7 +1931,7 @@ fun BlastTheBlocksGame(
                                 .testTag("continue_watch_ad_button")
                         ) {
                             Text(
-                                text = if (isTr) "REKLAM İZLE VE DEVAM ET" else "WATCH AD TO CONTINUE",
+                                text = language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR"),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -1862,7 +1949,7 @@ fun BlastTheBlocksGame(
                                 .height(44.dp)
                                 .testTag("continue_end_session_button")
                         ) {
-                            Text(if (isTr) "BİTİR" else "END", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                            Text(language.pick(tr = "BİTİR", en = "END", it = "FINE", fr = "FIN", es = "FIN"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }
@@ -1894,11 +1981,10 @@ fun BlastTheBlocksGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = when {
-                                isEndless && isTr -> "OYUN BİTTİ"
-                                isEndless -> "GAME OVER"
-                                isTr -> "SEVİYE BAŞARISIZ"
-                                else -> "LEVEL FAILED"
+                            text = if (isEndless) {
+                                language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "GIOCO FINITO", fr = "PARTIE TERMINÉE", es = "JUEGO TERMINADO")
+                            } else {
+                                language.pick(tr = "SEVİYE BAŞARISIZ", en = "LEVEL FAILED", it = "LIVELLO FALLITO", fr = "NIVEAU ÉCHOUÉ", es = "NIVEL FALLIDO")
                             },
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
@@ -1907,7 +1993,7 @@ fun BlastTheBlocksGame(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = palette.textSecondary)
+                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
                         Text(
                             text = if (isEndless) "$score" else "$score / $targetScore",
                             fontSize = 32.sp,
@@ -1926,7 +2012,7 @@ fun BlastTheBlocksGame(
                                 .height(50.dp)
                                 .testTag("block_blast_restart_confirm")
                         ) {
-                            Text(if (isTr) "TEKRAR DENE" else "RETRY", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            Text(language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR"), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1937,7 +2023,7 @@ fun BlastTheBlocksGame(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
-                            Text(if (isTr) "HARİTAYA DÖN" else "BACK TO MAP", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                            Text(language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
                 }
@@ -1986,7 +2072,7 @@ fun BlastTheBlocksGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isTr) "SEVİYE TAMAMLANDI!" else "LEVEL COMPLETE!",
+                            text = language.pick(tr = "SEVİYE TAMAMLANDI!", en = "LEVEL COMPLETE!", it = "LIVELLO COMPLETATO!", fr = "NIVEAU TERMINÉ!", es = "¡NIVEL COMPLETADO!"),
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Black,
                             color = NeonGreen
@@ -2006,7 +2092,7 @@ fun BlastTheBlocksGame(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(if (isTr) "Skor" else "Score", fontSize = 14.sp, color = palette.textSecondary)
+                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
                         Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -2020,7 +2106,7 @@ fun BlastTheBlocksGame(
                                 .height(50.dp)
                                 .testTag("level_complete_continue_button")
                         ) {
-                            Text(if (isTr) "DEVAM ET" else "CONTINUE", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            Text(language.pick(tr = "DEVAM ET", en = "CONTINUE", it = "CONTINUA", fr = "CONTINUER", es = "CONTINUAR"), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         }
                     }
                 }

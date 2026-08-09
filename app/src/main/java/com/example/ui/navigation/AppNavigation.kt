@@ -74,7 +74,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
                         ModeSelectScreen(
-                            isTr = progress.isTr,
+                            language = progress.language,
                             darkMode = progress.darkMode,
                             skin = skin,
                             tokens = progress.tokens,
@@ -93,14 +93,14 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
 
                 if (!progress.hasAcceptedTerms) {
                     TermsAcceptScreen(
-                        isTr = progress.isTr,
+                        language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
                         onAccept = { viewModel.markTermsAccepted() }
                     )
                 } else if (!progress.hasSeenOnboarding) {
                     OnboardingScreen(
-                        isTr = progress.isTr,
+                        language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
                         onFinish = { viewModel.markOnboardingSeen() }
@@ -114,7 +114,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 Box(modifier = Modifier.weight(1f)) {
                     LevelMapScreen(
                         progress = progress,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
                         onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
@@ -141,7 +141,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         levelNumber = level,
                         targetScore = definition.targetScore,
                         progress = progress,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
                         onBuyBooster = { type -> viewModel.buyBooster(type) },
@@ -179,7 +179,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         targetScore = definition.targetScore,
                         shapePoolTier = definition.shapePoolTier,
                         currentTheme = progress.blockTheme,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         darkMode = progress.darkMode,
                         initialBoosterCounts = progress.ownedBoosters,
@@ -219,7 +219,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         isEndless = true,
                         bestScore = progress.endlessHighScore,
                         currentTheme = progress.blockTheme,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         darkMode = progress.darkMode,
                         initialBoosterCounts = progress.ownedBoosters,
@@ -267,7 +267,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 Box(modifier = Modifier.weight(1f)) {
                     MissionsScreen(
                         missionProgress = missions,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
                         onClaim = { id -> viewModel.claimMission(id) },
@@ -288,7 +288,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         soundVolume = progress.soundVolume,
                         musicEnabled = progress.musicEnabled,
                         darkMode = progress.darkMode,
-                        isTr = progress.isTr,
+                        language = progress.language,
                         skin = skin,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
                         onSoundVolumeChange = { viewModel.setSoundVolume(it) },

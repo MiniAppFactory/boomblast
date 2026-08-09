@@ -26,7 +26,11 @@ class GameStateRepository(private val context: Context) {
         val SOUND_VOLUME = floatPreferencesKey("sound_volume")
         val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
+        // Faz 35: "is_tr" (Boolean, sadece TR/EN) yerini "language" (String kod,
+        // 5 dil) alıyor. Eski key SILINMEDI — asagidaki okuma mantiginda geriye
+        // donuk uyumluluk icin kullaniliyor (mevcut cihazdaki TR/EN tercihi kaybolmasin).
         val IS_TR = booleanPreferencesKey("is_tr")
+        val LANGUAGE = stringPreferencesKey("language")
         val BLOCK_THEME = stringPreferencesKey("block_theme")
         val UI_SKIN = stringPreferencesKey("ui_skin")
         val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
@@ -50,7 +54,8 @@ class GameStateRepository(private val context: Context) {
             soundVolume = prefs[Keys.SOUND_VOLUME] ?: 0.5f,
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
             darkMode = prefs[Keys.DARK_MODE] ?: true,
-            isTr = prefs[Keys.IS_TR] ?: true,
+            language = prefs[Keys.LANGUAGE]?.let { AppLanguage.fromCode(it) }
+                ?: if (prefs[Keys.IS_TR] == false) AppLanguage.EN else AppLanguage.TR,
             blockTheme = prefs[Keys.BLOCK_THEME] ?: "CLASSIC",
             uiSkin = prefs[Keys.UI_SKIN] ?: "DEFAULT",
             hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,
@@ -141,8 +146,8 @@ class GameStateRepository(private val context: Context) {
         context.gameDataStore.edit { it[Keys.DARK_MODE] = enabled }
     }
 
-    suspend fun setLanguage(isTr: Boolean) {
-        context.gameDataStore.edit { it[Keys.IS_TR] = isTr }
+    suspend fun setLanguage(language: AppLanguage) {
+        context.gameDataStore.edit { it[Keys.LANGUAGE] = language.code }
     }
 
     suspend fun setBlockTheme(theme: String) {

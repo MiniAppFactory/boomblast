@@ -3,6 +3,7 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.AppLanguage
 import com.example.data.BoosterType
 import com.example.data.GameStateRepository
 import com.example.data.MissionType
@@ -81,8 +82,8 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setDarkMode(enabled) }
     }
 
-    fun setLanguage(isTr: Boolean) {
-        viewModelScope.launch { repository.setLanguage(isTr) }
+    fun setLanguage(language: AppLanguage) {
+        viewModelScope.launch { repository.setLanguage(language) }
     }
 
     fun setBlockTheme(theme: String) {

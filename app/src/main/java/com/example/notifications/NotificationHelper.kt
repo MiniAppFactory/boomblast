@@ -12,6 +12,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
+import com.example.data.AppLanguage
 import kotlin.random.Random
 
 // Faz 27: rakip oyunlardaki gibi ("Şimdi oyna, eğlenceli bir tur bekliyor")
@@ -34,6 +35,25 @@ object NotificationHelper {
         "🎁 Time to grab free tokens" to "Watch an ad, get a booster",
         "🏆 Your weekly missions are waiting" to "Don't forget to claim your reward"
     )
+    // Faz 35: 5 dile cikarilirken eklendi.
+    private val messagesIt = listOf(
+        "🧩 Un turno divertente ti aspetta!" to "Gioca ora e batti il tuo record 🚀",
+        "🔥 Non perdere la tua serie!" to "Che ne dici di eliminare qualche linea oggi?",
+        "🎁 È ora di prendere token gratis" to "Guarda un annuncio, ottieni un potenziamento",
+        "🏆 Le tue missioni settimanali ti aspettano" to "Non dimenticare di riscuotere la tua ricompensa"
+    )
+    private val messagesFr = listOf(
+        "🧩 Une partie amusante t'attend !" to "Joue maintenant et bats ton record 🚀",
+        "🔥 Ne perds pas ta série !" to "Et si tu effaçais quelques lignes aujourd'hui ?",
+        "🎁 C'est le moment de récupérer des jetons gratuits" to "Regarde une pub, obtiens un boost",
+        "🏆 Tes missions hebdomadaires t'attendent" to "N'oublie pas de réclamer ta récompense"
+    )
+    private val messagesEs = listOf(
+        "🧩 ¡Una ronda divertida te espera!" to "Juega ahora y supera tu récord 🚀",
+        "🔥 ¡No pierdas tu racha!" to "¿Qué tal si limpias unas líneas hoy?",
+        "🎁 Es hora de conseguir fichas gratis" to "Mira un anuncio, obtén un potenciador",
+        "🏆 Tus misiones semanales te esperan" to "No olvides reclamar tu recompensa"
+    )
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -46,7 +66,7 @@ object NotificationHelper {
         }
     }
 
-    fun showReminder(context: Context, isTr: Boolean) {
+    fun showReminder(context: Context, language: AppLanguage) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
@@ -55,7 +75,13 @@ object NotificationHelper {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
 
         ensureChannel(context)
-        val pool = if (isTr) messagesTr else messagesEn
+        val pool = when (language) {
+            AppLanguage.TR -> messagesTr
+            AppLanguage.EN -> messagesEn
+            AppLanguage.IT -> messagesIt
+            AppLanguage.FR -> messagesFr
+            AppLanguage.ES -> messagesEs
+        }
         val (title, body) = pool[Random.nextInt(pool.size)]
 
         val intent = Intent(context, MainActivity::class.java).apply {

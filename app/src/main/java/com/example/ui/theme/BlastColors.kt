@@ -1,6 +1,8 @@
 package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import com.example.data.AppLanguage
+import com.example.data.pick
 
 // Faz 5: acik/koyu mod icin ekranlarin okudugu ortak "token" paleti.
 // Neon vurgu renkleri (NeonCyan/NeonGold/NeonPurple/vb.) her iki modda da
@@ -84,17 +86,23 @@ enum class BlastSkin(
     val swatch: Color,
     val labelTr: String,
     val labelEn: String,
+    val labelIt: String,
+    val labelFr: String,
+    val labelEs: String,
     // Faz 22: grid cercevesi ve ambient zemin ısıması onceden TUM skinlerde sabit
     // cyan-mor kalıyordu — Orman/Okyanus gibi skinlerde bile ayni cercevenin kalmasi
     // skin'in "yarim" hissettirmesine yol aciyordu. Her skin artik kendi vurgu
     // gradyanini tasiyor.
     val accentGradient: List<Color>
 ) {
-    DEFAULT(Color(0xFF1E293B), "Varsayılan", "Default", listOf(NeonCyan, NeonPurple)),
-    FOREST(Color(0xFF2A4433), "Orman", "Forest", listOf(Color(0xFF34D399), Color(0xFF059669))),
-    OCEAN(Color(0xFF1B4566), "Okyanus", "Ocean", listOf(Color(0xFF38BDF8), Color(0xFF0EA5E9))),
-    SUNSET(Color(0xFF54305A), "Gün Batımı", "Sunset", listOf(Color(0xFFF97316), Color(0xFFEC4899))),
-    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night", listOf(Color(0xFFA78BFA), Color(0xFF7C3AED)));
+    DEFAULT(Color(0xFF1E293B), "Varsayılan", "Default", "Predefinito", "Par défaut", "Predeterminado", listOf(NeonCyan, NeonPurple)),
+    FOREST(Color(0xFF2A4433), "Orman", "Forest", "Foresta", "Forêt", "Bosque", listOf(Color(0xFF34D399), Color(0xFF059669))),
+    OCEAN(Color(0xFF1B4566), "Okyanus", "Ocean", "Oceano", "Océan", "Océano", listOf(Color(0xFF38BDF8), Color(0xFF0EA5E9))),
+    SUNSET(Color(0xFF54305A), "Gün Batımı", "Sunset", "Tramonto", "Coucher de Soleil", "Atardecer", listOf(Color(0xFFF97316), Color(0xFFEC4899))),
+    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night", "Notte Viola", "Nuit Violette", "Noche Púrpura", listOf(Color(0xFFA78BFA), Color(0xFF7C3AED)));
+
+    fun label(language: AppLanguage): String =
+        language.pick(tr = labelTr, en = labelEn, it = labelIt, fr = labelFr, es = labelEs)
 
     companion object {
         fun fromId(id: String): BlastSkin = entries.find { it.name == id } ?: DEFAULT

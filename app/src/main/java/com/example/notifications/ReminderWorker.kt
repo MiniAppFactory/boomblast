@@ -21,7 +21,7 @@ class ReminderWorker(appContext: Context, params: WorkerParameters) : CoroutineW
         val repository = GameStateRepository(applicationContext)
         val progress = repository.playerProgress.first()
         if (progress.notificationsEnabled) {
-            NotificationHelper.showReminder(applicationContext, progress.isTr)
+            NotificationHelper.showReminder(applicationContext, progress.language)
         }
         scheduleNext(applicationContext, ExistingWorkPolicy.REPLACE)
         return Result.success()

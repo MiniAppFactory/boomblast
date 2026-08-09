@@ -43,7 +43,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
 import com.example.data.PlayerProgress
+import com.example.data.pick
 import com.example.game.LevelGenerator
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
@@ -56,7 +58,7 @@ import com.example.ui.theme.blastPalette
 @Composable
 fun LevelMapScreen(
     progress: PlayerProgress,
-    isTr: Boolean,
+    language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onSelectLevel: (Int) -> Unit,
@@ -76,7 +78,7 @@ fun LevelMapScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             LevelMapHeader(
                 progress = progress,
-                isTr = isTr,
+                language = language,
                 palette = palette,
                 onOpenMissions = onOpenMissions,
                 onOpenSettings = onOpenSettings,
@@ -100,7 +102,7 @@ fun LevelMapScreen(
                         levelNumber = levelNumber,
                         unlocked = unlocked,
                         stars = stars,
-                        isTr = isTr,
+                        language = language,
                         palette = palette,
                         onClick = { if (unlocked) onSelectLevel(levelNumber) }
                     )
@@ -113,7 +115,7 @@ fun LevelMapScreen(
 @Composable
 private fun LevelMapHeader(
     progress: PlayerProgress,
-    isTr: Boolean,
+    language: AppLanguage,
     palette: BlastPalette,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -141,13 +143,13 @@ private fun LevelMapHeader(
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
-                    contentDescription = if (isTr) "Geri" else "Back",
+                    contentDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
                     tint = palette.textPrimary
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (isTr) "SEVİYELER" else "LEVELS",
+                text = language.pick(tr = "SEVİYELER", en = "LEVELS", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
                 color = NeonCyan,
@@ -191,7 +193,7 @@ private fun LevelMapHeader(
             ) {
                 Icon(
                     imageVector = Icons.Default.EmojiEvents,
-                    contentDescription = if (isTr) "Görevler" else "Missions",
+                    contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
                     tint = NeonPurple
                 )
             }
@@ -202,7 +204,7 @@ private fun LevelMapHeader(
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = if (isTr) "Ayarlar" else "Settings",
+                    contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
                     tint = palette.textPrimary
                 )
             }
@@ -215,7 +217,7 @@ private fun LevelCard(
     levelNumber: Int,
     unlocked: Boolean,
     stars: Int?,
-    isTr: Boolean,
+    language: AppLanguage,
     palette: BlastPalette,
     onClick: () -> Unit
 ) {
@@ -269,7 +271,7 @@ private fun LevelCard(
                     } else {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = if (isTr) "Kilitli" else "Locked",
+                            contentDescription = language.pick(tr = "Kilitli", en = "Locked", it = "Bloccato", fr = "Verrouillé", es = "Bloqueado"),
                             tint = Color.Gray,
                             modifier = Modifier.size(24.dp)
                         )
@@ -280,13 +282,13 @@ private fun LevelCard(
 
                 Column {
                     Text(
-                        text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
+                        text = language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber"),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (unlocked) palette.textPrimary else palette.textSecondary
                     )
                     Text(
-                        text = if (isTr) "HEDEF: $targetScore" else "TARGET: $targetScore",
+                        text = language.pick(tr = "HEDEF: $targetScore", en = "TARGET: $targetScore", it = "OBIETTIVO: $targetScore", fr = "OBJECTIF : $targetScore", es = "OBJETIVO: $targetScore"),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = palette.textSecondary
@@ -299,7 +301,7 @@ private fun LevelCard(
             } else {
                 Icon(
                     imageVector = Icons.Default.Lock,
-                    contentDescription = if (isTr) "Kilitli" else "Locked",
+                    contentDescription = language.pick(tr = "Kilitli", en = "Locked", it = "Bloccato", fr = "Verrouillé", es = "Bloqueado"),
                     tint = Color.DarkGray,
                     modifier = Modifier.size(24.dp)
                 )

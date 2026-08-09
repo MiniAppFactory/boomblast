@@ -7,13 +7,13 @@ import kotlin.random.Random
 object WeeklyMissionGenerator {
 
     private val POOL = listOf(
-        WeeklyMissionDef("complete_5_levels", "5 Seviye Tamamla", "Complete 5 Levels", target = 5, rewardTokens = 25, type = MissionType.COMPLETE_LEVELS),
-        WeeklyMissionDef("complete_15_levels", "15 Seviye Tamamla", "Complete 15 Levels", target = 15, rewardTokens = 40, type = MissionType.COMPLETE_LEVELS),
-        WeeklyMissionDef("clear_100_lines", "100 Satır/Sütun Patlat", "Clear 100 Lines", target = 100, rewardTokens = 30, type = MissionType.CLEAR_LINES),
-        WeeklyMissionDef("clear_300_lines", "300 Satır/Sütun Patlat", "Clear 300 Lines", target = 300, rewardTokens = 70, type = MissionType.CLEAR_LINES),
-        WeeklyMissionDef("use_5_boosters", "5 Güçlendirici Kullan", "Use 5 Boosters", target = 5, rewardTokens = 20, type = MissionType.USE_BOOSTERS),
-        WeeklyMissionDef("score_5000", "Toplamda 5000 Puan Topla", "Score 5000 Total Points", target = 5000, rewardTokens = 35, type = MissionType.SCORE_POINTS),
-        WeeklyMissionDef("score_15000", "Toplamda 15000 Puan Topla", "Score 15000 Total Points", target = 15000, rewardTokens = 80, type = MissionType.SCORE_POINTS)
+        WeeklyMissionDef("complete_5_levels", "5 Seviye Tamamla", "Complete 5 Levels", "Completa 5 Livelli", "Terminer 5 Niveaux", "Completa 5 Niveles", target = 5, rewardTokens = 25, type = MissionType.COMPLETE_LEVELS),
+        WeeklyMissionDef("complete_15_levels", "15 Seviye Tamamla", "Complete 15 Levels", "Completa 15 Livelli", "Terminer 15 Niveaux", "Completa 15 Niveles", target = 15, rewardTokens = 40, type = MissionType.COMPLETE_LEVELS),
+        WeeklyMissionDef("clear_100_lines", "100 Satır/Sütun Patlat", "Clear 100 Lines", "Elimina 100 Linee", "Effacer 100 Lignes", "Elimina 100 Líneas", target = 100, rewardTokens = 30, type = MissionType.CLEAR_LINES),
+        WeeklyMissionDef("clear_300_lines", "300 Satır/Sütun Patlat", "Clear 300 Lines", "Elimina 300 Linee", "Effacer 300 Lignes", "Elimina 300 Líneas", target = 300, rewardTokens = 70, type = MissionType.CLEAR_LINES),
+        WeeklyMissionDef("use_5_boosters", "5 Güçlendirici Kullan", "Use 5 Boosters", "Usa 5 Potenziamenti", "Utiliser 5 Boosts", "Usa 5 Potenciadores", target = 5, rewardTokens = 20, type = MissionType.USE_BOOSTERS),
+        WeeklyMissionDef("score_5000", "Toplamda 5000 Puan Topla", "Score 5000 Total Points", "Totalizza 5000 Punti", "Marquer 5000 Points au Total", "Consigue 5000 Puntos en Total", target = 5000, rewardTokens = 35, type = MissionType.SCORE_POINTS),
+        WeeklyMissionDef("score_15000", "Toplamda 15000 Puan Topla", "Score 15000 Total Points", "Totalizza 15000 Punti", "Marquer 15000 Points au Total", "Consigue 15000 Puntos en Total", target = 15000, rewardTokens = 80, type = MissionType.SCORE_POINTS)
     )
 
     fun forWeek(weekId: String): List<WeeklyMissionDef> {

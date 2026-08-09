@@ -36,8 +36,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
 import com.example.data.WeeklyMissionDef
 import com.example.data.WeeklyMissionProgress
+import com.example.data.pick
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
@@ -48,7 +50,7 @@ import com.example.ui.theme.blastPalette
 @Composable
 fun MissionsScreen(
     missionProgress: WeeklyMissionProgress,
-    isTr: Boolean,
+    language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onClaim: (String) -> Unit,
@@ -85,7 +87,7 @@ fun MissionsScreen(
                 }
 
                 Text(
-                    text = if (isTr) "HAFTALIK GÖREVLER" else "WEEKLY MISSIONS",
+                    text = language.pick(tr = "HAFTALIK GÖREVLER", en = "WEEKLY MISSIONS", it = "MISSIONI SETTIMANALI", fr = "MISSIONS HEBDOMADAIRES", es = "MISIONES SEMANALES"),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = NeonCyan,
@@ -118,11 +120,13 @@ fun MissionsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isTr) {
-                                "Bu haftaki tüm görevler tamamlandı!"
-                            } else {
-                                "All missions completed this week!"
-                            },
+                            text = language.pick(
+                                tr = "Bu haftaki tüm görevler tamamlandı!",
+                                en = "All missions completed this week!",
+                                it = "Tutte le missioni di questa settimana completate!",
+                                fr = "Toutes les missions de la semaine sont terminées !",
+                                es = "¡Todas las misiones de esta semana completadas!"
+                            ),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = NeonGreen
@@ -142,7 +146,7 @@ fun MissionsScreen(
                         mission = mission,
                         currentCount = missionProgress.progress[mission.id] ?: 0,
                         isClaimed = mission.id in missionProgress.claimed,
-                        isTr = isTr,
+                        language = language,
                         palette = palette,
                         onClaim = { onClaim(mission.id) }
                     )
@@ -157,7 +161,7 @@ private fun MissionCard(
     mission: WeeklyMissionDef,
     currentCount: Int,
     isClaimed: Boolean,
-    isTr: Boolean,
+    language: AppLanguage,
     palette: BlastPalette,
     onClaim: () -> Unit
 ) {
@@ -180,7 +184,7 @@ private fun MissionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isTr) mission.titleTr else mission.titleEn,
+                    text = mission.title(language),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
                     color = palette.textPrimary,
@@ -247,7 +251,7 @@ private fun MissionCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isTr) "Alındı" else "Claimed",
+                                text = language.pick(tr = "Alındı", en = "Claimed", it = "Riscosso", fr = "Réclamé", es = "Reclamado"),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = palette.textSecondary
@@ -266,7 +270,7 @@ private fun MissionCard(
                             .testTag("claim_mission_${mission.id}")
                     ) {
                         Text(
-                            text = if (isTr) "TOPLA" else "CLAIM",
+                            text = language.pick(tr = "TOPLA", en = "CLAIM", it = "RISCUOTI", fr = "RÉCLAMER", es = "RECLAMAR"),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                             color = Color.Black
@@ -288,7 +292,7 @@ private fun MissionCard(
                             .testTag("claim_mission_${mission.id}")
                     ) {
                         Text(
-                            text = if (isTr) "TOPLA" else "CLAIM",
+                            text = language.pick(tr = "TOPLA", en = "CLAIM", it = "RISCUOTI", fr = "RÉCLAMER", es = "RECLAMAR"),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                             color = palette.textSecondary

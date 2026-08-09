@@ -44,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
@@ -54,9 +56,21 @@ private data class OnboardingStep(
     val accent: Color,
     val titleTr: String,
     val titleEn: String,
+    val titleIt: String,
+    val titleFr: String,
+    val titleEs: String,
     val descriptionTr: String,
-    val descriptionEn: String
-)
+    val descriptionEn: String,
+    val descriptionIt: String,
+    val descriptionFr: String,
+    val descriptionEs: String
+) {
+    fun title(language: AppLanguage): String =
+        language.pick(tr = titleTr, en = titleEn, it = titleIt, fr = titleFr, es = titleEs)
+
+    fun description(language: AppLanguage): String =
+        language.pick(tr = descriptionTr, en = descriptionEn, it = descriptionIt, fr = descriptionFr, es = descriptionEs)
+}
 
 // Faz 31: dev emoji ("🧩"/"💥"/"🎯") duz Text olarak ciziliyordu — emoji karakteri
 // bazi cihazlarda/fontlarda dusuk cozunurluklu/pikselli render oluyordu, ucu de
@@ -70,30 +84,48 @@ private val onboardingSteps = listOf(
         accent = NeonCyan,
         titleTr = "PARÇALARI SÜRÜKLE",
         titleEn = "DRAG THE PIECES",
+        titleIt = "TRASCINA I PEZZI",
+        titleFr = "GLISSEZ LES PIÈCES",
+        titleEs = "ARRASTRA LAS PIEZAS",
         descriptionTr = "Tepsideki bir bloğu seçip ızgaraya sürükle",
-        descriptionEn = "Drag a block from the tray onto the grid"
+        descriptionEn = "Drag a block from the tray onto the grid",
+        descriptionIt = "Trascina un blocco dal vassoio sulla griglia",
+        descriptionFr = "Faites glisser un bloc du plateau vers la grille",
+        descriptionEs = "Arrastra un bloque de la bandeja a la cuadrícula"
     ),
     OnboardingStep(
         icon = Icons.Default.Bolt,
         accent = Color(0xFFFF6B35),
         titleTr = "SATIRI PATLAT",
         titleEn = "CLEAR THE LINE",
+        titleIt = "ELIMINA LA LINEA",
+        titleFr = "EFFACEZ LA LIGNE",
+        titleEs = "LIMPIA LA LÍNEA",
         descriptionTr = "Bir satırı veya sütunu tamamen doldurunca anında patlar",
-        descriptionEn = "Fill an entire row or column and it instantly clears"
+        descriptionEn = "Fill an entire row or column and it instantly clears",
+        descriptionIt = "Riempi completamente una riga o colonna e si elimina all'istante",
+        descriptionFr = "Remplissez entièrement une ligne ou une colonne et elle s'efface instantanément",
+        descriptionEs = "Llena completamente una fila o columna y se elimina al instante"
     ),
     OnboardingStep(
         icon = Icons.Default.TrackChanges,
         accent = NeonGold,
         titleTr = "HEDEFE ULAŞ",
         titleEn = "REACH THE TARGET",
+        titleIt = "RAGGIUNGI L'OBIETTIVO",
+        titleFr = "ATTEIGNEZ L'OBJECTIF",
+        titleEs = "ALCANZA EL OBJETIVO",
         descriptionTr = "Her seviyenin bir hedef skoru var, ulaşınca seviye tamamlanır",
-        descriptionEn = "Each level has a target score — reach it to complete the level"
+        descriptionEn = "Each level has a target score — reach it to complete the level",
+        descriptionIt = "Ogni livello ha un punteggio obiettivo — raggiungilo per completare il livello",
+        descriptionFr = "Chaque niveau a un score cible — atteignez-le pour terminer le niveau",
+        descriptionEs = "Cada nivel tiene una puntuación objetivo: alcánzala para completar el nivel"
     )
 )
 
 @Composable
 fun OnboardingScreen(
-    isTr: Boolean,
+    language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onFinish: () -> Unit
@@ -133,7 +165,7 @@ fun OnboardingScreen(
                             modifier = Modifier.testTag("onboarding_skip_button")
                         ) {
                             Text(
-                                text = if (isTr) "Atla" else "Skip",
+                                text = language.pick(tr = "Atla", en = "Skip", it = "Salta", fr = "Passer", es = "Saltar"),
                                 fontSize = 13.sp,
                                 color = palette.textSecondary
                             )
@@ -180,7 +212,7 @@ fun OnboardingScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = if (isTr) step.titleTr else step.titleEn,
+                        text = step.title(language),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Black,
                         color = palette.textPrimary
@@ -189,7 +221,7 @@ fun OnboardingScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (isTr) step.descriptionTr else step.descriptionEn,
+                        text = step.description(language),
                         fontSize = 14.sp,
                         color = palette.textSecondary,
                         textAlign = TextAlign.Center
@@ -224,7 +256,7 @@ fun OnboardingScreen(
                                 .testTag("onboarding_next_button")
                         ) {
                             Text(
-                                text = if (isTr) "İLERİ" else "NEXT",
+                                text = language.pick(tr = "İLERİ", en = "NEXT", it = "AVANTI", fr = "SUIVANT", es = "SIGUIENTE"),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -241,7 +273,7 @@ fun OnboardingScreen(
                                 .testTag("onboarding_start_button")
                         ) {
                             Text(
-                                text = if (isTr) "BAŞLA" else "START",
+                                text = language.pick(tr = "BAŞLA", en = "START", it = "INIZIA", fr = "COMMENCER", es = "EMPEZAR"),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black

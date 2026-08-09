@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
@@ -52,7 +54,7 @@ import com.example.ui.theme.blastPalette
 // birbirinden ayirip her ikisine de esit agirlik veriyor.
 @Composable
 fun ModeSelectScreen(
-    isTr: Boolean,
+    language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     tokens: Int,
@@ -73,7 +75,7 @@ fun ModeSelectScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ModeSelectHeader(
-                isTr = isTr,
+                language = language,
                 tokens = tokens,
                 palette = palette,
                 onOpenMissions = onOpenMissions,
@@ -114,7 +116,7 @@ fun ModeSelectScreen(
                             color = palette.textPrimary
                         )
                         Text(
-                            text = if (isTr) "Bir oyun modu seç" else "Choose a game mode",
+                            text = language.pick(tr = "Bir oyun modu seç", en = "Choose a game mode", it = "Scegli una modalità di gioco", fr = "Choisissez un mode de jeu", es = "Elige un modo de juego"),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = palette.textSecondary
@@ -125,9 +127,9 @@ fun ModeSelectScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 ModeCard(
-                    title = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
-                    subtitle = if (isTr) "Hedefsiz oyna, yüksek skor kovala" else "Play freely, chase a high score",
-                    statLabel = if (isTr) "EN YÜKSEK SKOR" else "BEST SCORE",
+                    title = language.pick(tr = "SONSUZ MOD", en = "ENDLESS MODE", it = "MODALITÀ INFINITA", fr = "MODE INFINI", es = "MODO INFINITO"),
+                    subtitle = language.pick(tr = "Hedefsiz oyna, yüksek skor kovala", en = "Play freely, chase a high score", it = "Gioca liberamente, punta al record", fr = "Jouez librement, visez le meilleur score", es = "Juega libremente, persigue una puntuación alta"),
+                    statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
                     statValue = "$endlessBestScore",
                     icon = Icons.Default.AllInclusive,
                     accent = NeonGreen,
@@ -140,9 +142,9 @@ fun ModeSelectScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 ModeCard(
-                    title = if (isTr) "SEVİYELİ MOD" else "LEVEL MODE",
-                    subtitle = if (isTr) "Seviye seviye ilerle, yıldız topla" else "Progress level by level, earn stars",
-                    statLabel = if (isTr) "EN YÜKSEK SEVİYE" else "HIGHEST LEVEL",
+                    title = language.pick(tr = "SEVİYELİ MOD", en = "LEVEL MODE", it = "MODALITÀ LIVELLI", fr = "MODE NIVEAUX", es = "MODO NIVELES"),
+                    subtitle = language.pick(tr = "Seviye seviye ilerle, yıldız topla", en = "Progress level by level, earn stars", it = "Avanza livello dopo livello, guadagna stelle", fr = "Progressez niveau par niveau, gagnez des étoiles", es = "Avanza nivel a nivel, gana estrellas"),
+                    statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
                     statValue = "$highestUnlockedLevel",
                     icon = Icons.Default.Extension,
                     accent = NeonCyan,
@@ -158,7 +160,7 @@ fun ModeSelectScreen(
 
 @Composable
 private fun ModeSelectHeader(
-    isTr: Boolean,
+    language: AppLanguage,
     tokens: Int,
     palette: BlastPalette,
     onOpenMissions: () -> Unit,
@@ -199,7 +201,7 @@ private fun ModeSelectHeader(
         ) {
             Icon(
                 imageVector = Icons.Default.EmojiEvents,
-                contentDescription = if (isTr) "Görevler" else "Missions",
+                contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
                 tint = NeonPurple
             )
         }
@@ -210,7 +212,7 @@ private fun ModeSelectHeader(
         ) {
             Icon(
                 imageVector = Icons.Default.Settings,
-                contentDescription = if (isTr) "Ayarlar" else "Settings",
+                contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
                 tint = palette.textPrimary
             )
         }
