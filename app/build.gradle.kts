@@ -71,6 +71,7 @@ dependencies {
   implementation(libs.play.services.ads)
   implementation(libs.user.messaging.platform)
   implementation(libs.androidx.work.runtime.ktx)
+  implementation(libs.androidx.fragment.ktx)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

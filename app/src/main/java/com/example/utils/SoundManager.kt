@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.util.Log
+import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -25,8 +26,23 @@ object SoundManager {
     @Volatile
     private var volume: Float = 0.5f
 
+    // Faz 28: duz lineer gain (kaydirici degeri = ses gain'i) kullanici geri
+    // bildiriminde "artırınca artmıyor" olarak yasandi — kok neden, %50'nin
+    // ONCEKI sabit ses seviyesine denk gelmesi icin gain'i zaten tavana yakin
+    // (~0.5-0.6) tutmak gerekiyordu, bu da %50-%100 arasinda gercekte cok az
+    // fark kalmasina yol aciyordu (dijital tavan 1.0'i asamiyoruz). Artik
+    // %50 daha MUTEDIL bir referans noktasi (REFERENCE_GAIN) ve %50-%100 araligi
+    // KALAN TUM gain payini kapliyor — kaydiricinin ust yarisini hareket
+    // ettirmek artik gercekten, belirgin sekilde daha yuksek ses veriyor.
+    private const val REFERENCE_GAIN = 0.42f
+
     fun setVolume(value: Float) {
-        volume = value.coerceIn(0f, 1f)
+        val v = value.coerceIn(0f, 1f)
+        volume = if (v <= 0.5f) {
+            (v / 0.5f) * REFERENCE_GAIN
+        } else {
+            REFERENCE_GAIN + ((v - 0.5f) / 0.5f) * (1f - REFERENCE_GAIN)
+        }
     }
 
     init {
@@ -192,45 +208,48 @@ object SoundManager {
         return track
     }
 
+    // Faz 28: onceki 3-notali muzikal akor kullanici tarafindan "mekanik cirkin
+    // bir ses, patlama sesi gibi degil, balon patlaması gibi de degil" olarak
+    // reddedildi. Tasarim BASTAN yapildi — muzikal nota YOK, bunun yerine gercek
+    // oyun SFX kutuphanelerindeki standart "patlama/pop" yapisi kullanildi:
+    //   1) "crack": genis bantli, hizli sonen filtrelenmis gurultu (patlamanin
+    //      sert, kirilma hissi veren ilk anı)
+    //   2) "boom": pitch'i hizla dusen alcak frekansli bir sub-thump (agirlik/guc)
+    //   3) "click": cok kisa, yuksek frekansli bir tik (atagi sertlestirir, "pop")
+    // Ucu birlikte, hizli atak + eksponansiyel sonumle karisiyor.
     private fun buildBlastTrack(): AudioTrack {
-        // Coskulu "basari cini" sesi: yukselen 3 notali parlak bir akor (C5-E5-G5,
-        // major arpej — klasik "basari/kazanma" motifi), her nota bir oktav ustu
-        // harmonikle zenginlestirilip "bell" tinisi kazandiriyor, sonunda kisa bir
-        // parlaklik/shimmer var. Onceki tek-tonlu dusen "pop" sesi duz/cirkin
-        // buluyordu kullanici ("çok köt bir ses daha çoşkulu olmalı") — bu tasarim
-        // gercek muzikal bir yukselis + harmonik zenginlik iceriyor.
         val sampleRate = 44100
-        val noteFreqs = doubleArrayOf(523.25, 659.25, 783.99) // C5, E5, G5
-        val noteDurationMs = 70
-        val noteSamples = sampleRate * noteDurationMs / 1000
-        val sparkleSamples = sampleRate * 50 / 1000
-        val samples = ShortArray(noteSamples * noteFreqs.size + sparkleSamples)
+        val durationMs = 210
+        val numSamples = sampleRate * durationMs / 1000
+        val samples = ShortArray(numSamples)
         val random = Random(11)
 
-        var offset = 0
-        for (freq in noteFreqs) {
-            var phase = 0.0
-            var phase2 = 0.0
-            for (i in 0 until noteSamples) {
-                val t = i.toFloat() / noteSamples
-                // sin(pi*t): 0'dan baslayip 0'da biten yumusak zarf — notalar arasi
-                // tiklama/cat sesi olmadan gecis saglar.
-                val envelope = sin(Math.PI * t).toFloat().coerceAtLeast(0f)
-                phase += 2.0 * Math.PI * freq / sampleRate
-                phase2 += 2.0 * Math.PI * (freq * 2.0) / sampleRate
-                val fundamental = sin(phase).toFloat()
-                val octaveHarmonic = sin(phase2).toFloat() * 0.35f
-                val sample = ((fundamental + octaveHarmonic) * envelope * Short.MAX_VALUE * 0.9f)
-                samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            }
-            offset += noteSamples
-        }
-        for (i in 0 until sparkleSamples) {
-            val t = i.toFloat() / sparkleSamples
-            val envelope = (1f - t) * (1f - t)
+        var lowPassState = 0f
+        for (i in 0 until numSamples) {
+            val t = i.toFloat() / numSamples
+
+            // Crack: beyaz gurultu, hafif alcak-gecirgen filtrelenip sertligi
+            // biraz yumusatiliyor, cok hizli sonuyor (patlamanin "kirilma" ani).
+            val crackEnvelope = exp(-t * 13f)
             val noise = random.nextFloat() * 2f - 1f
-            val sample = (noise * envelope * Short.MAX_VALUE * 0.35f)
-            samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            lowPassState += (noise - lowPassState) * 0.55f
+            val crack = lowPassState * crackEnvelope
+
+            // Boom: 190Hz'den 60Hz'e hizla dusen bir sub-thump — patlamaya
+            // "agirlik" ve "guc" katan alcak frekansli katman.
+            val boomFreq = 190.0 - 130.0 * (1.0 - exp(-t * 6.0))
+            val boomEnvelope = exp(-t * 4.5f)
+            val boomPhase = 2.0 * Math.PI * boomFreq * i / sampleRate
+            val boom = sin(boomPhase).toFloat() * boomEnvelope
+
+            // Click: cok kisa, yuksek frekansli bir tik — atagi sertlestirip
+            // "pop" hissi katıyor, ilk birkaç milisaniyede kayboluyor.
+            val clickEnvelope = exp(-t * 55f)
+            val click = sin(2.0 * Math.PI * 2600.0 * i / sampleRate).toFloat() * clickEnvelope
+
+            val mixed = crack * 0.6f + boom * 0.8f + click * 0.22f
+            val sample = mixed * Short.MAX_VALUE * 0.98f
+            samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 
         return buildStaticTrack(sampleRate, samples)

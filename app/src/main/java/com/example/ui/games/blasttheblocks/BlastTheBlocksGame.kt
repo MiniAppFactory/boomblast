@@ -931,7 +931,7 @@ fun BlastTheBlocksGame(
                 // ellipsis ile kisaliyor, sag gruptan asla alan calmiyor.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false).padding(horizontal = 4.dp)
+                    modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp)
                 ) {
                     Text(
                         text = when {
@@ -948,6 +948,14 @@ fun BlastTheBlocksGame(
                     )
                 }
 
+                // Faz 28: kullanici acikca "isim tam gozuksun, kisaltilmasin" ve
+                // "butonlar birbirine yaklassin" dedi — bir onceki gecisimde sadece
+                // TEK bir Spacer'i kucultmustum (iki Spacer'dan biri, comment satirlari
+                // araya girdigi icin diger replace_all eslesmemisti). Bu sefer HER UC
+                // eleman da (TEMA pili + iki IconButton) belirgin sekilde daraltildi:
+                // IconButton'lar varsayilan 48dp dokunma alani yerine 36dp, TEMA pilinin
+                // ic padding'i azaltildi, aralardaki Spacer'lar 0dp'ye indirildi. Boylece
+                // basliga gercekten daha fazla alan kaliyor ve "..." tetiklenmiyor.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Theme Choice Button
                     Surface(
@@ -959,22 +967,20 @@ fun BlastTheBlocksGame(
                             .testTag("block_blast_theme_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val activeTheme = BLOCK_THEMES.find { it.id == currentTheme } ?: BLOCK_THEMES.first()
-                            Text(text = activeTheme.icon, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = activeTheme.icon, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = if (isTr) "TEMA" else "THEME",
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NeonPurple
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Oyun icindeyken ayarlara (ses/tema/dil) hic erisim yoktu — kullanici
                     // ses kapatmak/ayar degistirmek icin geri cikmak zorunda kaliyordu, bu da
@@ -982,25 +988,25 @@ fun BlastTheBlocksGame(
                     // bildirimi). Artik oyun ekranindan dogrudan Ayarlar'a gidilebiliyor.
                     IconButton(
                         onClick = { showSettingsDialog = true },
-                        modifier = Modifier.testTag("block_blast_settings_button")
+                        modifier = Modifier.size(36.dp).testTag("block_blast_settings_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = if (isTr) "Ayarlar" else "Settings",
-                            tint = palette.textPrimary
+                            tint = palette.textPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(2.dp))
-
                     IconButton(
                         onClick = { resetGame() },
-                        modifier = Modifier.testTag("block_blast_restart_button")
+                        modifier = Modifier.size(36.dp).testTag("block_blast_restart_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Reset Game",
-                            tint = NeonGold
+                            tint = NeonGold,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
