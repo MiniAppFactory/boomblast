@@ -17,10 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,7 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,30 +50,40 @@ import com.example.ui.theme.NeonGold
 import com.example.ui.theme.blastPalette
 
 private data class OnboardingStep(
-    val icon: String,
+    val icon: ImageVector,
+    val accent: Color,
     val titleTr: String,
     val titleEn: String,
     val descriptionTr: String,
     val descriptionEn: String
 )
 
+// Faz 31: dev emoji ("🧩"/"💥"/"🎯") duz Text olarak ciziliyordu — emoji karakteri
+// bazi cihazlarda/fontlarda dusuk cozunurluklu/pikselli render oluyordu, ucu de
+// "hic emek harcanmamis duz ikon secimi" gibi duruyordu (kullanici geri bildirimi).
+// Artik her adimin kendi vurgu rengiyle gradyanli, parlama halkali bir rozet
+// icinde NET (vektor tabanli, hicbir cozunurlukte pikselenmeyen) bir Material
+// ikonu var — oyunun geri kalanindaki ModeCard/logo rozeti dilini takip ediyor.
 private val onboardingSteps = listOf(
     OnboardingStep(
-        icon = "🧩",
+        icon = Icons.Default.Extension,
+        accent = NeonCyan,
         titleTr = "PARÇALARI SÜRÜKLE",
         titleEn = "DRAG THE PIECES",
         descriptionTr = "Tepsideki bir bloğu seçip ızgaraya sürükle",
         descriptionEn = "Drag a block from the tray onto the grid"
     ),
     OnboardingStep(
-        icon = "💥",
+        icon = Icons.Default.Bolt,
+        accent = Color(0xFFFF6B35),
         titleTr = "SATIRI PATLAT",
         titleEn = "CLEAR THE LINE",
         descriptionTr = "Bir satırı veya sütunu tamamen doldurunca anında patlar",
         descriptionEn = "Fill an entire row or column and it instantly clears"
     ),
     OnboardingStep(
-        icon = "🎯",
+        icon = Icons.Default.TrackChanges,
+        accent = NeonGold,
         titleTr = "HEDEFE ULAŞ",
         titleEn = "REACH THE TARGET",
         descriptionTr = "Her seviyenin bir hedef skoru var, ulaşınca seviye tamamlanır",
@@ -124,7 +142,40 @@ fun OnboardingScreen(
 
                     val step = onboardingSteps[currentStep]
 
-                    Text(text = step.icon, fontSize = 56.sp)
+                    Box(
+                        modifier = Modifier.size(116.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Dis parlama halkasi — rozete derinlik ve "gerçek bir
+                        // görsel" hissi katan yumusak glow.
+                        Box(
+                            modifier = Modifier
+                                .size(116.dp)
+                                .clip(CircleShape)
+                                .background(step.accent.copy(alpha = 0.16f))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .clip(CircleShape)
+                                .background(Brush.linearGradient(listOf(step.accent, NeonGold)))
+                                .border(
+                                    width = 1.5.dp,
+                                    brush = Brush.linearGradient(
+                                        listOf(Color.White.copy(alpha = 0.55f), Color.Transparent)
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = step.icon,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
