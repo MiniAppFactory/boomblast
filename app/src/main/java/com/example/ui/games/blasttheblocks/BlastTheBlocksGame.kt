@@ -789,7 +789,13 @@ fun BlastTheBlocksGame(
                 glowPulse.animateTo(1f, animationSpec = tween(160, easing = FastOutSlowInEasing))
                 delay(90)
 
-                SoundManager.playBlast(soundEnabled)
+                // Faz 33: ayni anda 2+ satir/sutun temizlenince (gercek kombo)
+                // tekli patlama yerine daha uzun/coskulu "kombo patlamasi" calar.
+                if (totalLinesCleared >= 2) {
+                    SoundManager.playComboBlast(soundEnabled, comboCount)
+                } else {
+                    SoundManager.playBlast(soundEnabled)
+                }
                 glowingClearCells = emptySet()
                 recentlyClearedCells = clearedIndices
                 dragCoroutineScope.launch {
