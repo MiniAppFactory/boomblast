@@ -239,6 +239,13 @@ val BLOCK_THEMES = listOf(
     // sekilde duz/klasik renkli kupe (emoji'siz) dusuyor.
 )
 
+// Faz 34: kombo kademesi basina TEK sabit kelime yerine kucuk bir esanlamli
+// havuzdan rastgele secim yapmak icin — ayni kombo seviyesinde bile her
+// seferinde ayni kelime gelmesin diye.
+private fun praiseFrom(isTr: Boolean, trPool: List<String>, enPool: List<String>): String {
+    return if (isTr) trPool.random() else enPool.random()
+}
+
 @Composable
 fun BlastTheBlocksGame(
     levelNumber: Int,
@@ -745,32 +752,50 @@ fun BlastTheBlocksGame(
             // Coklu satir/sutun temizleme HER ZAMAN iyi bir sey — ilk kombo adiminda
             // bile ("ÇOKLU PATLAMA!") kirmizimsi renkle gosterilmesi "kotu bir sey oldu"
             // hissi veriyordu (kullanici geri bildirimi) — artik daha cosku dolu.
+            //
+            // Faz 34 duzeltmesi: sadece comboCount'a (art arda AYRI hamlelerde
+            // temizleme) bakmak kelime cesitliligini neredeyse yok ediyordu —
+            // comboCount>=2'ye ulasmak nadir, ama TEK hamlede 2-3-4 satir birden
+            // temizlemek (totalLinesCleared>1) cok daha sik. Sonuc: kullanici
+            // pratikte HEP "SÜPER!" duyuyordu, ust kademe kelimeler neredeyse
+            // hic tetiklenmiyordu. Artik ikisi birlesik bir "cosku puani" ile
+            // olculuyor, boylece buyuk TEK hamlelik patlamalar da hak ettigi
+            // ust kademe kelimeyi tetikliyor.
+            val excitement = (comboCount - 1) + (totalLinesCleared - 1)
+            // Faz 34: kullanici "hep aynısı geliyor" dedi — her kademede TEK
+            // sabit kelime yerine kucuk bir esanlamli havuzdan rastgele seciliyor,
+            // boylece ayni kombo seviyesinde bile degisken tepki alınıyor.
             val praiseWord = when {
-                comboCount >= 5 -> if (isTr) "İNANILMAZ!" else "AMAZING!"
-                comboCount == 4 -> if (isTr) "MÜKEMMEL!" else "EXCELLENT!"
-                comboCount == 3 -> if (isTr) "HARİKA!" else "GREAT!"
-                comboCount == 2 -> if (isTr) "GÜZEL!" else "NICE!"
-                totalLinesCleared > 1 -> if (isTr) "SÜPER!" else "SUPER!"
-                else -> if (isTr) "PATLAMA!" else "BLAST!"
+                excitement >= 5 -> praiseFrom(isTr, listOf("İNANILMAZ!", "EFSANE!", "DURDURULAMAZ!"), listOf("AMAZING!", "LEGENDARY!", "UNSTOPPABLE!"))
+                excitement == 4 -> praiseFrom(isTr, listOf("MÜKEMMEL!", "MUHTEŞEM!", "OLAĞANÜSTÜ!"), listOf("EXCELLENT!", "FANTASTIC!", "INCREDIBLE!"))
+                excitement == 3 -> praiseFrom(isTr, listOf("HARİKA!", "ÇOK İYİ!", "BAŞARILI!"), listOf("GREAT!", "AWESOME!", "SMOOTH!"))
+                excitement == 2 -> praiseFrom(isTr, listOf("GÜZEL!", "İYİ İŞ!", "AFERİN!"), listOf("NICE!", "GOOD!", "SWEET!"))
+                excitement == 1 -> praiseFrom(isTr, listOf("SÜPER!", "GÜZEL!", "İYİ!"), listOf("SUPER!", "NICE!", "GOOD!"))
+                else -> praiseFrom(isTr, listOf("PATLAMA!", "GÜZEL!"), listOf("BLAST!", "NICE!"))
             }
             val praiseEmoji = when {
-                comboCount >= 5 -> " 🔥"
-                comboCount >= 2 -> " 👍"
-                totalLinesCleared > 1 -> " 🎉"
+                excitement >= 5 -> " 🔥"
+                excitement >= 2 -> " 👍"
+                excitement == 1 -> " 🎉"
                 else -> ""
             }
             lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
             lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
 
             // Faz 34: orijinal oyunda ovgu kelimeleri sesle de soyleniyordu
-            // (kullanici gozlemi) — sadece gercek bir kutlama anında (kucuk
-            // her tekli patlamada degil) TTS ile praiseWord seslendiriliyor,
-            // kombo buyudukce pitch/hiz da artiyor (bkz. TextToSpeechManager).
+            // (kullanici gozlemi) — sadece gercek bir kutlama aninda (kucuk
+            // her tekli patlamada degil) TTS ile praiseWord seslendiriliyor.
+            // Kullanici ilk denemede "hep SÜPER diyor, robot gibi" dedi — kok
+            // neden yukaridaki ayni excitement hesabiydi (pitch/hiz hep dusuk
+            // kaliyordu). Artik excitement'a gore olculeniyor, aralik da
+            // genisletildi + hafif rastgele jitter eklendi (bkz.
+            // TextToSpeechManager.speakPraise) boylece ayni kelime bile her
+            // seferinde birebir ayni "robotik" tonlamayla cikmiyor.
             if (lastClearWasCelebration && soundEnabled) {
                 TextToSpeechManager.speakPraise(
                     text = praiseWord,
                     isTr = isTr,
-                    excitementLevel = comboCount
+                    excitementLevel = excitement
                 )
             }
 

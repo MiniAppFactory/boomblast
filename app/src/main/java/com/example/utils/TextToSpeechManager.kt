@@ -4,6 +4,7 @@ import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
+import kotlin.random.Random
 
 // Faz 34: kullanicinin orijinal "Block Blast" oyununu izleyip fark ettigi
 // detay — kombo kelimeleri (Good!/Great!/Unstoppable! vb.) sadece gorsel
@@ -36,18 +37,26 @@ object TextToSpeechManager {
         }
     }
 
-    // excitementLevel: 0 (en dusuk kombo) .. 4+ (en yuksek kombo) — pitch/hiz
-    // buna gore olceklenir, boylece "İNANILMAZ!/AMAZING!" gibi en ust seviye
-    // kelimeler kulakta gercekten daha coskulu hissettiriyor.
+    // excitementLevel: 0 (en dusuk, "PATLAMA!/BLAST!") .. 5+ (en yuksek,
+    // "İNANILMAZ!/AMAZING!") — pitch/hiz buna gore olceklenir. Faz 34'un ilk
+    // suru "hep ayni robotik tonlamayla SÜPER diyor" seklinde geri bildirim
+    // aldi — iki duzeltme birden yapildi: (1) cagiran taraf artik gercek bir
+    // "cosku puani" gonderiyor (comboCount tek basina yeterince cesitlenmiyordu),
+    // (2) buradaki pitch/hiz araligi belirgin sekilde genisletildi VE her
+    // cagrida kucuk rastgele bir sapma (jitter) eklendi — TAMAMEN ayni pitch/
+    // hizla soylenen kelime, tekrar tekrar duyulunca "makine gibi" hissi
+    // veriyordu, ufak dogal degiskenlik bunu kirar.
     fun speakPraise(text: String, isTr: Boolean, excitementLevel: Int) {
         val engine = tts ?: return
         if (!isReady) return
         try {
             val locale = if (isTr && trAvailable) Locale("tr", "TR") else Locale.US
             engine.language = locale
-            val level = excitementLevel.coerceIn(0, 4)
-            engine.setPitch(1.15f + level * 0.06f)
-            engine.setSpeechRate(1.05f + level * 0.05f)
+            val level = excitementLevel.coerceIn(0, 5)
+            val pitchJitter = (Random.nextFloat() - 0.5f) * 0.08f
+            val rateJitter = (Random.nextFloat() - 0.5f) * 0.06f
+            engine.setPitch((1.2f + level * 0.09f + pitchJitter).coerceAtLeast(0.5f))
+            engine.setSpeechRate((1.05f + level * 0.06f + rateJitter).coerceAtLeast(0.5f))
             engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "combo_praise")
         } catch (e: Exception) {
             Log.e("TextToSpeechManager", "speakPraise failed", e)
