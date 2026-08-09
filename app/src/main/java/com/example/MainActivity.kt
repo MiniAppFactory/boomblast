@@ -1,11 +1,14 @@
 package com.example
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.notifications.ReminderWorker
 import com.example.ui.BlastViewModel
 import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.BlastSkin
@@ -31,10 +35,23 @@ class MainActivity : ComponentActivity() {
     private val viewModel: BlastViewModel by viewModels()
     private val adsConsentResolved = mutableStateOf(false)
 
+    // Faz 27: Android 13+ bildirim izni sonucundan bagimsiz olarak zamanlama
+    // zinciri baslatilir — izin verilmezse NotificationHelper zaten sessizce
+    // hicbir sey gondermez (bkz. showReminder icindeki izin kontrolu).
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { ReminderWorker.ensureScheduled(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         MobileAds.initialize(applicationContext) {}
+        // Faz 27: rastgele araliklarla "geri gel" hatirlatma bildirimi zinciri.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            ReminderWorker.ensureScheduled(applicationContext)
+        }
         requestAndShowUmpConsentIfRequired { adsConsentResolved.value = true }
         // Faz 25: UMP consent akisi hem basari hem hata dalinda "onResolved"
         // cagirmayabiliyordu (ornegin consent update istegi agdan dolayi

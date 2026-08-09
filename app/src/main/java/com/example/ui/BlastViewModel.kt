@@ -97,6 +97,14 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.markFirstMoveMade() }
     }
 
+    fun setSoundVolume(volume: Float) {
+        viewModelScope.launch { repository.setSoundVolume(volume) }
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
+    }
+
     fun markOnboardingSeen() {
         viewModelScope.launch { repository.markOnboardingSeen() }
     }

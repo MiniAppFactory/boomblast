@@ -261,12 +261,16 @@ fun BlastTheBlocksGame(
     // Ayarlar artik AYNI composable icinde bir overlay olarak gosteriliyor, oyun
     // ekranindan hic ayrilinmiyor.
     musicEnabled: Boolean = true,
+    soundVolume: Float = 0.5f,
     onToggleSound: (Boolean) -> Unit = {},
+    onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
     onSelectLanguage: (Boolean) -> Unit = {},
     uiSkin: BlastSkin = BlastSkin.DEFAULT,
     onSelectSkin: (BlastSkin) -> Unit = {},
+    notificationsEnabled: Boolean = true,
+    onToggleNotifications: (Boolean) -> Unit = {},
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
@@ -1718,15 +1722,19 @@ fun BlastTheBlocksGame(
             Box(modifier = Modifier.fillMaxSize().zIndex(30f)) {
                 SettingsScreen(
                     soundEnabled = soundEnabled,
+                    soundVolume = soundVolume,
                     musicEnabled = musicEnabled,
                     darkMode = darkMode,
                     isTr = isTr,
                     skin = uiSkin,
                     onToggleSound = onToggleSound,
+                    onSoundVolumeChange = onSoundVolumeChange,
                     onToggleMusic = onToggleMusic,
                     onToggleDarkMode = onToggleDarkMode,
                     onSelectLanguage = onSelectLanguage,
                     onSelectSkin = onSelectSkin,
+                    notificationsEnabled = notificationsEnabled,
+                    onToggleNotifications = onToggleNotifications,
                     onBack = { showSettingsDialog = false }
                 )
             }

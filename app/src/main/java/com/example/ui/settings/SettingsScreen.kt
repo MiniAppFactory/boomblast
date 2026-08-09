@@ -26,6 +26,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -48,15 +50,19 @@ import com.example.ui.theme.blastPalette
 @Composable
 fun SettingsScreen(
     soundEnabled: Boolean,
+    soundVolume: Float = 0.5f,
     musicEnabled: Boolean,
     darkMode: Boolean,
     isTr: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onToggleSound: (Boolean) -> Unit,
+    onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit,
     onToggleDarkMode: (Boolean) -> Unit,
     onSelectLanguage: (Boolean) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
+    notificationsEnabled: Boolean = true,
+    onToggleNotifications: (Boolean) -> Unit = {},
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
@@ -98,6 +104,43 @@ fun SettingsScreen(
             testTag = "settings_sound_switch",
             palette = palette
         )
+        // Faz 27: sesler telefon sesi sonuna kadar acik olsa bile kisik
+        // kaliyordu (kullanici geri bildirimi) — sentezlenen seslerin genligi
+        // yukseltildi VE oyun ici bir ses siddeti kaydiricisi eklendi, boylece
+        // kullanici istedigi kadar yukseltebiliyor.
+        Card(
+            colors = CardDefaults.cardColors(containerColor = palette.card),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isTr) "Ses Şiddeti" else "Sound Volume",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (soundEnabled) palette.textPrimary else palette.textSecondary
+                    )
+                    Text(
+                        text = "${(soundVolume * 100).toInt()}%",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (soundEnabled) NeonCyan else palette.textSecondary
+                    )
+                }
+                Slider(
+                    value = soundVolume,
+                    onValueChange = onSoundVolumeChange,
+                    enabled = soundEnabled,
+                    colors = SliderDefaults.colors(thumbColor = NeonCyan, activeTrackColor = NeonCyan),
+                    modifier = Modifier.fillMaxWidth().testTag("settings_sound_volume_slider")
+                )
+            }
+        }
         SettingsSwitchRow(
             icon = "🎵",
             label = if (isTr) "Müzik" else "Music",
@@ -112,6 +155,14 @@ fun SettingsScreen(
             checked = darkMode,
             onCheckedChange = onToggleDarkMode,
             testTag = "settings_dark_mode_switch",
+            palette = palette
+        )
+        SettingsSwitchRow(
+            icon = "🔔",
+            label = if (isTr) "Hatırlatma Bildirimleri" else "Reminder Notifications",
+            checked = notificationsEnabled,
+            onCheckedChange = onToggleNotifications,
+            testTag = "settings_notifications_switch",
             palette = palette
         )
 

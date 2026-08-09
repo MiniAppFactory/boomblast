@@ -15,9 +15,23 @@ object SoundManager {
     private var pickupTrack: AudioTrack? = null
     private var lockTrack: AudioTrack? = null
 
+    // Faz 27: sesler telefonun sesi sonuna kadar acik olsa bile cok kisik
+    // kaliyordu (kullanici geri bildirimi) — kok neden, sentezlenen PCM
+    // ornekleklerin dijital tavanin sadece %55-70'ini kullanmasiydi. Genlik
+    // tavana cikarildi, kalan "yukseklik" artik bu Volume ile calisma anda
+    // ayarlanabiliyor. Varsayilan 0.5f, ONCEKI sabit ses seviyesine yakin —
+    // Ayarlar'daki kaydirici ile kullanici bunu 0'dan (kisik degil, dusuk) yeni,
+    // daha yuksek tavana (1.0f) kadar yukseltebiliyor.
+    @Volatile
+    private var volume: Float = 0.5f
+
+    fun setVolume(value: Float) {
+        volume = value.coerceIn(0f, 1f)
+    }
+
     init {
         try {
-            toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+            toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 90)
         } catch (e: Exception) {
             Log.e("SoundManager", "Failed to init ToneGenerator", e)
         }
@@ -73,6 +87,7 @@ object SoundManager {
         try {
             blastTrack?.let { track ->
                 track.stop()
+                track.setVolume(volume)
                 track.reloadStaticData()
                 track.play()
             }
@@ -89,6 +104,7 @@ object SoundManager {
         try {
             pickupTrack?.let { track ->
                 track.stop()
+                track.setVolume(volume)
                 track.reloadStaticData()
                 track.play()
             }
@@ -102,6 +118,7 @@ object SoundManager {
         try {
             lockTrack?.let { track ->
                 track.stop()
+                track.setVolume(volume)
                 track.reloadStaticData()
                 track.play()
             }
@@ -127,7 +144,7 @@ object SoundManager {
             phase += 2.0 * Math.PI * freq / sampleRate
             val tone = sin(phase).toFloat()
             val hiss = (random.nextFloat() * 2f - 1f) * 0.18f
-            val sample = ((tone * 0.8f + hiss) * envelope * Short.MAX_VALUE * 0.55f)
+            val sample = ((tone * 0.8f + hiss) * envelope * Short.MAX_VALUE * 0.9f)
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return buildStaticTrack(sampleRate, samples)
@@ -146,7 +163,7 @@ object SoundManager {
             val envelope = (1f - t).let { it * it * it } // cok hizli sonen kubik zarf
             val click = sin(2.0 * Math.PI * 1400.0 * i / sampleRate).toFloat()
             val thump = sin(2.0 * Math.PI * 180.0 * i / sampleRate).toFloat()
-            val sample = ((click * 0.5f + thump * 0.5f) * envelope * Short.MAX_VALUE * 0.7f)
+            val sample = ((click * 0.5f + thump * 0.5f) * envelope * Short.MAX_VALUE * 0.95f)
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return buildStaticTrack(sampleRate, samples)
@@ -203,7 +220,7 @@ object SoundManager {
                 phase2 += 2.0 * Math.PI * (freq * 2.0) / sampleRate
                 val fundamental = sin(phase).toFloat()
                 val octaveHarmonic = sin(phase2).toFloat() * 0.35f
-                val sample = ((fundamental + octaveHarmonic) * envelope * Short.MAX_VALUE * 0.55f)
+                val sample = ((fundamental + octaveHarmonic) * envelope * Short.MAX_VALUE * 0.9f)
                 samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
             }
             offset += noteSamples
@@ -212,7 +229,7 @@ object SoundManager {
             val t = i.toFloat() / sparkleSamples
             val envelope = (1f - t) * (1f - t)
             val noise = random.nextFloat() * 2f - 1f
-            val sample = (noise * envelope * Short.MAX_VALUE * 0.25f)
+            val sample = (noise * envelope * Short.MAX_VALUE * 0.35f)
             samples[offset + i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 

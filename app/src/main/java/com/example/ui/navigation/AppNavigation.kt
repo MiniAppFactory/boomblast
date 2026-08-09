@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +30,7 @@ import com.example.ui.onboarding.OnboardingScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.shop.LoadoutScreen
 import com.example.ui.theme.BlastSkin
+import com.example.utils.SoundManager
 
 object Routes {
     const val MODE_SELECT = "mode_select"
@@ -57,6 +59,12 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
     val context = LocalContext.current
     val skin = BlastSkin.fromId(progress.uiSkin)
     val onSelectSkin: (BlastSkin) -> Unit = { viewModel.setUiSkin(it.name) }
+
+    // Faz 27: ses siddeti degistikce SoundManager'in calma-anindaki hacmini
+    // guncelle — tum ekranlarda tek noktadan uygulanir.
+    LaunchedEffect(progress.soundVolume) {
+        SoundManager.setVolume(progress.soundVolume)
+    }
 
     NavHost(navController = navController, startDestination = Routes.MODE_SELECT) {
         composable(Routes.MODE_SELECT) {
@@ -180,12 +188,16 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
                         musicEnabled = progress.musicEnabled,
+                        soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onSoundVolumeChange = { viewModel.setSoundVolume(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         uiSkin = skin,
                         onSelectSkin = onSelectSkin,
+                        notificationsEnabled = progress.notificationsEnabled,
+                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                         hasMadeFirstMove = progress.hasMadeFirstMove,
                         onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
@@ -216,12 +228,16 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onBack = { navController.popBackStack() },
                         musicEnabled = progress.musicEnabled,
+                        soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onSoundVolumeChange = { viewModel.setSoundVolume(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         uiSkin = skin,
                         onSelectSkin = onSelectSkin,
+                        notificationsEnabled = progress.notificationsEnabled,
+                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                         hasMadeFirstMove = progress.hasMadeFirstMove,
                         onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
@@ -269,15 +285,19 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 Box(modifier = Modifier.weight(1f)) {
                     SettingsScreen(
                         soundEnabled = progress.soundEnabled,
+                        soundVolume = progress.soundVolume,
                         musicEnabled = progress.musicEnabled,
                         darkMode = progress.darkMode,
                         isTr = progress.isTr,
                         skin = skin,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onSoundVolumeChange = { viewModel.setSoundVolume(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         onSelectSkin = onSelectSkin,
+                        notificationsEnabled = progress.notificationsEnabled,
+                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                         onBack = { navController.popBackStack() }
                     )
                 }

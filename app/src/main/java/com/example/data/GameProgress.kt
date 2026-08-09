@@ -12,6 +12,7 @@ data class PlayerProgress(
     val levelStars: Map<Int, Int> = emptyMap(),
     val ownedBoosters: Map<BoosterType, Int> = emptyMap(),
     val soundEnabled: Boolean = true,
+    val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,
     val darkMode: Boolean = true,
     val isTr: Boolean = true,
@@ -20,7 +21,8 @@ data class PlayerProgress(
     val hasSeenOnboarding: Boolean = false,
     val endlessHighScore: Int = 0,
     val hasAcceptedTerms: Boolean = false,
-    val hasMadeFirstMove: Boolean = false
+    val hasMadeFirstMove: Boolean = false,
+    val notificationsEnabled: Boolean = true
 )
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS }

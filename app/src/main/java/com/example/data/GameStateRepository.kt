@@ -3,6 +3,7 @@ package com.example.data
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -22,6 +23,7 @@ class GameStateRepository(private val context: Context) {
         val LEVEL_STARS = stringPreferencesKey("level_stars")
         val OWNED_BOOSTERS = stringPreferencesKey("owned_boosters")
         val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
+        val SOUND_VOLUME = floatPreferencesKey("sound_volume")
         val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val IS_TR = booleanPreferencesKey("is_tr")
@@ -31,6 +33,7 @@ class GameStateRepository(private val context: Context) {
         val ENDLESS_HIGH_SCORE = intPreferencesKey("endless_high_score")
         val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
         val HAS_MADE_FIRST_MOVE = booleanPreferencesKey("has_made_first_move")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
 
         val MISSION_WEEK_ID = stringPreferencesKey("mission_week_id")
         val MISSION_PROGRESS = stringPreferencesKey("mission_progress")
@@ -44,6 +47,7 @@ class GameStateRepository(private val context: Context) {
             levelStars = decodeIntMap(prefs[Keys.LEVEL_STARS]),
             ownedBoosters = decodeBoosterMap(prefs[Keys.OWNED_BOOSTERS]),
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
+            soundVolume = prefs[Keys.SOUND_VOLUME] ?: 0.5f,
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
             darkMode = prefs[Keys.DARK_MODE] ?: true,
             isTr = prefs[Keys.IS_TR] ?: true,
@@ -52,7 +56,8 @@ class GameStateRepository(private val context: Context) {
             hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,
             endlessHighScore = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0,
             hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false,
-            hasMadeFirstMove = prefs[Keys.HAS_MADE_FIRST_MOVE] ?: false
+            hasMadeFirstMove = prefs[Keys.HAS_MADE_FIRST_MOVE] ?: false,
+            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true
         )
     }
 
@@ -124,6 +129,10 @@ class GameStateRepository(private val context: Context) {
         context.gameDataStore.edit { it[Keys.SOUND_ENABLED] = enabled }
     }
 
+    suspend fun setSoundVolume(volume: Float) {
+        context.gameDataStore.edit { it[Keys.SOUND_VOLUME] = volume.coerceIn(0f, 1f) }
+    }
+
     suspend fun setMusicEnabled(enabled: Boolean) {
         context.gameDataStore.edit { it[Keys.MUSIC_ENABLED] = enabled }
     }
@@ -154,6 +163,10 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun markFirstMoveMade() {
         context.gameDataStore.edit { it[Keys.HAS_MADE_FIRST_MOVE] = true }
+    }
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        context.gameDataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled }
     }
 
     suspend fun recordEndlessScore(score: Int) {
