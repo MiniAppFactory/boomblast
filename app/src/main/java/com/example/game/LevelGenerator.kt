@@ -5,7 +5,7 @@ package com.example.game
 data class LevelDefinition(
     val number: Int,
     val targetScore: Int,
-    // shapePoolTier, BlockBlastGame.kt'deki generateNewTray()'in SHAPE_PATTERNS.take(n)
+    // shapePoolTier, BlastTheBlocksGame.kt'deki generateNewTray()'in SHAPE_PATTERNS.take(n)
     // mantığıyla aynı kademelendirmeyi kullanır: 1=basit parçalar, 3=tüm parçalar.
     val shapePoolTier: Int
 )

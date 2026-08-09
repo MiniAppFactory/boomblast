@@ -21,7 +21,7 @@ import com.example.ads.RewardedAdManager
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
 import com.example.ui.consent.TermsAcceptScreen
-import com.example.ui.games.blockblast.BlockBlastGame
+import com.example.ui.games.blasttheblocks.BlastTheBlocksGame
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
 import com.example.ui.modeselect.ModeSelectScreen
@@ -156,36 +156,40 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
         ) { backStackEntry ->
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forLevel(level)
-            BlockBlastGame(
-                levelNumber = level,
-                targetScore = definition.targetScore,
-                shapePoolTier = definition.shapePoolTier,
-                currentTheme = progress.blockTheme,
-                isTr = progress.isTr,
-                soundEnabled = progress.soundEnabled,
-                darkMode = progress.darkMode,
-                initialBoosterCounts = progress.ownedBoosters,
-                onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
-                onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
-                onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
-                onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
-                musicEnabled = progress.musicEnabled,
-                onToggleSound = { viewModel.setSoundEnabled(it) },
-                onToggleMusic = { viewModel.setMusicEnabled(it) },
-                onToggleDarkMode = { viewModel.setDarkMode(it) },
-                onSelectLanguage = { viewModel.setLanguage(it) },
-                onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
-                onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
-            )
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    BlastTheBlocksGame(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        shapePoolTier = definition.shapePoolTier,
+                        currentTheme = progress.blockTheme,
+                        isTr = progress.isTr,
+                        soundEnabled = progress.soundEnabled,
+                        darkMode = progress.darkMode,
+                        initialBoosterCounts = progress.ownedBoosters,
+                        onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
+                        onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
+                        musicEnabled = progress.musicEnabled,
+                        onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onToggleMusic = { viewModel.setMusicEnabled(it) },
+                        onToggleDarkMode = { viewModel.setDarkMode(it) },
+                        onSelectLanguage = { viewModel.setLanguage(it) },
+                        onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
+                        onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
         }
 
         composable(Routes.ENDLESS_GAME) {
-            // Sonsuz Mod oturumlari seviye oyunlarindan cok daha uzun surebiliyor —
-            // level GAME ekraninin aksine burada banner alt cubukta gosteriliyor
-            // (kullanici geri bildirimi: uzun oturumlarda hic reklam gorunmuyordu).
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    BlockBlastGame(
+                    BlastTheBlocksGame(
                         levelNumber = 0,
                         targetScore = Int.MAX_VALUE,
                         isEndless = true,

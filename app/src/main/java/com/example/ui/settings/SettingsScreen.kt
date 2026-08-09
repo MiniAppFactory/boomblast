@@ -74,6 +74,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         SettingsSwitchRow(
+            icon = "🔊",
             label = if (isTr) "Ses Efektleri" else "Sound Effects",
             checked = soundEnabled,
             onCheckedChange = onToggleSound,
@@ -81,6 +82,7 @@ fun SettingsScreen(
             palette = palette
         )
         SettingsSwitchRow(
+            icon = "🎵",
             label = if (isTr) "Müzik" else "Music",
             checked = musicEnabled,
             onCheckedChange = onToggleMusic,
@@ -88,6 +90,7 @@ fun SettingsScreen(
             palette = palette
         )
         SettingsSwitchRow(
+            icon = "🌙",
             label = if (isTr) "Koyu Mod" else "Dark Mode",
             checked = darkMode,
             onCheckedChange = onToggleDarkMode,
@@ -133,6 +136,7 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsSwitchRow(
+    icon: String,
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -149,7 +153,11 @@ private fun SettingsSwitchRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = palette.textPrimary)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = icon, fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = palette.textPrimary)
+            }
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,

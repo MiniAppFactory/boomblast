@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -221,10 +222,14 @@ private fun LevelCard(
             .clickable(enabled = unlocked, onClick = onClick)
             .testTag("level_card_$levelNumber")
     ) {
+        // Kilitli kartlar oncede acik kartlardan neredeyse ayirt edilemiyordu
+        // (UI/UX karsilastirma bulgusu) — artik tum icerik soluklastiriliyor
+        // ve kilit rozeti buyutulup belirginlestiriliyor.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .alpha(if (unlocked) 1f else 0.5f),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -232,10 +237,10 @@ private fun LevelCard(
                 // Level number badge
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(if (unlocked) 40.dp else 44.dp)
                         .clip(CircleShape)
                         .background(
-                            if (unlocked) NeonCyan.copy(alpha = 0.18f) else palette.card
+                            if (unlocked) NeonCyan.copy(alpha = 0.18f) else palette.cardBorder.copy(alpha = 0.4f)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -251,7 +256,7 @@ private fun LevelCard(
                             imageVector = Icons.Default.Lock,
                             contentDescription = if (isTr) "Kilitli" else "Locked",
                             tint = Color.Gray,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -266,7 +271,7 @@ private fun LevelCard(
                         color = if (unlocked) palette.textPrimary else palette.textSecondary
                     )
                     Text(
-                        text = if (isTr) "Hedef: $targetScore" else "Target: $targetScore",
+                        text = if (isTr) "HEDEF: $targetScore" else "TARGET: $targetScore",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = palette.textSecondary
@@ -281,7 +286,7 @@ private fun LevelCard(
                     imageVector = Icons.Default.Lock,
                     contentDescription = if (isTr) "Kilitli" else "Locked",
                     tint = Color.DarkGray,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

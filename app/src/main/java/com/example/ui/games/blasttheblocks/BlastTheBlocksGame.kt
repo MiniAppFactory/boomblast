@@ -1,4 +1,4 @@
-package com.example.ui.games.blockblast
+package com.example.ui.games.blasttheblocks
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -216,7 +216,7 @@ val BLOCK_THEMES = listOf(
 )
 
 @Composable
-fun BlockBlastGame(
+fun BlastTheBlocksGame(
     levelNumber: Int,
     targetScore: Int,
     shapePoolTier: Int = 3,
@@ -810,7 +810,12 @@ fun BlockBlastGame(
                         modifier = Modifier.padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(if (isTr) "SKOR" else "SCORE", fontSize = 10.sp, color = palette.textSecondary, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = (if (isTr) "🎯 SKOR" else "🎯 SCORE"),
+                            fontSize = 10.sp,
+                            color = palette.textSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text("$score", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = palette.textPrimary)
                     }
                 }
@@ -828,7 +833,7 @@ fun BlockBlastGame(
                             // Sonsuz Mod'da sabit bir hedef olmadigi icin ilerleme cubugunun
                             // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
                             Text(
-                                text = if (isTr) "KOMBO" else "COMBO",
+                                text = if (isTr) "🔥 KOMBO" else "🔥 COMBO",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 color = if (comboCount >= 2) NeonGold else NeonCyan
@@ -842,7 +847,7 @@ fun BlockBlastGame(
                             )
                         } else {
                             Text(
-                                text = if (isTr) "İLERLEME" else "PROGRESS",
+                                text = if (isTr) "📈 İLERLEME" else "📈 PROGRESS",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonCyan
@@ -856,6 +861,15 @@ fun BlockBlastGame(
                                     .clip(RoundedCornerShape(2.dp)),
                                 color = NeonCyan,
                                 trackColor = palette.cardAlt
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            // Cubuk tek basina sayisal bir okuma sunmuyordu (UI/UX
+                            // karsilastirma bulgusu) — artik altinda kesir gosteriliyor.
+                            Text(
+                                text = "$score/$targetScore",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = palette.textSecondary
                             )
                         }
                     }
@@ -871,7 +885,11 @@ fun BlockBlastGame(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isEndless) { if (isTr) "EN YÜKSEK" else "BEST" } else { if (isTr) "HEDEF" else "TARGET" },
+                            text = if (isEndless) {
+                                if (isTr) "🏆 EN YÜKSEK" else "🏆 BEST"
+                            } else {
+                                if (isTr) "🏁 HEDEF" else "🏁 TARGET"
+                            },
                             fontSize = 10.sp,
                             color = palette.textSecondary,
                             fontWeight = FontWeight.Bold

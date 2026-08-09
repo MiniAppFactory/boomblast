@@ -33,9 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
@@ -78,20 +80,40 @@ fun ModeSelectScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = if (isTr) "Blast the Blocks" else "Blast the Blocks",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Black,
-                color = palette.textPrimary
-            )
-            Text(
-                text = if (isTr) "Bir oyun modu seç" else "Choose a game mode",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = palette.textSecondary
-            )
+            // Marka kimligi icin logo rozeti — onceden sadece duz yazi vardi,
+            // rakip oyunlarin hepsinde basligin yaninda bir ikon/logo var (UI/UX
+            // karsilastirma bulgusu).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(palette.card)
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Blast the Blocks",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black,
+                        color = palette.textPrimary
+                    )
+                    Text(
+                        text = if (isTr) "Bir oyun modu seç" else "Choose a game mode",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = palette.textSecondary
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             ModeCard(
                 title = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
@@ -105,7 +127,7 @@ fun ModeSelectScreen(
                 testTag = "mode_select_endless_button"
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             ModeCard(
                 title = if (isTr) "SEVİYELİ MOD" else "LEVEL MODE",
@@ -200,7 +222,7 @@ private fun ModeCard(
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
+            .height(176.dp)
             .border(2.dp, Brush.linearGradient(listOf(accent, NeonGold)), RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .testTag(testTag)

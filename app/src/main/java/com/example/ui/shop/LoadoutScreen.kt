@@ -41,7 +41,6 @@ import com.example.data.PlayerProgress
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
-import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.blastPalette
 
@@ -99,7 +98,7 @@ fun LoadoutScreen(
                         color = NeonCyan
                     )
                     Text(
-                        text = if (isTr) "$targetScore puan hedefi" else "$targetScore point target",
+                        text = if (isTr) "HEDEF: $targetScore" else "TARGET: $targetScore",
                         fontSize = 11.sp,
                         color = palette.textSecondary,
                         fontWeight = FontWeight.Bold
@@ -198,6 +197,15 @@ private fun BoosterCard(
         BoosterType.LINE_CLEAR -> "⚡"
         BoosterType.SHUFFLE -> "🔀"
     }
+    // Uc guclendirici butonu birbirinden ayirt edilemiyordu (hepsi ayni mavi) —
+    // UI/UX karsilastirma bulgusu. Her tur artik kendi vurgu rengini tasiyor,
+    // ikonun anlamiyla eslesecek sekilde (bomba->kirmizi/turuncu, simsek->altin,
+    // karistir->mor).
+    val accent = when (type) {
+        BoosterType.BOMB -> Color(0xFFFF6B35)
+        BoosterType.LINE_CLEAR -> NeonGold
+        BoosterType.SHUFFLE -> NeonPurple
+    }
     val name = when (type) {
         BoosterType.BOMB -> if (isTr) "BOMBA" else "BOMB"
         BoosterType.LINE_CLEAR -> if (isTr) "SATIR TEMİZLE" else "LINE CLEAR"
@@ -221,7 +229,7 @@ private fun BoosterCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = NeonPurple.copy(alpha = 0.18f),
+                color = accent.copy(alpha = 0.18f),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -271,7 +279,7 @@ private fun BoosterCard(
             Button(
                 onClick = onBuy,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (canAfford) NeonCyan else palette.cardAlt,
+                    containerColor = if (canAfford) accent else palette.cardAlt,
                     disabledContainerColor = palette.cardAlt
                 ),
                 shape = RoundedCornerShape(10.dp),
@@ -303,12 +311,16 @@ private fun WatchAdCard(
     palette: BlastPalette,
     onWatchAdForTokens: () -> Unit
 ) {
+    // Onceden yesil vurgu + klaket ikonu kullaniliyordu — ikonun temsil ettigi
+    // "video izle" eylemiyle asil odul olan altin token arasinda renk kopuklugu
+    // vardi (UI/UX karsilastirma bulgusu). Artik tamami altin/odul temasi:
+    // hediye ikonu + altin renk, odulle dogrudan gorsel baglanti kuruyor.
     Card(
         colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, NeonGreen.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+            .border(1.dp, NeonGold.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
             .clickable { onWatchAdForTokens() }
             .testTag("watch_ad_tokens")
     ) {
@@ -317,11 +329,11 @@ private fun WatchAdCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = NeonGreen.copy(alpha = 0.18f),
+                color = NeonGold.copy(alpha = 0.18f),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "🎬",
+                    text = "🎁",
                     fontSize = 24.sp,
                     modifier = Modifier.padding(10.dp)
                 )
@@ -334,7 +346,7 @@ private fun WatchAdCard(
                     text = if (isTr) "Reklam izle: +Token" else "Watch ad: +Tokens",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonGreen
+                    color = NeonGold
                 )
                 Text(
                     text = if (isTr) "Ücretsiz bonus token kazan" else "Earn free bonus tokens",
@@ -344,14 +356,14 @@ private fun WatchAdCard(
             }
 
             Surface(
-                color = NeonGreen.copy(alpha = 0.2f),
+                color = NeonGold.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     text = if (isTr) "İZLE" else "WATCH",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonGreen,
+                    color = NeonGold,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
