@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,17 +22,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppLanguage
+import com.example.data.flag
+import com.example.data.label
 import com.example.data.pick
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
@@ -195,26 +206,71 @@ fun SettingsScreen(
                     color = palette.textPrimary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Faz 35: onceden hardcoded 2 secenekli (TR/EN) bir Row'du —
-                // 5 dile cikinca veri-tabanli hale getirildi (AppLanguage.entries
-                // uzerinden dongu), yatay kaydirilabilir LazyRow ile (asagidaki
-                // "Görünüm" skin galerisiyle ayni desen), 5'i yan yana sigmasa bile
-                // tasma olmuyor.
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(AppLanguage.entries.toList()) { lang ->
-                        LanguageOption(
-                            label = lang.pick(
-                                tr = "Türkçe",
-                                en = "English",
-                                it = "Italiano",
-                                fr = "Français",
-                                es = "Español"
-                            ),
-                            selected = language == lang,
-                            onClick = { onSelectLanguage(lang) },
-                            testTag = "settings_lang_${lang.code}",
-                            palette = palette
-                        )
+                // Faz 36b: kaydirilabilir kart listesi (LazyRow) yerine acilir
+                // menu (dropdown) — her secenek kendi bayragiyla gosteriliyor
+                // (kullanici istegi).
+                var languageMenuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Surface(
+                        color = palette.background,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, NeonPurple.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable { languageMenuExpanded = true }
+                            .testTag("settings_lang_dropdown_trigger")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = language.flag(), fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = language.label(),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = palette.textPrimary
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = palette.textSecondary
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = languageMenuExpanded,
+                        onDismissRequest = { languageMenuExpanded = false },
+                        modifier = Modifier.background(palette.card)
+                    ) {
+                        AppLanguage.entries.forEach { lang ->
+                            val isSelected = lang == language
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = lang.flag(), fontSize = 18.sp)
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = lang.label(),
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) NeonPurple else palette.textPrimary
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onSelectLanguage(lang)
+                                    languageMenuExpanded = false
+                                },
+                                modifier = Modifier.testTag("settings_lang_${lang.code}")
+                            )
+                        }
                     }
                 }
             }
@@ -331,38 +387,5 @@ private fun SettingsSwitchRow(
                 modifier = Modifier.testTag(testTag)
             )
         }
-    }
-}
-
-@Composable
-private fun LanguageOption(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    testTag: String,
-    palette: BlastPalette
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) NeonPurple.copy(alpha = 0.25f) else palette.background
-        ),
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) NeonPurple else palette.cardBorder,
-                shape = RoundedCornerShape(10.dp)
-            )
-            .clickable(onClick = onClick)
-            .testTag(testTag)
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = palette.textPrimary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-        )
     }
 }

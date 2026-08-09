@@ -26,3 +26,17 @@ fun AppLanguage.pick(tr: String, en: String, it: String, fr: String, es: String)
         AppLanguage.FR -> fr
         AppLanguage.ES -> es
     }
+
+// Faz 36b: Ayarlar'daki dil secici kaydirilabilir kart listesinden acilir
+// menuye (dropdown) cevrilirken eklendi — her dil kendi bayragiyla gosteriliyor.
+fun AppLanguage.flag(): String =
+    when (this) {
+        AppLanguage.TR -> "🇹🇷"
+        AppLanguage.EN -> "🇬🇧"
+        AppLanguage.IT -> "🇮🇹"
+        AppLanguage.FR -> "🇫🇷"
+        AppLanguage.ES -> "🇪🇸"
+    }
+
+fun AppLanguage.label(): String =
+    pick(tr = "Türkçe", en = "English", it = "Italiano", fr = "Français", es = "Español")
