@@ -920,7 +920,15 @@ fun BlastTheBlocksGame(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Faz 25: geri butonu + baslik + tema/ayarlar/sifirla grubu sabit
+                // genislik varsayan bir SpaceBetween Row'daydi — Level Map'te ayni
+                // desen dar ekranlarda cakismaya yol acmisti (kullanici geri
+                // bildirimi). Baslik artik kalan alani paylasiyor ve gerekirse
+                // ellipsis ile kisaliyor, sag gruptan asla alan calmiyor.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(horizontal = 4.dp)
+                ) {
                     Text(
                         text = when {
                             isEndless && isTr -> "SONSUZ MOD"
@@ -930,7 +938,9 @@ fun BlastTheBlocksGame(
                         },
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
-                        color = NeonCyan
+                        color = NeonCyan,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
 

@@ -1,6 +1,8 @@
 package com.example
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -34,6 +36,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         MobileAds.initialize(applicationContext) {}
         requestAndShowUmpConsentIfRequired { adsConsentResolved.value = true }
+        // Faz 25: UMP consent akisi hem basari hem hata dalinda "onResolved"
+        // cagirmayabiliyordu (ornegin consent update istegi agdan dolayi
+        // basarisiz olur VE canRequestAds() henuz false ise) — bu durumda
+        // adsConsentResolved sonsuza kadar false kalip banner reklam O OTURUM
+        // BOYUNCA HIC gorunmuyordu (kullanici geri bildirimi: "banner yok").
+        // Guvenlik agi: 4 saniyede hala cozulmediyse reklamlari zorla ac.
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!adsConsentResolved.value) adsConsentResolved.value = true
+        }, 4000)
 
         setContent {
             val progress by viewModel.playerProgress.collectAsStateWithLifecycle()

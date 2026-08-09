@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -58,10 +60,16 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
+    // Faz 25: "Görünüm" (skin galerisi) eklenince toplam icerik yukseklik
+    // artti, Column kaydirilamadigi icin alt kisim (skin isimleri, hatta
+    // svatch dairelerinin alt yarisi) ekran disinda SESSIZCE kirpiliyordu
+    // (kullanici geri bildirimi, ekran goruntusuyle dogrulandi). Artik dikey
+    // kaydirma var, hicbir icerik erisilmez kalmiyor.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(palette.background)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Row(

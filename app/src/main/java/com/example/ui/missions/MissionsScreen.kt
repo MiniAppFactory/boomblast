@@ -88,7 +88,10 @@ fun MissionsScreen(
                     text = if (isTr) "HAFTALIK GÖREVLER" else "WEEKLY MISSIONS",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
-                    color = NeonCyan
+                    color = NeonCyan,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
 
                 // Spacer to balance the back button so the title stays centered

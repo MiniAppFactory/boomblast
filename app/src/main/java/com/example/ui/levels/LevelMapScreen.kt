@@ -126,7 +126,15 @@ private fun LevelMapHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Faz 25: "SEVİYELER" basligi ile sag taraftaki jeton kapsulu arasinda
+        // hicbir esneme payi yoktu — dar ekranlarda ikisi "dip dibe" cakisiyordu
+        // (kullanici geri bildirimi, ekran goruntusuyle dogrulandi). Sol grup artik
+        // `weight(1f, fill=false)` ile sinirli ve basligin kendisi tek satirda
+        // gerekirse ellipsis ile kisaliyor, sag gruptan asla alan calmiyor.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f, fill = false)
+        ) {
             IconButton(
                 onClick = onBack,
                 modifier = Modifier.testTag("level_map_back_button")
@@ -142,9 +150,14 @@ private fun LevelMapHeader(
                 text = if (isTr) "SEVİYELER" else "LEVELS",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
-                color = NeonCyan
+                color = NeonCyan,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
+
+        Spacer(modifier = Modifier.width(6.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Token balance pill

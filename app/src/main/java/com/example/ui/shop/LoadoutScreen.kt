@@ -92,18 +92,29 @@ fun LoadoutScreen(
                     )
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Faz 25: sabit-genislik varsayan 3-parcali SpaceBetween Row'lari dar
+                // ekranlarda komsu elemanlarla cakisiyordu (Level Map'te ayni desen
+                // bulundu ve duzeltildi) — orta sutun artik kalan alani paylasip
+                // gerekirse metni kisaltiyor, jeton kapsulunden asla alan calmiyor.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = if (isTr) "SEVİYE $levelNumber" else "LEVEL $levelNumber",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Black,
-                        color = NeonCyan
+                        color = NeonCyan,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = if (isTr) "HEDEF: $targetScore" else "TARGET: $targetScore",
                         fontSize = 11.sp,
                         color = palette.textSecondary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
 
