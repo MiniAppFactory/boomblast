@@ -54,8 +54,14 @@ class GameStateRepository(private val context: Context) {
             soundVolume = prefs[Keys.SOUND_VOLUME] ?: 0.5f,
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
             darkMode = prefs[Keys.DARK_MODE] ?: true,
-            language = prefs[Keys.LANGUAGE]?.let { AppLanguage.fromCode(it) }
-                ?: if (prefs[Keys.IS_TR] == false) AppLanguage.EN else AppLanguage.TR,
+            // Faz 37: gercekten ilk kurulumda (ne yeni "language" ne eski
+            // "is_tr" kaydi varsa) cihazin sistem diline gore akilli bir
+            // varsayilan seciliyor — onceden hep sabit TR'ye dusuyordu.
+            language = when {
+                prefs[Keys.LANGUAGE] != null -> AppLanguage.fromCode(prefs[Keys.LANGUAGE])
+                prefs[Keys.IS_TR] != null -> if (prefs[Keys.IS_TR] == false) AppLanguage.EN else AppLanguage.TR
+                else -> AppLanguage.fromSystemLocale()
+            },
             blockTheme = prefs[Keys.BLOCK_THEME] ?: "CLASSIC",
             uiSkin = prefs[Keys.UI_SKIN] ?: "DEFAULT",
             hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,

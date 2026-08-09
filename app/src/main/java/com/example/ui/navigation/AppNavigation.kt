@@ -101,6 +101,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 } else if (!progress.hasSeenOnboarding) {
                     OnboardingScreen(
                         language = progress.language,
+                        onSelectLanguage = { viewModel.setLanguage(it) },
                         darkMode = progress.darkMode,
                         skin = skin,
                         onFinish = { viewModel.markOnboardingSeen() }

@@ -15,6 +15,17 @@ enum class AppLanguage(val code: String) {
 
     companion object {
         fun fromCode(code: String?): AppLanguage = entries.find { it.code == code } ?: TR
+
+        // Faz 37: kullanici "ilk girişte dil telefon dili default mu geliyor"
+        // diye sordu — onceden gelmiyordu, hep sabit TR idi. Artik GERCEKTEN
+        // ilk kurulumda (DataStore'da ne "language" ne eski "is_tr" kaydi
+        // varsa) cihazin sistem diline gore akilli bir varsayilan seciliyor.
+        // Desteklenmeyen bir sistem dili icin TR yerine EN'e dusuluyor — daha
+        // uluslararasi/notr bir varsayilan.
+        fun fromSystemLocale(): AppLanguage {
+            val systemCode = java.util.Locale.getDefault().language
+            return entries.find { it.code == systemCode } ?: EN
+        }
     }
 }
 

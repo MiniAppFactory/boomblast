@@ -5,6 +5,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,7 +48,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AppLanguage
+import com.example.data.flag
+import com.example.data.label
 import com.example.data.pick
+import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
@@ -126,12 +132,19 @@ private val onboardingSteps = listOf(
 @Composable
 fun OnboardingScreen(
     language: AppLanguage,
+    onSelectLanguage: (AppLanguage) -> Unit,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onFinish: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
     var currentStep by remember { mutableIntStateOf(0) }
+    // Faz 37: kullanici "ilk onboarding sayfasında dil de seçtirelim" dedi —
+    // cihaz dili GameStateRepository'de otomatik algilanip varsayilan
+    // secildi (bkz. AppLanguage.fromSystemLocale), burada kullanici onu
+    // onaylayabiliyor veya degistirebiliyor. Onaylanana kadar tur adimlari
+    // (PARÇALARI SÜRÜKLE vb.) gosterilmiyor.
+    var languageConfirmed by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
         visible = true,
@@ -156,6 +169,14 @@ fun OnboardingScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                  if (!languageConfirmed) {
+                    LanguagePickerStep(
+                        language = language,
+                        palette = palette,
+                        onSelectLanguage = onSelectLanguage,
+                        onConfirm = { languageConfirmed = true }
+                    )
+                  } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -280,8 +301,71 @@ fun OnboardingScreen(
                             )
                         }
                     }
+                  }
                 }
             }
         }
     }
+}
+
+// Faz 37: onboarding'in ilk adimi — kullanici "ilk onboarding sayfasında dil
+// de seçtirelim" dedi. Cihaz dili GameStateRepository tarafindan otomatik
+// algilanip varsayilan olarak zaten secilmis oluyor (bkz. AppLanguage.
+// fromSystemLocale); burada kullanici sadece onaylıyor veya degistiriyor.
+// Hangi dilde oldugu henuz belli olmadigindan basliktaki metin kasitli
+// olarak COK DILLI (TR/EN) tutuldu, ama her secenegin kendi native adi zaten
+// kendini acikliyor (bayrak + "Türkçe"/"English"/vb.).
+@Composable
+private fun LanguagePickerStep(
+    language: AppLanguage,
+    palette: BlastPalette,
+    onSelectLanguage: (AppLanguage) -> Unit,
+    onConfirm: () -> Unit
+) {
+    Text(text = "🌐", fontSize = 40.sp)
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        text = "Dil Seç / Choose Language",
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Black,
+        color = palette.textPrimary,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(20.dp))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AppLanguage.entries.forEach { lang ->
+            val selected = lang == language
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (selected) NeonCyan.copy(alpha = 0.18f) else palette.cardAlt)
+                    .border(
+                        width = if (selected) 2.dp else 1.dp,
+                        color = if (selected) NeonCyan else palette.cardBorder,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable {
+                        onSelectLanguage(lang)
+                        onConfirm()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .testTag("onboarding_lang_${lang.code}"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = lang.flag(), fontSize = 20.sp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = lang.label(),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected) NeonCyan else palette.textPrimary
+                )
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(8.dp))
 }
