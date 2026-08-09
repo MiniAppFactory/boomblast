@@ -87,8 +87,7 @@ fun ModeSelectScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
             ) {
                 // Marka kimligi icin logo rozeti — onceden sadece duz yazi vardi,
                 // rakip oyunlarin hepsinde basligin yaninda bir ikon/logo var (UI/UX
@@ -123,7 +122,7 @@ fun ModeSelectScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 ModeCard(
                     title = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
@@ -134,10 +133,11 @@ fun ModeSelectScreen(
                     accent = NeonGreen,
                     palette = palette,
                     onClick = onOpenEndless,
-                    testTag = "mode_select_endless_button"
+                    testTag = "mode_select_endless_button",
+                    modifier = Modifier.weight(1f)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 ModeCard(
                     title = if (isTr) "SEVİYELİ MOD" else "LEVEL MODE",
@@ -148,7 +148,8 @@ fun ModeSelectScreen(
                     accent = NeonCyan,
                     palette = palette,
                     onClick = onOpenLevels,
-                    testTag = "mode_select_levels_button"
+                    testTag = "mode_select_levels_button",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -226,14 +227,19 @@ private fun ModeCard(
     accent: androidx.compose.ui.graphics.Color,
     palette: BlastPalette,
     onClick: () -> Unit,
-    testTag: String
+    testTag: String,
+    // Faz 23: kart sabit 176dp yukseklikteydi, dikey ortalama (Faz 21) bosluğu
+    // yeniden dağıtsa da TOPLAM bos alani azaltmiyordu — kullanici hala "ekranı
+    // kaplamıyor" dedi. Artik cagiran taraf Modifier.weight(1f) verip karti kalan
+    // TUM dikey alani doldurmaya zorluyor, bosluk gercekten ortadan kalkiyor.
+    modifier: Modifier = Modifier.height(176.dp)
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(176.dp)
+            .then(modifier)
             .border(2.dp, Brush.linearGradient(listOf(accent, NeonGold)), RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .testTag(testTag)
