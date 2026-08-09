@@ -191,15 +191,14 @@ object SoundManager {
         val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    // Faz 29: CONTENT_TYPE_SONIFICATION bircok Samsung cihazda
-                    // MEDYA sesinden AYRI, kullanicilarin genelde dusuk/kapali
-                    // biraktigi "Sistem Sesleri" kisicisina baglaniyor olabilir —
-                    // telefonun medya sesi sonuna kadar acik olsa bile efektler
-                    // kisik kalabilir (kullanici geri bildirimi: "100% bile zor
-                    // duyuluyor"). CONTENT_TYPE_MUSIC, MEDYA ses akisina baglanip
-                    // kullanicinin zaten sonuna kadar actigini soyledigi kisiciyi
-                    // dogrudan kullanir.
+                    // Faz 30: Faz 29'daki USAGE_GAME + CONTENT_TYPE_MUSIC denemesi
+                    // kullanicida sesi DAHA DA kistı (hipotez yanlis cikti — muhtemelen
+                    // USAGE_GAME, Samsung Game Booster/Game Launcher'in bu akisa
+                    // ozel ses isleme/sinirlama uygulamasina yol aciyordu). USAGE_MEDIA
+                    // + CONTENT_TYPE_MUSIC — herhangi bir muzik/medya oynaticinin
+                    // kullandigi, ozel oyun-modu ses isleme almayan standart kombinasyona
+                    // gecildi.
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )

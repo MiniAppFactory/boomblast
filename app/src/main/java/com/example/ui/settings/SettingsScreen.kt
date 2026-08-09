@@ -76,13 +76,21 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(palette.background)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
+        // Faz 30: "AYARLAR" basligi ustunde fazladan bir bosluk hissi vardi
+        // (kullanici geri bildirimi, ekran goruntusuyle dogrulandi) — kok neden,
+        // Column'un 16dp ust padding'i + Row'un kendi 4dp padding'i + IconButton'un
+        // 48dp'lik varsayilan dokunma alaninin GERI dugmesini asagi kaydirmasiydi.
+        // Ust bosluk daraltildi, geri dugmesinin dokunma alani da kucultuldu.
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack, modifier = Modifier.testTag("settings_back_button")) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(40.dp).testTag("settings_back_button")
+            ) {
                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = palette.textPrimary)
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -94,7 +102,11 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Faz 30: baslik ile ilk menu arasindaki bosluk fazla genisti, alt
+        // kisimdaki "Görünüm" skin galerisi kaydirmadan gorunmuyordu (kullanici
+        // istegi) — bosluk azaltildi, asagidaki tum kartlarin ic/dis padding'i
+        // de hafifce daraltilip toplamda birkac satirlik yer kazanildi.
+        Spacer(modifier = Modifier.height(8.dp))
 
         SettingsSwitchRow(
             icon = "🔊",
@@ -111,9 +123,9 @@ fun SettingsScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = palette.card),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -166,21 +178,21 @@ fun SettingsScreen(
             palette = palette
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Card(
             colors = CardDefaults.cardColors(containerColor = palette.card),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 Text(
                     text = if (isTr) "Dil" else "Language",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = palette.textPrimary
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LanguageOption(
                         label = "Türkçe",
@@ -207,16 +219,16 @@ fun SettingsScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = palette.card),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 Text(
                     text = if (isTr) "Görünüm" else "Appearance",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = palette.textPrimary
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(BlastSkin.entries.toList()) { candidate ->
                         SkinOption(
@@ -292,10 +304,10 @@ private fun SettingsSwitchRow(
     Card(
         colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
