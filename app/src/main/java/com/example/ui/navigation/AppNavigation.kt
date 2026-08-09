@@ -186,6 +186,8 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         uiSkin = skin,
                         onSelectSkin = onSelectSkin,
+                        hasMadeFirstMove = progress.hasMadeFirstMove,
+                        onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
                         onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
                     )
@@ -220,6 +222,8 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         uiSkin = skin,
                         onSelectSkin = onSelectSkin,
+                        hasMadeFirstMove = progress.hasMadeFirstMove,
+                        onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()

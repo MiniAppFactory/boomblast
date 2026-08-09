@@ -80,12 +80,21 @@ val BlastPurpleNightPalette = BlastPalette(
     emptyCell = Color(0xFF160B2E)
 )
 
-enum class BlastSkin(val swatch: Color, val labelTr: String, val labelEn: String) {
-    DEFAULT(Color(0xFF1E293B), "Varsayılan", "Default"),
-    FOREST(Color(0xFF2A4433), "Orman", "Forest"),
-    OCEAN(Color(0xFF1B4566), "Okyanus", "Ocean"),
-    SUNSET(Color(0xFF54305A), "Gün Batımı", "Sunset"),
-    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night");
+enum class BlastSkin(
+    val swatch: Color,
+    val labelTr: String,
+    val labelEn: String,
+    // Faz 22: grid cercevesi ve ambient zemin ısıması onceden TUM skinlerde sabit
+    // cyan-mor kalıyordu — Orman/Okyanus gibi skinlerde bile ayni cercevenin kalmasi
+    // skin'in "yarim" hissettirmesine yol aciyordu. Her skin artik kendi vurgu
+    // gradyanini tasiyor.
+    val accentGradient: List<Color>
+) {
+    DEFAULT(Color(0xFF1E293B), "Varsayılan", "Default", listOf(NeonCyan, NeonPurple)),
+    FOREST(Color(0xFF2A4433), "Orman", "Forest", listOf(Color(0xFF34D399), Color(0xFF059669))),
+    OCEAN(Color(0xFF1B4566), "Okyanus", "Ocean", listOf(Color(0xFF38BDF8), Color(0xFF0EA5E9))),
+    SUNSET(Color(0xFF54305A), "Gün Batımı", "Sunset", listOf(Color(0xFFF97316), Color(0xFFEC4899))),
+    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night", listOf(Color(0xFFA78BFA), Color(0xFF7C3AED)));
 
     companion object {
         fun fromId(id: String): BlastSkin = entries.find { it.name == id } ?: DEFAULT

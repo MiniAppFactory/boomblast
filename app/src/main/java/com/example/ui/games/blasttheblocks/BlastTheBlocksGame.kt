@@ -1,15 +1,25 @@
 package com.example.ui.games.blasttheblocks
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -124,6 +134,16 @@ data class BlastParticle(
     val col: Int,
     val angle: Float,
     val distance: Float,
+    val color: Color
+)
+
+// Faz 22: seviye tamamlanma anina ozel, tam ekran konfeti — grid'e gore konumlanan
+// BlastParticle'dan farkli olarak ekran genisligine (0f..1f) gore konumlanir.
+data class ConfettiPiece(
+    val xFraction: Float,
+    val startDelay: Float,
+    val drift: Float,
+    val rotationSpeed: Float,
     val color: Color
 )
 
@@ -250,9 +270,19 @@ fun BlastTheBlocksGame(
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
-    onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() }
+    onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() },
+    // Faz 22: ilk gercek hamleden once bir kez gosterilen rehber ipucu — bu bayrak
+    // kalici (DataStore) oldugu icin varsayilan deger `true` (ipucu KAPALI), aksi
+    // halde onizleme/test cagrilarinda yanlislikla her zaman gosterilir.
+    hasMadeFirstMove: Boolean = true,
+    onFirstMoveMade: () -> Unit = {}
 ) {
     val palette = blastPalette(uiSkin, darkMode)
+    // Faz 22: skin/koyu-mod degisiminde renkler ONCEDEN tek karede sertce
+    // degisiyordu (Ayarlar overlay'inden secim yapinca aninda). En gorunur iki
+    // yuzeyde (kok zemin + ana kart) yumusak bir crossfade uygulanir.
+    val animatedBackground by animateColorAsState(palette.background, animationSpec = tween(400), label = "bgCrossfade")
+    val animatedCard by animateColorAsState(palette.card, animationSpec = tween(400), label = "cardCrossfade")
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
@@ -278,6 +308,77 @@ fun BlastTheBlocksGame(
     val glowBrush = remember {
         Brush.sweepGradient(listOf(NeonCyan, NeonGold, NeonPurple, NeonGreen, NeonCyan))
     }
+    // Faz 22: skor degisince anlik ziplama yerine eski degerden yeniye SAYARAK
+    // artiyor + kisa bir "pop" (kullanicinin degerlendirmesi: rakip oyunlarda
+    // standart olan bu geri bildirim bizde yoktu).
+    val animatedScore by animateIntAsState(targetValue = score, animationSpec = tween(450), label = "scoreCountUp")
+    val scoreScale = remember { Animatable(1f) }
+    LaunchedEffect(score) {
+        scoreScale.snapTo(1.2f)
+        scoreScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    }
+
+    // Faz 22: paylasilan, TEK infiniteTransition kaynaklari — her hucreye/karta
+    // AYRI bir animasyon dongusu acmak (64 hucre + N kart) performans sorunu
+    // yaratir, bunun yerine birkac paylasilan faz degeri hesaplanip asagi aktarilir.
+    val sharedPulse by rememberInfiniteTransition(label = "sharedPulse").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "sharedPulseAnim"
+    )
+    val ambientPhase by rememberInfiniteTransition(label = "ambientPhase").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Restart),
+        label = "ambientPhaseAnim"
+    )
+    val shimmerPhase by rememberInfiniteTransition(label = "shimmerPhase").animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
+        label = "shimmerPhaseAnim"
+    )
+
+    // Faz 22: bir satir/sutunda TAM 1 hucre bos kalinca, o satirdaki dolu
+    // hucreler hafifce nabiz atarak "bir hamle kaldi" hissi verir (Woodoku/
+    // Blockudoku referansi).
+    val nearMissCells = remember(board.toList()) {
+        val cells = mutableSetOf<Int>()
+        for (r in 0 until gridSize) {
+            var filled = 0
+            for (c in 0 until gridSize) if (board[r * gridSize + c] != 0) filled++
+            if (filled == gridSize - 1) {
+                for (c in 0 until gridSize) if (board[r * gridSize + c] != 0) cells.add(r * gridSize + c)
+            }
+        }
+        for (c in 0 until gridSize) {
+            var filled = 0
+            for (r in 0 until gridSize) if (board[r * gridSize + c] != 0) filled++
+            if (filled == gridSize - 1) {
+                for (r in 0 until gridSize) if (board[r * gridSize + c] != 0) cells.add(r * gridSize + c)
+            }
+        }
+        cells
+    }
+
+    // Faz 22: oturum ici basari rozetleri — kalici degil (DataStore'a yazilmiyor),
+    // sadece bu oyun oturumu icinde bir kez gosterilir. Kalici bir basari sistemi
+    // (yeni DataStore alanlari + tum ekranlara akis) kapsam disi birakildi.
+    var sessionLinesCleared by remember { mutableIntStateOf(0) }
+    val unlockedSessionAchievements = remember { mutableStateListOf<String>() }
+    var activeAchievementText by remember { mutableStateOf<String?>(null) }
+    fun maybeUnlockAchievement(id: String, text: String) {
+        if (!unlockedSessionAchievements.contains(id)) {
+            unlockedSessionAchievements.add(id)
+            activeAchievementText = text
+        }
+    }
+
+    // Faz 22: ilk gercek hamleden once tepsinin altinda kisa bir rehber ipucu —
+    // ilk basarili yerlestirmede kalici olarak kapatilir (onFirstMoveMade).
+    var showFirstMoveHint by remember { mutableStateOf(!hasMadeFirstMove) }
+
     var showContinueDialog by remember { mutableStateOf(false) }
     var continueOffered by remember { mutableStateOf(false) }
     var isRequestingContinueAd by remember { mutableStateOf(false) }
@@ -285,6 +386,11 @@ fun BlastTheBlocksGame(
     val comboTextScale = remember { Animatable(1f) }
     var particleBurst by remember { mutableStateOf<List<BlastParticle>>(emptyList()) }
     val particleProgress = remember { Animatable(0f) }
+    // Faz 22: seviye tamamlanma kutlamasi — onceden bu an gorsel olarak sadece
+    // skor/yildiz sayilarindan ibaretti (tasarim onerisi: rakip oyunlarda en
+    // yuksek motivasyon aninin ozel bir gorseli olmaliydi).
+    var confettiPieces by remember { mutableStateOf<List<ConfettiPiece>>(emptyList()) }
+    val confettiProgress = remember { Animatable(0f) }
     var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
     val availableBoosterCounts = remember {
         mutableStateMapOf<BoosterType, Int>().apply { putAll(initialBoosterCounts) }
@@ -543,8 +649,38 @@ fun BlastTheBlocksGame(
         }
     }
 
+    // Basari rozeti kisa bir sure gosterilip kendiliginden kapanir.
+    LaunchedEffect(activeAchievementText) {
+        if (activeAchievementText != null) {
+            delay(2200)
+            activeAchievementText = null
+        }
+    }
+
+    // Seviye tamamlaninca bir kerelik konfeti patlamasi.
+    LaunchedEffect(isLevelComplete) {
+        if (isLevelComplete) {
+            confettiPieces = List(36) {
+                ConfettiPiece(
+                    xFraction = Random.nextFloat(),
+                    startDelay = Random.nextFloat() * 0.3f,
+                    drift = (Random.nextFloat() - 0.5f) * 60f,
+                    rotationSpeed = Random.nextFloat() * 6f + 2f,
+                    color = BLOCK_COLORS[Random.nextInt(BLOCK_COLORS.size)]
+                )
+            }
+            confettiProgress.snapTo(0f)
+            confettiProgress.animateTo(1f, animationSpec = tween(1600, easing = FastOutSlowInEasing))
+        }
+    }
+
     fun placeShape(shapeIndex: Int, shape: BlockShape, startRow: Int, startCol: Int) {
         if (!canPlaceShape(shape, startRow, startCol)) return
+
+        if (showFirstMoveHint) {
+            showFirstMoveHint = false
+            onFirstMoveMade()
+        }
 
         if (isEndless) {
             moveHistory.add(GameSnapshot(board = board.toList(), score = score))
@@ -620,6 +756,20 @@ fun BlastTheBlocksGame(
             }
             lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
             lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
+
+            sessionLinesCleared += totalLinesCleared
+            when {
+                comboCount == 3 -> maybeUnlockAchievement("combo_3", if (isTr) "🔥 3x Kombo!" else "🔥 3x Combo!")
+                comboCount == 5 -> maybeUnlockAchievement("combo_5", if (isTr) "🔥 5x Kombo — İnanılmaz!" else "🔥 5x Combo — Amazing!")
+            }
+            when {
+                sessionLinesCleared >= 10 && sessionLinesCleared - totalLinesCleared < 10 ->
+                    maybeUnlockAchievement("lines_10", if (isTr) "🏅 10 satır temizledin!" else "🏅 10 lines cleared!")
+                sessionLinesCleared >= 25 && sessionLinesCleared - totalLinesCleared < 25 ->
+                    maybeUnlockAchievement("lines_25", if (isTr) "🏅 25 satır temizledin!" else "🏅 25 lines cleared!")
+                sessionLinesCleared >= 50 && sessionLinesCleared - totalLinesCleared < 50 ->
+                    maybeUnlockAchievement("lines_50", if (isTr) "🏅 50 satır — harikasın!" else "🏅 50 lines — you're on fire!")
+            }
 
             val clearedIndices = mutableSetOf<Int>()
             rowsToClear.forEach { r -> for (c in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
@@ -723,10 +873,30 @@ fun BlastTheBlocksGame(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(palette.background)
+            .background(animatedBackground)
             .onGloballyPositioned { rootOriginPx = it.positionInRoot() }
             .padding(16.dp)
     ) {
+        // Faz 22: kok zemin onceden tamamen duz/statik renkti (tasarim onerisi:
+        // "hafif atmosferik arka plan hareketi"). Cok yavas kayan, dusuk kontrastli
+        // iki blob — pil/performans dostu olmasi icin tek paylasilan ambientPhase'e bagli.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val twoPi = (2.0 * Math.PI).toFloat()
+            val cx1 = size.width * (0.3f + 0.2f * sin(ambientPhase * twoPi))
+            val cy1 = size.height * (0.2f + 0.15f * cos(ambientPhase * twoPi * 0.7f))
+            drawCircle(
+                color = uiSkin.accentGradient[0].copy(alpha = 0.06f),
+                radius = size.minDimension * 0.55f,
+                center = Offset(cx1, cy1)
+            )
+            val cx2 = size.width * (0.7f - 0.2f * cos(ambientPhase * twoPi * 0.6f))
+            val cy2 = size.height * (0.8f - 0.15f * sin(ambientPhase * twoPi * 0.9f))
+            drawCircle(
+                color = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }.copy(alpha = 0.05f),
+                radius = size.minDimension * 0.5f,
+                center = Offset(cx2, cy2)
+            )
+        }
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -844,14 +1014,41 @@ fun BlastTheBlocksGame(
                             color = palette.textSecondary,
                             fontWeight = FontWeight.Bold
                         )
-                        Text("$score", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = palette.textPrimary)
+                        Text(
+                            "$animatedScore",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = palette.textPrimary,
+                            modifier = Modifier.scale(scoreScale.value)
+                        )
                     }
                 }
 
+                // Faz 22: seri (streak) 3+ oldugunda kart alevleniyor — mevcut kombo
+                // metni gecici bir banner, bu ise KALICI bir gorsel gosterge (kullanici
+                // geri bildirimi: "kombo kartı seri arttıkça alevlensin").
+                val isOnStreak = isEndless && comboCount >= 3
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isOnStreak) Color(0xFFFF6B35).copy(alpha = 0.16f) else palette.card
+                    ),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1.1f).padding(horizontal = 2.dp)
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .padding(horizontal = 2.dp)
+                        .then(
+                            if (isOnStreak) {
+                                Modifier.border(
+                                    width = 1.5.dp,
+                                    brush = Brush.linearGradient(
+                                        listOf(Color(0xFFFF6B35).copy(alpha = sharedPulse), NeonGold.copy(alpha = sharedPulse))
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     Column(
                         modifier = Modifier.padding(8.dp),
@@ -1031,13 +1228,13 @@ fun BlastTheBlocksGame(
 
             // 8x8 Main Grid
             Card(
-                colors = CardDefaults.cardColors(containerColor = palette.card),
+                colors = CardDefaults.cardColors(containerColor = animatedCard),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
-                    .border(2.dp, Brush.linearGradient(listOf(NeonCyan, NeonPurple)), RoundedCornerShape(16.dp))
+                    .border(2.dp, Brush.linearGradient(uiSkin.accentGradient), RoundedCornerShape(16.dp))
                     .padding(6.dp)
             ) {
               Box(modifier = Modifier.fillMaxSize()) {
@@ -1096,7 +1293,21 @@ fun BlastTheBlocksGame(
                                         EmbossedBlockCell(
                                             colorIndex = cellVal,
                                             theme = currentTheme,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier.fillMaxSize(),
+                                            shimmerPhase = shimmerPhase + (r + c) * 0.4f
+                                        )
+                                    }
+                                    // Faz 22: satir/sutun tam 1 hucre eksikken dolu hucreler
+                                    // hafifce nabiz atar ("bir hamle kaldi" ipucu).
+                                    if (cellVal > 0 &&
+                                        (r * gridSize + c) in nearMissCells &&
+                                        (r * gridSize + c) !in glowingClearCells
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .border(1.5.dp, NeonGold.copy(alpha = sharedPulse), RoundedCornerShape(6.dp))
                                         )
                                     }
                                     if ((r * gridSize + c) in glowingClearCells) {
@@ -1265,7 +1476,18 @@ fun BlastTheBlocksGame(
                                 }
                             }
                         } else if (shape == null) {
-                            Text(if (isTr) "BOŞ" else "EMPTY", fontSize = 11.sp, color = palette.textSecondary)
+                            // Onceden tamamen bos/karanlik bir kart kaliyordu, "kirik/eksik"
+                            // gibi goruntyordu (tasarim onerisi). Noktali cerceve + soluk "+"
+                            // ile "burada yeni parca gelecek" hissi verilir.
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, palette.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("+", fontSize = 14.sp, color = palette.textSecondary.copy(alpha = 0.5f))
+                            }
                         }
                     }
                 }
@@ -1273,6 +1495,52 @@ fun BlastTheBlocksGame(
         }
 
         // Sürüklenen parçanın parmağı takip eden önizlemesi (tam şekil, geçerliyse yeşil/geçersizse kırmızı)
+        // Faz 22: oturum ici basari rozeti — kisa sureli, ekranin ustunde beliren bir toast.
+        AnimatedVisibility(
+            visible = activeAchievementText != null,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 70.dp)
+                .zIndex(25f)
+        ) {
+            Surface(
+                color = NeonGold,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(
+                    text = activeAchievementText ?: "",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+
+        // Faz 22: ilk gercek hamleden once, tepsinin uzerinde kisa bir rehber ipucu —
+        // ilk basarili yerlestirmede kalici olarak (DataStore) kapatilir.
+        if (showFirstMoveHint) {
+            Surface(
+                color = palette.card,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, NeonCyan.copy(alpha = sharedPulse)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 122.dp)
+                    .zIndex(25f)
+            ) {
+                Text(
+                    text = if (isTr) "⬇️ Bir parçayı ızgaraya sürükle" else "⬇️ Drag a piece onto the grid",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonCyan,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+
         activeDragShape()?.let { draggedShape ->
             val liftPx = with(density) { dragLiftDp.toPx() }
             // Ghost'un kendi hucre boyutu, gercek grid hucre boyutuyla (cellSizePx) ayni olmali —
@@ -1620,6 +1888,23 @@ fun BlastTheBlocksGame(
                     .background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {
+                if (confettiPieces.isNotEmpty() && confettiProgress.value < 1f) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val progress = confettiProgress.value
+                        confettiPieces.forEach { piece ->
+                            val local = ((progress - piece.startDelay) / (1f - piece.startDelay)).coerceIn(0f, 1f)
+                            if (local <= 0f) return@forEach
+                            val y = size.height * local
+                            val x = size.width * piece.xFraction + sin(local * piece.rotationSpeed) * piece.drift
+                            val alpha = (1f - local).coerceIn(0f, 1f)
+                            drawCircle(
+                                color = piece.color.copy(alpha = alpha),
+                                radius = 6f,
+                                center = Offset(x, y)
+                            )
+                        }
+                    }
+                }
                 Card(
                     colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(20.dp),
@@ -1681,7 +1966,13 @@ fun EmbossedBlockCell(
     colorIndex: Int,
     theme: String,
     modifier: Modifier = Modifier,
-    isHover: Boolean = false
+    isHover: Boolean = false,
+    // Faz 22: bloklar yerlesince tamamen donuk kaliyordu (kullanici geri bildirimi
+    // kaynakli tasarim onerisi: "ince bir canlilik"). Paylasilan TEK bir faz degeri
+    // (ustteki BlastTheBlocksGame'de hesaplanan) her hucreye row/col'a gore kaydirilmis
+    // olarak gecirilir, boylece 64 ayri animasyon dongusu acilmadan hafif bir parlaklik
+    // dalgasi elde edilir.
+    shimmerPhase: Float = 0f
 ) {
     val baseColor = if (isHover) {
         NeonCyan.copy(alpha = 0.35f)
@@ -1770,10 +2061,12 @@ fun EmbossedBlockCell(
                     size = Size((w - 2 * b).coerceAtLeast(0f), (h - 2 * b).coerceAtLeast(0f))
                 )
 
-                // Inner Face Top Shine
+                // Inner Face Top Shine — shimmerPhase ile alpha yavasca dalgalanir,
+                // bloklara donuk degil hafif "canli" bir his verir.
+                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhase)
                 drawRect(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)
+                        colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
                     ),
                     topLeft = Offset(b, b),
                     size = Size((w - 2 * b).coerceAtLeast(0f), ((h - 2 * b) * 0.45f).coerceAtLeast(0f))

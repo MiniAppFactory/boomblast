@@ -93,6 +93,10 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setUiSkin(skin) }
     }
 
+    fun markFirstMoveMade() {
+        viewModelScope.launch { repository.markFirstMoveMade() }
+    }
+
     fun markOnboardingSeen() {
         viewModelScope.launch { repository.markOnboardingSeen() }
     }

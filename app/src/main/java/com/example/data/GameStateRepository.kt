@@ -30,6 +30,7 @@ class GameStateRepository(private val context: Context) {
         val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
         val ENDLESS_HIGH_SCORE = intPreferencesKey("endless_high_score")
         val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
+        val HAS_MADE_FIRST_MOVE = booleanPreferencesKey("has_made_first_move")
 
         val MISSION_WEEK_ID = stringPreferencesKey("mission_week_id")
         val MISSION_PROGRESS = stringPreferencesKey("mission_progress")
@@ -50,7 +51,8 @@ class GameStateRepository(private val context: Context) {
             uiSkin = prefs[Keys.UI_SKIN] ?: "DEFAULT",
             hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,
             endlessHighScore = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0,
-            hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false
+            hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false,
+            hasMadeFirstMove = prefs[Keys.HAS_MADE_FIRST_MOVE] ?: false
         )
     }
 
@@ -148,6 +150,10 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun markTermsAccepted() {
         context.gameDataStore.edit { it[Keys.HAS_ACCEPTED_TERMS] = true }
+    }
+
+    suspend fun markFirstMoveMade() {
+        context.gameDataStore.edit { it[Keys.HAS_MADE_FIRST_MOVE] = true }
     }
 
     suspend fun recordEndlessScore(score: Int) {

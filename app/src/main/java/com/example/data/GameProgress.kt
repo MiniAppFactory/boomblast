@@ -19,7 +19,8 @@ data class PlayerProgress(
     val uiSkin: String = "DEFAULT",
     val hasSeenOnboarding: Boolean = false,
     val endlessHighScore: Int = 0,
-    val hasAcceptedTerms: Boolean = false
+    val hasAcceptedTerms: Boolean = false,
+    val hasMadeFirstMove: Boolean = false
 )
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS }
