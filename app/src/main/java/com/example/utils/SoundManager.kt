@@ -8,6 +8,7 @@ import android.media.ToneGenerator
 import android.util.Log
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.math.tanh
 import kotlin.random.Random
 
 object SoundManager {
@@ -191,7 +192,15 @@ object SoundManager {
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    // Faz 29: CONTENT_TYPE_SONIFICATION bircok Samsung cihazda
+                    // MEDYA sesinden AYRI, kullanicilarin genelde dusuk/kapali
+                    // biraktigi "Sistem Sesleri" kisicisina baglaniyor olabilir —
+                    // telefonun medya sesi sonuna kadar acik olsa bile efektler
+                    // kisik kalabilir (kullanici geri bildirimi: "100% bile zor
+                    // duyuluyor"). CONTENT_TYPE_MUSIC, MEDYA ses akisina baglanip
+                    // kullanicinin zaten sonuna kadar actigini soyledigi kisiciyi
+                    // dogrudan kullanir.
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
             .setAudioFormat(
@@ -248,7 +257,13 @@ object SoundManager {
             val click = sin(2.0 * Math.PI * 2600.0 * i / sampleRate).toFloat() * clickEnvelope
 
             val mixed = crack * 0.6f + boom * 0.8f + click * 0.22f
-            val sample = mixed * Short.MAX_VALUE * 0.98f
+            // Faz 29: yumusak dogrusal-olmayan doyum (tanh) — RMS enerjisini
+            // (algilanan yuksekligi) tepe genligi ASMADAN artirir, gercek patlama
+            // kayitlarindaki hafif "gritty" karakterin de bir kismini verir —
+            // profesyonel oyun SFX masterlamada standart bir "loudness" teknigi.
+            val drive = 1.6f
+            val saturated = tanh(mixed * drive) / tanh(drive)
+            val sample = saturated * Short.MAX_VALUE * 0.98f
             samples[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 
