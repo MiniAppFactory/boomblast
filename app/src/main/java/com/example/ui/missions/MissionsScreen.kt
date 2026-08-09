@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.WeeklyMissionDef
 import com.example.data.WeeklyMissionProgress
 import com.example.ui.theme.BlastPalette
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
@@ -49,10 +50,11 @@ fun MissionsScreen(
     missionProgress: WeeklyMissionProgress,
     isTr: Boolean,
     darkMode: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     onClaim: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
     val allClaimed = missionProgress.missions.isNotEmpty() &&
         missionProgress.missions.all { it.id in missionProgress.claimed }
 

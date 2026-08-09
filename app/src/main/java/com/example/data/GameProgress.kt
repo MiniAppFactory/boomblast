@@ -16,6 +16,7 @@ data class PlayerProgress(
     val darkMode: Boolean = true,
     val isTr: Boolean = true,
     val blockTheme: String = "CLASSIC",
+    val uiSkin: String = "DEFAULT",
     val hasSeenOnboarding: Boolean = false,
     val endlessHighScore: Int = 0,
     val hasAcceptedTerms: Boolean = false

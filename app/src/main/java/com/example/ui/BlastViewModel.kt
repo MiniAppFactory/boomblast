@@ -89,6 +89,10 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setBlockTheme(theme) }
     }
 
+    fun setUiSkin(skin: String) {
+        viewModelScope.launch { repository.setUiSkin(skin) }
+    }
+
     fun markOnboardingSeen() {
         viewModelScope.launch { repository.markOnboardingSeen() }
     }

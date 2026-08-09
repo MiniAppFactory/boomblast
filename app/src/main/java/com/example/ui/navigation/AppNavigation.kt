@@ -28,6 +28,7 @@ import com.example.ui.modeselect.ModeSelectScreen
 import com.example.ui.onboarding.OnboardingScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.shop.LoadoutScreen
+import com.example.ui.theme.BlastSkin
 
 object Routes {
     const val MODE_SELECT = "mode_select"
@@ -54,6 +55,8 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
     val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val skin = BlastSkin.fromId(progress.uiSkin)
+    val onSelectSkin: (BlastSkin) -> Unit = { viewModel.setUiSkin(it.name) }
 
     NavHost(navController = navController, startDestination = Routes.MODE_SELECT) {
         composable(Routes.MODE_SELECT) {
@@ -65,6 +68,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         ModeSelectScreen(
                             isTr = progress.isTr,
                             darkMode = progress.darkMode,
+                            skin = skin,
                             tokens = progress.tokens,
                             endlessBestScore = progress.endlessHighScore,
                             highestUnlockedLevel = progress.highestUnlockedLevel,
@@ -83,12 +87,14 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                     TermsAcceptScreen(
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
+                        skin = skin,
                         onAccept = { viewModel.markTermsAccepted() }
                     )
                 } else if (!progress.hasSeenOnboarding) {
                     OnboardingScreen(
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
+                        skin = skin,
                         onFinish = { viewModel.markOnboardingSeen() }
                     )
                 }
@@ -102,6 +108,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         progress = progress,
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
+                        skin = skin,
                         onSelectLevel = { level -> navController.navigate(Routes.loadout(level)) },
                         onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
@@ -128,6 +135,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         progress = progress,
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
+                        skin = skin,
                         onBuyBooster = { type -> viewModel.buyBooster(type) },
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
@@ -176,6 +184,8 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
+                        uiSkin = skin,
+                        onSelectSkin = onSelectSkin,
                         onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
                         onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
                     )
@@ -208,6 +218,8 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
+                        uiSkin = skin,
+                        onSelectSkin = onSelectSkin,
                         onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()
@@ -237,6 +249,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         missionProgress = missions,
                         isTr = progress.isTr,
                         darkMode = progress.darkMode,
+                        skin = skin,
                         onClaim = { id -> viewModel.claimMission(id) },
                         onBack = { navController.popBackStack() }
                     )
@@ -255,10 +268,12 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         musicEnabled = progress.musicEnabled,
                         darkMode = progress.darkMode,
                         isTr = progress.isTr,
+                        skin = skin,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
+                        onSelectSkin = onSelectSkin,
                         onBack = { navController.popBackStack() }
                     )
                 }

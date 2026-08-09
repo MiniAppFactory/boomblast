@@ -26,6 +26,7 @@ class GameStateRepository(private val context: Context) {
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val IS_TR = booleanPreferencesKey("is_tr")
         val BLOCK_THEME = stringPreferencesKey("block_theme")
+        val UI_SKIN = stringPreferencesKey("ui_skin")
         val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
         val ENDLESS_HIGH_SCORE = intPreferencesKey("endless_high_score")
         val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
@@ -46,6 +47,7 @@ class GameStateRepository(private val context: Context) {
             darkMode = prefs[Keys.DARK_MODE] ?: true,
             isTr = prefs[Keys.IS_TR] ?: true,
             blockTheme = prefs[Keys.BLOCK_THEME] ?: "CLASSIC",
+            uiSkin = prefs[Keys.UI_SKIN] ?: "DEFAULT",
             hasSeenOnboarding = prefs[Keys.HAS_SEEN_ONBOARDING] ?: false,
             endlessHighScore = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0,
             hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false
@@ -134,6 +136,10 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun setBlockTheme(theme: String) {
         context.gameDataStore.edit { it[Keys.BLOCK_THEME] = theme }
+    }
+
+    suspend fun setUiSkin(skin: String) {
+        context.gameDataStore.edit { it[Keys.UI_SKIN] = skin }
     }
 
     suspend fun markOnboardingSeen() {

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.theme.BlastPalette
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
@@ -53,6 +54,7 @@ import com.example.ui.theme.blastPalette
 fun ModeSelectScreen(
     isTr: Boolean,
     darkMode: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     tokens: Int,
     endlessBestScore: Int,
     highestUnlockedLevel: Int,
@@ -61,7 +63,7 @@ fun ModeSelectScreen(
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
 
     Box(
         modifier = Modifier
@@ -78,68 +80,77 @@ fun ModeSelectScreen(
                 onOpenSettings = onOpenSettings
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Onceden basliktan sonraki tum icerik ekranin ustune sabitti ve
+            // alt yarida buyuk bos alan kaliyordu (kullanici geri bildirimi:
+            // "oyun tum ekrani kaplamıyor"). Kalan dikey alanda ortalanarak
+            // ekranin tamamini kullaniyor.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Marka kimligi icin logo rozeti — onceden sadece duz yazi vardi,
+                // rakip oyunlarin hepsinde basligin yaninda bir ikon/logo var (UI/UX
+                // karsilastirma bulgusu).
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(palette.card)
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Blast the Blocks",
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = palette.textPrimary
+                        )
+                        Text(
+                            text = if (isTr) "Bir oyun modu seç" else "Choose a game mode",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = palette.textSecondary
+                        )
+                    }
+                }
 
-            // Marka kimligi icin logo rozeti — onceden sadece duz yazi vardi,
-            // rakip oyunlarin hepsinde basligin yaninda bir ikon/logo var (UI/UX
-            // karsilastirma bulgusu).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(palette.card)
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(R.drawable.ic_launcher_foreground),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Blast the Blocks",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black,
-                        color = palette.textPrimary
-                    )
-                    Text(
-                        text = if (isTr) "Bir oyun modu seç" else "Choose a game mode",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = palette.textSecondary
-                    )
-                }
+                Spacer(modifier = Modifier.height(40.dp))
+
+                ModeCard(
+                    title = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
+                    subtitle = if (isTr) "Hedefsiz oyna, yüksek skor kovala" else "Play freely, chase a high score",
+                    statLabel = if (isTr) "EN YÜKSEK SKOR" else "BEST SCORE",
+                    statValue = "$endlessBestScore",
+                    icon = Icons.Default.AllInclusive,
+                    accent = NeonGreen,
+                    palette = palette,
+                    onClick = onOpenEndless,
+                    testTag = "mode_select_endless_button"
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                ModeCard(
+                    title = if (isTr) "SEVİYELİ MOD" else "LEVEL MODE",
+                    subtitle = if (isTr) "Seviye seviye ilerle, yıldız topla" else "Progress level by level, earn stars",
+                    statLabel = if (isTr) "EN YÜKSEK SEVİYE" else "HIGHEST LEVEL",
+                    statValue = "$highestUnlockedLevel",
+                    icon = Icons.Default.Extension,
+                    accent = NeonCyan,
+                    palette = palette,
+                    onClick = onOpenLevels,
+                    testTag = "mode_select_levels_button"
+                )
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            ModeCard(
-                title = if (isTr) "SONSUZ MOD" else "ENDLESS MODE",
-                subtitle = if (isTr) "Hedefsiz oyna, yüksek skor kovala" else "Play freely, chase a high score",
-                statLabel = if (isTr) "EN YÜKSEK SKOR" else "BEST SCORE",
-                statValue = "$endlessBestScore",
-                icon = Icons.Default.AllInclusive,
-                accent = NeonGreen,
-                palette = palette,
-                onClick = onOpenEndless,
-                testTag = "mode_select_endless_button"
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            ModeCard(
-                title = if (isTr) "SEVİYELİ MOD" else "LEVEL MODE",
-                subtitle = if (isTr) "Seviye seviye ilerle, yıldız topla" else "Progress level by level, earn stars",
-                statLabel = if (isTr) "EN YÜKSEK SEVİYE" else "HIGHEST LEVEL",
-                statValue = "$highestUnlockedLevel",
-                icon = Icons.Default.Extension,
-                accent = NeonCyan,
-                palette = palette,
-                onClick = onOpenLevels,
-                testTag = "mode_select_levels_button"
-            )
         }
     }
 }

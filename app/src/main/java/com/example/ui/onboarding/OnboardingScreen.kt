@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.blastPalette
@@ -76,9 +77,10 @@ private val onboardingSteps = listOf(
 fun OnboardingScreen(
     isTr: Boolean,
     darkMode: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     onFinish: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
     var currentStep by remember { mutableIntStateOf(0) }
 
     AnimatedVisibility(

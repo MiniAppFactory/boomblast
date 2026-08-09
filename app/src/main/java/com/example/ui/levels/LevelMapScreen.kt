@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.PlayerProgress
 import com.example.game.LevelGenerator
 import com.example.ui.theme.BlastPalette
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonGreen
@@ -57,12 +58,13 @@ fun LevelMapScreen(
     progress: PlayerProgress,
     isTr: Boolean,
     darkMode: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     onSelectLevel: (Int) -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
     val lastLevel = progress.highestUnlockedLevel + 3
 
     Box(

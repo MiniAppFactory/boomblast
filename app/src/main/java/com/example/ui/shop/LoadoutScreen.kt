@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.BoosterType
 import com.example.data.PlayerProgress
 import com.example.ui.theme.BlastPalette
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGold
 import com.example.ui.theme.NeonPurple
@@ -55,12 +56,13 @@ fun LoadoutScreen(
     progress: PlayerProgress,
     isTr: Boolean,
     darkMode: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     onBuyBooster: (BoosterType) -> Unit,
     onWatchAdForTokens: () -> Unit,
     onStartLevel: () -> Unit,
     onBack: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
     Box(
         modifier = Modifier
             .fillMaxSize()

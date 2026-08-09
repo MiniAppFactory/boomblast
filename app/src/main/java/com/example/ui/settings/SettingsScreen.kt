@@ -11,10 +11,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -26,11 +31,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.BlastPalette
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.NeonPurple
@@ -42,13 +49,15 @@ fun SettingsScreen(
     musicEnabled: Boolean,
     darkMode: Boolean,
     isTr: Boolean,
+    skin: BlastSkin = BlastSkin.DEFAULT,
     onToggleSound: (Boolean) -> Unit,
     onToggleMusic: (Boolean) -> Unit,
     onToggleDarkMode: (Boolean) -> Unit,
     onSelectLanguage: (Boolean) -> Unit,
+    onSelectSkin: (BlastSkin) -> Unit = {},
     onBack: () -> Unit
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(skin, darkMode)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -131,6 +140,84 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // Faz 21: gorunum ("skin") galerisi — Block Blast'ta oldugu gibi tum
+        // arayuzun zemin/kart rengini birlikte degistiren, birbirinden bagimsiz
+        // hazir paletler (kullanici geri bildirimi: "Block Blast'ta skin
+        // değiştirebiliyorsun, ayarlardan default'a çevirebiliyorsun").
+        Card(
+            colors = CardDefaults.cardColors(containerColor = palette.card),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (isTr) "Görünüm" else "Appearance",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(BlastSkin.entries.toList()) { candidate ->
+                        SkinOption(
+                            skinOption = candidate,
+                            label = if (isTr) candidate.labelTr else candidate.labelEn,
+                            selected = candidate == skin,
+                            onClick = { onSelectSkin(candidate) },
+                            palette = palette
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkinOption(
+    skinOption: BlastSkin,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    palette: BlastPalette
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clickable(onClick = onClick)
+            .testTag("settings_skin_${skinOption.name}")
+    ) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(skinOption.swatch)
+                .border(
+                    width = if (selected) 3.dp else 1.dp,
+                    color = if (selected) NeonGreen else palette.cardBorder,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) palette.textPrimary else palette.textSecondary,
+            maxLines = 1
+        )
     }
 }
 

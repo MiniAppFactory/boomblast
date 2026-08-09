@@ -58,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -79,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.ui.settings.SettingsScreen
+import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlockBlue
 import com.example.ui.theme.BlockGreen
 import com.example.ui.theme.BlockOrange
@@ -93,6 +95,7 @@ import com.example.ui.theme.NeonPurple
 import com.example.data.BoosterType
 import com.example.ui.theme.blastPalette
 import com.example.utils.SoundManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.floor
@@ -242,12 +245,14 @@ fun BlastTheBlocksGame(
     onToggleMusic: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
     onSelectLanguage: (Boolean) -> Unit = {},
+    uiSkin: BlastSkin = BlastSkin.DEFAULT,
+    onSelectSkin: (BlastSkin) -> Unit = {},
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
     onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() }
 ) {
-    val palette = blastPalette(darkMode)
+    val palette = blastPalette(uiSkin, darkMode)
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
@@ -264,6 +269,15 @@ fun BlastTheBlocksGame(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val clearFlashAlpha = remember { Animatable(0f) }
+    // Faz 21: cizgi tamamlanir tamamlanmaz, hucreler HALA DOLUYKEN kisa bir
+    // "patlamaya kilitlendi" glow'u gosteriliyor (Block Blast referansi: neon
+    // renkli kenarlik + sparkle) — gercek temizleme bu glow'dan hemen sonra
+    // gerceklesiyor, boylece oyuncu "bu satirlar patlayacak" anini gorebiliyor.
+    var glowingClearCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val glowPulse = remember { Animatable(0f) }
+    val glowBrush = remember {
+        Brush.sweepGradient(listOf(NeonCyan, NeonGold, NeonPurple, NeonGreen, NeonCyan))
+    }
     var showContinueDialog by remember { mutableStateOf(false) }
     var continueOffered by remember { mutableStateOf(false) }
     var isRequestingContinueAd by remember { mutableStateOf(false) }
@@ -582,7 +596,6 @@ fun BlastTheBlocksGame(
         val totalLinesCleared = rowsToClear.size + colsToClear.size
         if (totalLinesCleared > 0) {
             onLinesCleared(totalLinesCleared)
-            SoundManager.playBlast(soundEnabled)
             comboCount++
             val lineBonus = totalLinesCleared * 100 * comboCount
             score += lineBonus
@@ -608,65 +621,80 @@ fun BlastTheBlocksGame(
             lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
             lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
 
-            // Temizlenen hucreleri kisa bir "flas" animasyonu icin isaretle
             val clearedIndices = mutableSetOf<Int>()
             rowsToClear.forEach { r -> for (c in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
             colsToClear.forEach { c -> for (r in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
-            recentlyClearedCells = clearedIndices
-            dragCoroutineScope.launch {
-                clearFlashAlpha.snapTo(1f)
-                clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
-            }
 
-            // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
-            // rastgele acı/mesafeyle disari firlat, tek paylasilan Animatable ile animasyonla.
-            particleBurst = clearedIndices.shuffled().take(20).map { index ->
-                val r = index / gridSize
-                val c = index % gridSize
-                val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
-                BlastParticle(
-                    row = r,
-                    col = c,
-                    angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
-                    distance = 28f + Random.nextFloat() * 36f,
-                    color = cellColor
-                )
-            }
+            // Once hucreler HALA DOLUYKEN kisa bir neon glow gosterilir ("patlamaya
+            // kilitlendi" hissi, Block Blast referansi — kullanici geri bildirimi:
+            // "3'lü patlamak üzereyken glow efekti falan ekliyor"). Gercek temizleme
+            // (board sifirlama + parcacik patlamasi + ses) bu glow'dan HEMEN SONRA olur.
+            glowingClearCells = clearedIndices
             dragCoroutineScope.launch {
-                particleProgress.snapTo(0f)
-                particleProgress.animateTo(1f, animationSpec = tween(500))
-            }
+                glowPulse.snapTo(0f)
+                glowPulse.animateTo(1f, animationSpec = tween(160, easing = FastOutSlowInEasing))
+                delay(90)
 
-            // Kombo metni: her patlamada kisa bir "pop" ile buyuyup normale donuyor
-            dragCoroutineScope.launch {
-                comboTextScale.snapTo(1.5f)
-                comboTextScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-            }
-
-            // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
-            if (totalLinesCleared > 1 || comboCount >= 3) {
+                SoundManager.playBlast(soundEnabled)
+                glowingClearCells = emptySet()
+                recentlyClearedCells = clearedIndices
                 dragCoroutineScope.launch {
-                    // 10f (raw piksel) neredeyse fark edilmiyordu (kullanici geri
-                    // bildirimi: "ekranda titreme falan olmadı") — 24f'ye yukseltildi.
-                    val amplitude = 24f
-                    shakeOffset.snapTo(0f)
-                    shakeOffset.animateTo(amplitude, animationSpec = tween(40))
-                    shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
-                    shakeOffset.animateTo(amplitude * 0.6f, animationSpec = tween(60))
-                    shakeOffset.animateTo(-amplitude * 0.6f, animationSpec = tween(60))
-                    shakeOffset.animateTo(0f, animationSpec = tween(60))
+                    clearFlashAlpha.snapTo(1f)
+                    clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
                 }
-            }
 
-            // Clear cells
-            rowsToClear.forEach { r ->
-                for (c in 0 until gridSize) {
-                    board[r * gridSize + c] = 0
+                // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
+                // rastgele acı/mesafeyle disari firlat — renkler board SIFIRLANMADAN
+                // ONCE okunuyor, aksi halde tum parcaciklar ayni "bos hucre" rengine duser.
+                particleBurst = clearedIndices.shuffled().take(20).map { index ->
+                    val r = index / gridSize
+                    val c = index % gridSize
+                    val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
+                    BlastParticle(
+                        row = r,
+                        col = c,
+                        angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
+                        distance = 28f + Random.nextFloat() * 36f,
+                        color = cellColor
+                    )
                 }
-            }
-            colsToClear.forEach { c ->
-                for (r in 0 until gridSize) {
-                    board[r * gridSize + c] = 0
+
+                // Clear cells
+                rowsToClear.forEach { r ->
+                    for (c in 0 until gridSize) {
+                        board[r * gridSize + c] = 0
+                    }
+                }
+                colsToClear.forEach { c ->
+                    for (r in 0 until gridSize) {
+                        board[r * gridSize + c] = 0
+                    }
+                }
+
+                dragCoroutineScope.launch {
+                    particleProgress.snapTo(0f)
+                    particleProgress.animateTo(1f, animationSpec = tween(500))
+                }
+
+                // Kombo metni: her patlamada kisa bir "pop" ile buyuyup normale donuyor
+                dragCoroutineScope.launch {
+                    comboTextScale.snapTo(1.5f)
+                    comboTextScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                }
+
+                // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
+                if (totalLinesCleared > 1 || comboCount >= 3) {
+                    dragCoroutineScope.launch {
+                        // 10f (raw piksel) neredeyse fark edilmiyordu (kullanici geri
+                        // bildirimi: "ekranda titreme falan olmadı") — 24f'ye yukseltildi.
+                        val amplitude = 24f
+                        shakeOffset.snapTo(0f)
+                        shakeOffset.animateTo(amplitude, animationSpec = tween(40))
+                        shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
+                        shakeOffset.animateTo(amplitude * 0.6f, animationSpec = tween(60))
+                        shakeOffset.animateTo(-amplitude * 0.6f, animationSpec = tween(60))
+                        shakeOffset.animateTo(0f, animationSpec = tween(60))
+                    }
                 }
             }
         } else {
@@ -1071,6 +1099,24 @@ fun BlastTheBlocksGame(
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
+                                    if ((r * gridSize + c) in glowingClearCells) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color.White.copy(alpha = glowPulse.value * 0.4f))
+                                                .border(2.dp, glowBrush, RoundedCornerShape(6.dp))
+                                        )
+                                        if ((r + c) % 3 == 0) {
+                                            Text(
+                                                text = "✨",
+                                                fontSize = 12.sp,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .alpha(glowPulse.value)
+                                            )
+                                        }
+                                    }
                                     if (inDragFootprint) {
                                         val dropValid = isCurrentDropValid()
                                         val tint = if (dropValid) NeonGreen else Color(0xFFF87171)
@@ -1397,10 +1443,12 @@ fun BlastTheBlocksGame(
                     musicEnabled = musicEnabled,
                     darkMode = darkMode,
                     isTr = isTr,
+                    skin = uiSkin,
                     onToggleSound = onToggleSound,
                     onToggleMusic = onToggleMusic,
                     onToggleDarkMode = onToggleDarkMode,
                     onSelectLanguage = onSelectLanguage,
+                    onSelectSkin = onSelectSkin,
                     onBack = { showSettingsDialog = false }
                 )
             }
