@@ -27,6 +27,7 @@ import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlastTheBlocksTheme
 import com.example.ui.theme.blastPalette
+import com.example.utils.TextToSpeechManager
 import com.google.android.gms.ads.MobileAds
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
@@ -46,6 +47,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         MobileAds.initialize(applicationContext) {}
+        // Faz 34: kombo ovgu kelimelerini (Good!/Great!/Amazing! vb.) sesli
+        // soylemek icin — asenkron init, TTS motoru hazir olana kadar
+        // speakPraise() sessizce no-op kalir (bkz. TextToSpeechManager).
+        TextToSpeechManager.init(applicationContext)
         // Faz 27: rastgele araliklarla "geri gel" hatirlatma bildirimi zinciri.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -92,6 +97,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        TextToSpeechManager.shutdown()
+        super.onDestroy()
     }
 
     // Whats-This'te dogrulanmis, gercek cihazda calisan UMP deseni: consent

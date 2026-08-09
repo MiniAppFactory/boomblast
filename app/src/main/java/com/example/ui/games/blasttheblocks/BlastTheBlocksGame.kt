@@ -105,6 +105,7 @@ import com.example.ui.theme.NeonPurple
 import com.example.data.BoosterType
 import com.example.ui.theme.blastPalette
 import com.example.utils.SoundManager
+import com.example.utils.TextToSpeechManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
@@ -760,6 +761,18 @@ fun BlastTheBlocksGame(
             }
             lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
             lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
+
+            // Faz 34: orijinal oyunda ovgu kelimeleri sesle de soyleniyordu
+            // (kullanici gozlemi) — sadece gercek bir kutlama anında (kucuk
+            // her tekli patlamada degil) TTS ile praiseWord seslendiriliyor,
+            // kombo buyudukce pitch/hiz da artiyor (bkz. TextToSpeechManager).
+            if (lastClearWasCelebration && soundEnabled) {
+                TextToSpeechManager.speakPraise(
+                    text = praiseWord,
+                    isTr = isTr,
+                    excitementLevel = comboCount
+                )
+            }
 
             sessionLinesCleared += totalLinesCleared
             when {
