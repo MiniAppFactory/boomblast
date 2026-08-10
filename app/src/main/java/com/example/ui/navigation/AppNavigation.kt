@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -137,6 +140,11 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
         ) { backStackEntry ->
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forLevel(level)
+            // Faz 43: RewardedAd.load() 3-8 saniye surebiliyor, kullanici "watch
+            // butonuna tıklayamadım" dedi — aslinda tiklama calisiyordu ama sessiz
+            // bekleme suresi butonu bozuk gosteriyordu. Artik yukleme durumu
+            // LoadoutScreen'e bildirilip buton bir spinner'a donusuyor.
+            var isWatchAdLoading by remember { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
                     LoadoutScreen(
@@ -147,14 +155,17 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         darkMode = progress.darkMode,
                         skin = skin,
                         onBuyBooster = { type -> viewModel.buyBooster(type) },
+                        isWatchAdLoading = isWatchAdLoading,
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
-                            if (activity != null) {
+                            if (activity != null && !isWatchAdLoading) {
+                                isWatchAdLoading = true
                                 RewardedAdManager.loadAndShow(
                                     context = context,
                                     activity = activity,
                                     onRewardEarned = { viewModel.watchAdForTokens() },
-                                    onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ }
+                                    onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ },
+                                    onAdClosed = { isWatchAdLoading = false }
                                 )
                             }
                         },

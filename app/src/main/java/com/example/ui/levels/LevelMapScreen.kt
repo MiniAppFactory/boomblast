@@ -26,8 +26,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -108,11 +106,15 @@ fun LevelMapScreen(
                 items(count = lastLevel, key = { it + 1 }) { index ->
                     val levelNumber = index + 1
                     val unlocked = levelNumber <= progress.highestUnlockedLevel
-                    val stars = progress.levelStars[levelNumber]
+                    // Faz 43: kullanici "yıldızların anlamı yok, gitsin, tamamlanan level
+                    // yeşil olsun" dedi — yildizlar kaldirildi, tamamlanma durumu artik
+                    // dugumun rengiyle gosteriliyor. levelStars'ta kayit varsa (recordLevelResult
+                    // sadece seviye bitirilince yaziyor) o seviye tamamlanmis demektir.
+                    val completed = progress.levelStars[levelNumber] != null
                     LevelPathNode(
                         levelNumber = levelNumber,
                         unlocked = unlocked,
-                        stars = stars,
+                        completed = completed,
                         prevXFraction = if (index == 0) null else pathXFraction(index - 1),
                         currXFraction = pathXFraction(index),
                         isLastItem = index == lastLevel - 1,
@@ -251,7 +253,7 @@ private val LEVEL_NODE_CENTER_Y = 40.dp
 private fun LevelPathNode(
     levelNumber: Int,
     unlocked: Boolean,
-    stars: Int?,
+    completed: Boolean,
     prevXFraction: Float?,
     currXFraction: Float,
     isLastItem: Boolean,
@@ -260,12 +262,13 @@ private fun LevelPathNode(
     onClick: () -> Unit
 ) {
     val targetScore = LevelGenerator.forLevel(levelNumber).targetScore
-    val borderBrush = if (unlocked) {
-        Brush.linearGradient(listOf(NeonCyan, NeonPurple))
-    } else {
-        Brush.linearGradient(listOf(palette.cardBorder, palette.cardBorder))
+    val nodeAccent = if (completed) NeonGreen else NeonCyan
+    val borderBrush = when {
+        completed -> Brush.linearGradient(listOf(NeonGreen, NeonGreen))
+        unlocked -> Brush.linearGradient(listOf(NeonCyan, NeonPurple))
+        else -> Brush.linearGradient(listOf(palette.cardBorder, palette.cardBorder))
     }
-    val pathColor = if (unlocked) NeonCyan.copy(alpha = 0.45f) else palette.cardBorder.copy(alpha = 0.35f)
+    val pathColor = if (unlocked) nodeAccent.copy(alpha = 0.45f) else palette.cardBorder.copy(alpha = 0.35f)
 
     Box(
         modifier = Modifier
@@ -319,7 +322,7 @@ private fun LevelPathNode(
                         text = "$levelNumber",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
-                        color = NeonCyan
+                        color = nodeAccent
                     )
                 } else {
                     Icon(
@@ -339,26 +342,6 @@ private fun LevelPathNode(
                 fontWeight = FontWeight.Medium,
                 color = palette.textSecondary,
                 textAlign = TextAlign.Center
-            )
-
-            if (unlocked) {
-                Spacer(modifier = Modifier.height(2.dp))
-                StarRow(stars = stars ?: 0)
-            }
-        }
-    }
-}
-
-@Composable
-private fun StarRow(stars: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        repeat(3) { i ->
-            val filled = i < stars
-            Icon(
-                imageVector = if (filled) Icons.Default.Star else Icons.Default.StarBorder,
-                contentDescription = null,
-                tint = if (filled) NeonGold else Color.DarkGray,
-                modifier = Modifier.size(14.dp)
             )
         }
     }

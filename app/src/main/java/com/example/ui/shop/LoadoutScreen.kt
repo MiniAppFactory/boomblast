@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +62,12 @@ fun LoadoutScreen(
     skin: BlastSkin = BlastSkin.DEFAULT,
     onBuyBooster: (BoosterType) -> Unit,
     onWatchAdForTokens: () -> Unit,
+    // Faz 43: reklam yuklemesi (RewardedAd.load) genelde 3-8 saniye surebiliyor
+    // ama ONCEDEN butonda hicbir gorsel geri bildirim yoktu — kullanici "watch
+    // butonuna tıklayamadım" dedi, aslinda tiklama calisiyordu ama sessiz bekleme
+    // suresi butonun bozuk oldugu izlenimi veriyordu. Artik cagiran taraf (Ad-
+    // Mob istegini baslatan/biten AppNavigation) bu durumu buraya bildiriyor.
+    isWatchAdLoading: Boolean = false,
     onStartLevel: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -169,7 +176,12 @@ fun LoadoutScreen(
                     )
                 }
 
-                WatchAdCard(language = language, palette = palette, onWatchAdForTokens = onWatchAdForTokens)
+                WatchAdCard(
+                    language = language,
+                    palette = palette,
+                    isLoading = isWatchAdLoading,
+                    onWatchAdForTokens = onWatchAdForTokens
+                )
 
                 Spacer(modifier = Modifier.height(4.dp))
             }
@@ -324,6 +336,7 @@ private fun BoosterCard(
 private fun WatchAdCard(
     language: AppLanguage,
     palette: BlastPalette,
+    isLoading: Boolean,
     onWatchAdForTokens: () -> Unit
 ) {
     // Onceden yesil vurgu + klaket ikonu kullaniliyordu — ikonun temsil ettigi
@@ -336,7 +349,7 @@ private fun WatchAdCard(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, NeonGold.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
-            .clickable { onWatchAdForTokens() }
+            .clickable(enabled = !isLoading) { onWatchAdForTokens() }
             .testTag("watch_ad_tokens")
     ) {
         Row(
@@ -374,13 +387,23 @@ private fun WatchAdCard(
                 color = NeonGold.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text(
-                    text = language.pick(tr = "İZLE", en = "WATCH", it = "GUARDA", fr = "REGARDER", es = "VER"),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonGold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = NeonGold,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .size(16.dp)
+                    )
+                } else {
+                    Text(
+                        text = language.pick(tr = "İZLE", en = "WATCH", it = "GUARDA", fr = "REGARDER", es = "VER"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonGold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
