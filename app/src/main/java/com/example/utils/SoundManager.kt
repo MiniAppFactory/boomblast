@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
 import com.example.R
+import kotlin.random.Random
 
 // Faz 49: onceden TUM sesler AudioTrack ile elle sentezleniyordu (sinüs +
 // gurultu + zarf matematigi) — kullanici defalarca (Faz 27-33 arasi da dahil)
@@ -21,6 +22,7 @@ object SoundManager {
     private val comboIds = IntArray(4)
     private var chimeId = 0
     private var successId = 0
+    private var successId2 = 0
 
     // Faz 27/28: dogrudan kaydirici degeri = kazanc kullanimi "artırınca
     // artmıyor" hissi veriyordu — %50 mutedil bir referans noktasi, ustu
@@ -63,6 +65,7 @@ object SoundManager {
         comboIds[3] = pool.load(context, R.raw.sfx_combo_3, 1)
         chimeId = pool.load(context, R.raw.sfx_chime, 1)
         successId = pool.load(context, R.raw.sfx_success, 1)
+        successId2 = pool.load(context, R.raw.sfx_success_2, 1)
     }
 
     fun release() {
@@ -91,8 +94,12 @@ object SoundManager {
         if (soundEnabled) play(pickupId)
     }
 
+    // Faz 52: kullanici Level Complete icin iki ayri zafer sesi gonderdi
+    // (orkestral "swell" + kalabalik alkis/tezahurat) — ikisi arasinda
+    // rastgele seciliyor, boylece seviye tamamlanirken cesitlilik olur.
     fun playSuccess(soundEnabled: Boolean) {
-        if (soundEnabled) play(successId)
+        if (!soundEnabled) return
+        play(if (Random.nextBoolean()) successId else successId2)
     }
 
     fun playBlast(soundEnabled: Boolean) {
