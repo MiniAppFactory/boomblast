@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -19,11 +21,22 @@ android {
 
   signingConfigs {
     create("release") {
+      // Onceden SADECE ortam degiskeninden okunuyordu — kullanicinin her release
+      // build oncesi `!` ile STORE_PASSWORD/KEY_PASSWORD set etmesi gerekiyordu,
+      // ama her `!` komutu ve her Gradle cagrisi AYRI bir shell surecinde calisti-
+      // gindan (export edilen deger bir sonraki komuta miras kalmiyor) bu her
+      // seferinde tekrarlanan bir surtunmeye donusmustu. Artik git'e HIC girmeyen
+      // (bkz. .gitignore: "signing.properties") yerel bir dosyadan da okunabiliyor,
+      // ortam degiskeni varsa o ONCELIKLI kalir (CI/farkli makine senaryosu icin).
+      val signingPropsFile = rootProject.file("signing.properties")
+      val signingProps = Properties().apply {
+        if (signingPropsFile.exists()) signingPropsFile.inputStream().use { load(it) }
+      }
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
+      storePassword = System.getenv("STORE_PASSWORD") ?: signingProps.getProperty("storePassword")
       keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      keyPassword = System.getenv("KEY_PASSWORD") ?: signingProps.getProperty("keyPassword")
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")

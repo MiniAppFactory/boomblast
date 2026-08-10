@@ -23,8 +23,8 @@ data class PlayerProgress(
     val hasAcceptedTerms: Boolean = false,
     val hasMadeFirstMove: Boolean = false,
     val notificationsEnabled: Boolean = true,
-    // Faz 39: Seviye Modu'nda son zorunlu gecis reklamindan bu yana kac
-    // bolum tamamlandi — 2'ye ulasinca sifirlanir ve bir interstitial gosterilir.
+    // Faz 39/42: Seviye Modu'nda son zorunlu gecis reklamindan bu yana kac
+    // bolum tamamlandi — esige (Faz 42: her bolum) ulasinca sifirlanir ve bir interstitial gosterilir.
     val levelsCompletedSinceInterstitial: Int = 0
 )
 

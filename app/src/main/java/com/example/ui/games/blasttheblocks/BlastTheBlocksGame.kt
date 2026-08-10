@@ -980,6 +980,22 @@ fun BlastTheBlocksGame(
                     }
                 }
 
+                // Faz 41: checkGameOver() ONCEDEN placeShape'in sonunda, SENKRON
+                // cagriliyordu — ama satir/sutun temizligi (yukaridaki board sifirlama)
+                // bu async coroutine icinde ~250ms GECIKMEYLE gerceklesiyor (glow efekti
+                // icin). Sonuc: buyuk bir parca o an tahtada yer bulamiyor olsa bile,
+                // ayni hamlede baska bir parca satir/sutun temizleyip o parcaya yer
+                // acacak olsa DAHI, checkGameOver() henuz TEMIZLENMEMIS eski tahtaya
+                // bakip yanlislikla "oyun bitti" diyordu (kullanici geri bildirimi:
+                // "büyük parçaya yer açılacak olmasına rağmen oyun bitti diyor").
+                // Artik temizleme SATIRLARI GERCEKTEN calistiktan SONRA, guncel tahtaya
+                // gore kontrol ediliyor (asagidaki totalLinesCleared==0 dalindaki
+                // senkron cagri artik SADECE temizlenen satir/sutun olmadigi durumda calisiyor).
+                // isLevelComplete/isGameOver korumasi: bu coroutine placeShape'in geri
+                // donusunden (ve olasi erken "return"unden) BAGIMSIZ calisir — seviye zaten
+                // TAMAMLANMIS veya oyun zaten BITMISSE tekrar bir "oyun bitti" tetiklemesin.
+                if (!isLevelComplete && !isGameOver) checkGameOver()
+
                 dragCoroutineScope.launch {
                     particleProgress.snapTo(0f)
                     particleProgress.animateTo(1f, animationSpec = tween(500))
@@ -1026,7 +1042,13 @@ fun BlastTheBlocksGame(
             generateNewTray()
         }
 
-        checkGameOver()
+        // Faz 41: satir/sutun temizlendiginde checkGameOver() artik yukarida
+        // (temizleme coroutine'inin SONUNDA, gercek tahta durumuna gore) cagriliyor.
+        // Burada SADECE temizlenen bir satir/sutun YOKSA (async gecikme de yok)
+        // senkron kontrol yapiliyor.
+        if (totalLinesCleared == 0) {
+            checkGameOver()
+        }
     }
 
     Box(

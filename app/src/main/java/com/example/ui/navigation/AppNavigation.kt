@@ -204,11 +204,12 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
                         onLevelCompleteContinue = {
-                            // Faz 39: her 2 bolumde bir zorunlu gecis reklami — yeterli
-                            // reklam gosterimi olmadan oyuncu her seviyeyi ucretsiz
-                            // gecebiliyordu, bu da reklam gelirini cok dusuruyordu.
+                            // Faz 39: zorunlu gecis reklami — yeterli reklam gosterimi
+                            // olmadan oyuncu seviyeleri ucretsiz geçebiliyordu, bu da
+                            // reklam gelirini cok dusuruyordu. Faz 42: kullanici istegiyle
+                            // "her 2 bolumde bir" -> "her bolum sonrasi" (esik 2 -> 1).
                             val activity = context.findActivity()
-                            if (progress.levelsCompletedSinceInterstitial >= 2 && activity != null) {
+                            if (progress.levelsCompletedSinceInterstitial >= 1 && activity != null) {
                                 viewModel.resetLevelsSinceInterstitial()
                                 InterstitialAdManager.loadAndShow(
                                     context = context,
