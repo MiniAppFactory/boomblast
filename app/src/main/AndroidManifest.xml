@@ -21,11 +21,21 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-8582550349019790~6836467085" />
+        <!-- Faz 52: configChanges olmadan ekran dondurme (orientation) Activity'yi
+             BASTAN yaratiyordu — oyunun tum bellek-ici durumu (tahta, skor, tepsi;
+             hepsi Compose remember{} ile tutuluyor, kalici degil) sifirlaniyordu.
+             Kullanici bunu "tablette dondurunce sıradaki blokla degisiyor" olarak
+             fark etti. Activity artik rotasyonu/ekran boyutu degisimini KENDISI
+             yonetiyor, yeniden yaratilmiyor — Compose state'i korunuyor. Tablet-
+             adaptif grid layout'u (Faz 40, BoxWithConstraints) buna ragmen normal
+             calismaya devam eder, cunku o zaten yeniden olcum icin Activity
+             yeniden yaratilmasina bagli degildi. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.MyApplication">
+            android:theme="@style/Theme.MyApplication"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
