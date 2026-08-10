@@ -232,6 +232,13 @@ val SHAPE_PATTERNS = listOf(
 // gelmesine yol aciyordu (kullanici geri bildirimi: "çok fazla tek ve ikili
 // geliyor, bu kolaylaştırıyor"). Kucuk parcalar hala cikabilir (stratejik bosluk
 // doldurma icin gerekli) ama artik daha seyrek, buyuk/karmasik sekiller daha sik.
+// Faz 55: kullanici "3x3'un ve tumunun acilmasi cok fena, bir anda manevra
+// alani kalmiyor" dedi — T-shape'ten itibaren (seviye 9+ havuzu) TUM parcalar
+// kucuk parcalarla (agirlik 1-3) ayni buyuklukte agirlik (2-3) tasiyordu.
+// Havuz 8'den 19'a cikinca (Faz 55'in kademeli-acilim duzeltmesiyle bile)
+// bu buyuk/karmasik parcalarin toplam cekilis payi >%50'ye firliyordu. Artik
+// tumu (T-shape dahil) agirlik 1 — hala cikabilirler ama NADIR, kucuk/kolay
+// parcalar oranı korunuyor, oyuncunun her zaman "manevra alani" kalıyor.
 val SHAPE_WEIGHTS = listOf(
     1, // 1x1
     2, // 2x1
@@ -241,17 +248,17 @@ val SHAPE_WEIGHTS = listOf(
     3, // 2x2
     3, // L1
     3, // L2
-    3, // T
-    2, // 3x3
-    2, // 4x1 (Faz 46)
-    2, // 1x4 (Faz 46)
-    2, // Big L (Faz 48)
-    2, // 2x3 (Faz 48)
-    2, // 3x2 (Faz 48)
-    3, // S-tetromino (Faz 48)
-    3, // Z-tetromino (Faz 48)
-    3, // L-tetromino (Faz 48)
-    3  // J-tetromino (Faz 48)
+    1, // T
+    1, // 3x3 — en zor/buyuk parca, en nadir olmali
+    1, // 4x1 (Faz 46)
+    1, // 1x4 (Faz 46)
+    1, // Big L (Faz 48)
+    1, // 2x3 (Faz 48)
+    1, // 3x2 (Faz 48)
+    1, // S-tetromino (Faz 48)
+    1, // Z-tetromino (Faz 48)
+    1, // L-tetromino (Faz 48)
+    1  // J-tetromino (Faz 48)
 )
 
 data class BlockThemeOption(
@@ -652,15 +659,22 @@ fun BlastTheBlocksGame(
     fun generateNewTray() {
         trayShapes.clear()
         // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
-        // level modda caller'in verdigi sabit shapePoolTier kullanilir.
+        // level modda gercek seviye numarasi kullanilir.
         // Faz 45: puanlama 10x kucultuldugu icin (bkz. placeShape) bu esik de
         // orantili kuculdu (300->30), aksi halde Sonsuz Mod'da zorluk artik
         // ONCEKINE gore 10 kat daha YAVAS yukselirdi.
-        val effectiveTier = if (isEndless) ((score / 30) + 1).coerceAtMost(3) else shapePoolTier
+        //
+        // Faz 55: kullanici "seviye 9'da bir anda cok zorlasiyor" dedi — eskiden
+        // tier2 (8 parca) -> tier3 (TUM 19 parca, SHAPE_PATTERNS.size) gecisi
+        // TEK seviyede oluyordu, 11 yeni (ve bircogu buyuk/karmasik) parca
+        // birden havuza giriyordu. Artik seviye 9'dan itibaren havuz her
+        // seviyede +2 parca ile KADEMELI genisliyor (9'da 10 parca, ~14'te tam
+        // 19'a ulasiyor) — ayni parcalar sonunda geliyor ama sok etkisi yok.
+        val progressLevel = if (isEndless) (score / 30) + 1 else levelNumber
         val availableCount = when {
-            effectiveTier <= 1 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-            effectiveTier == 2 -> 8 // + L shapes
-            else -> SHAPE_PATTERNS.size // T-shape ve 3x3 dahil hepsi
+            progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+            progressLevel <= 8 -> 8 // + L shapes
+            else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
         }
         val totalWeight = (0 until availableCount).sumOf { SHAPE_WEIGHTS[it] }
         repeat(3) {
@@ -752,6 +766,7 @@ fun BlastTheBlocksGame(
         onEndlessGameOver(score)
     }
 
+
     fun applyBoosterAt(row: Int, col: Int) {
         val type = armedBooster ?: return
         val owned = availableBoosterCounts[type] ?: 0
@@ -799,6 +814,26 @@ fun BlastTheBlocksGame(
         continueOffered = false
         lastClearedText = ""
         generateNewTray()
+    }
+
+    // Faz 55: kullanici "level bitti retry deyince reklam izlemesi gerekmez
+    // mi" dedi — onceden Seviyeli Mod'da TEKRAR DENE tamamen ucretsiz/aninda
+    // idi. Artik Sonsuz Mod'daki "reklamla devam et" ile AYNI generic
+    // onRequestContinueAd kancasi kullanilarak zorunlu hale getirildi.
+    // Reklam basarisiz/no-fill olursa (onDenied) retry VERILMEZ — oyuncu
+    // ekrandaki "geri" butonuyla cikabilir, ayni Sonsuz Mod deseni.
+    fun handleRetryWithAd() {
+        if (isRequestingContinueAd) return
+        isRequestingContinueAd = true
+        onRequestContinueAd(
+            {
+                isRequestingContinueAd = false
+                resetGame()
+            },
+            {
+                isRequestingContinueAd = false
+            }
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -2404,7 +2439,8 @@ fun BlastTheBlocksGame(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
-                            onClick = { resetGame() },
+                            onClick = { if (isEndless) resetGame() else handleRetryWithAd() },
+                            enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
@@ -2412,7 +2448,24 @@ fun BlastTheBlocksGame(
                                 .height(50.dp)
                                 .testTag("block_blast_restart_confirm")
                         ) {
-                            Text(language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR"), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            if (isRequestingContinueAd) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = if (isEndless) {
+                                        language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
+                                    } else {
+                                        language.pick(tr = "REKLAM İZLE VE TEKRAR DENE", en = "WATCH AD TO RETRY", it = "GUARDA ANNUNCIO E RIPROVA", fr = "REGARDER PUB ET RÉESSAYER", es = "VER ANUNCIO Y REINTENTAR")
+                                    },
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
