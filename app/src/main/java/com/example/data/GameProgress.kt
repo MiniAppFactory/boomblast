@@ -1,9 +1,12 @@
 package com.example.data
 
+// Faz 47: kullanici "güçlendiriciler daha pahalı olmalı, reklam izlemeye
+// teşvik etmeli, bomba hepsi 100 olmalı, shuffle olmasın, bomba ve line
+// clear olsun sadece" dedi — SHUFFLE turu tamamen kaldirildi (35/50/20 ->
+// sadece BOMB/LINE_CLEAR, ikisi de 100).
 enum class BoosterType(val tokenPrice: Int) {
-    BOMB(35),
-    LINE_CLEAR(50),
-    SHUFFLE(20)
+    BOMB(100),
+    LINE_CLEAR(100)
 }
 
 data class PlayerProgress(

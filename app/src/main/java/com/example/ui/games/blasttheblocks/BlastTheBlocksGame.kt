@@ -76,6 +76,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.nativeCanvas
@@ -142,6 +145,17 @@ data class BlastParticle(
     val color: Color
 )
 
+// Faz 50: patlama noktasinda yukari suzulup solan "+N" puan yazisi (Block
+// Blast referansindan — kullanici "kayittan izle" dedi, orada her patlamada
+// tam o hucrede kucuk bir sayi beliriyor, bizde SADECE merkezi tek bir
+// banner metni vardi).
+data class ScorePopup(
+    val row: Float,
+    val col: Float,
+    val text: String,
+    val color: Color
+)
+
 // Faz 22: seviye tamamlanma anina ozel, tam ekran konfeti — grid'e gore konumlanan
 // BlastParticle'dan farkli olarak ekran genisligine (0f..1f) gore konumlanir.
 data class ConfettiPiece(
@@ -181,7 +195,36 @@ val SHAPE_PATTERNS = listOf(
     // T Shape
     listOf(listOf(true, true, true), listOf(false, true, false)),
     // 3x3 Big Square
-    listOf(listOf(true, true, true), listOf(true, true, true), listOf(true, true, true))
+    listOf(listOf(true, true, true), listOf(true, true, true), listOf(true, true, true)),
+    // Faz 46: kullanici "4'lü de olmali yoksa 4'lü kombo olmaz" dedi — en uzun
+    // duz parca onceden 3'tu, coklu-satir kombolarini kurmayi zorlastiriyordu.
+    // 4x1 Line
+    listOf(listOf(true, true, true, true)),
+    // 1x4 Line
+    listOf(listOf(true), listOf(true), listOf(true), listOf(true)),
+    // Faz 48: kullanici "büyük L de yok (3 yanyana + 2 tane altına devam),
+    // 2x3'lü küp de yok" dedi — L1/L2 zaten vardi ama sadece kucuk (2x2) kose
+    // parcalariydi, kullanicinin tarif ettigi BUYUK L (5 hucreli, Tetris-L
+    // benzeri) ve dikdortgen bloklar eksikti.
+    // Big L (5 cells): ustte 3 yanyana, sol sutunda 2 tane daha asagi
+    listOf(listOf(true, true, true), listOf(true, false, false), listOf(true, false, false)),
+    // 2x3 Rectangle
+    listOf(listOf(true, true, true), listOf(true, true, true)),
+    // 3x2 Rectangle
+    listOf(listOf(true, true), listOf(true, true), listOf(true, true)),
+    // Faz 48: kullanici "block blast ile mekanik olarak karsilastir" dedi —
+    // arastirma (Wikipedia Tetromino, tetris.wiki) standart 7 parcalik tetromino
+    // setini (I/O/T/L/J/S/Z) dogruladi. Bizde S/Z (capraz/skew) hic yoktu, L/J
+    // de sadece kucuk 2x2 kose parcasi olarak vardi — standart 4 hucreli
+    // (3-uzunlugunda + 1 dik) L/J eksikti. Hepsi eklendi.
+    // S-tetromino
+    listOf(listOf(false, true, true), listOf(true, true, false)),
+    // Z-tetromino
+    listOf(listOf(true, true, false), listOf(false, true, true)),
+    // Standart L-tetromino (4 hucre)
+    listOf(listOf(true, false), listOf(true, false), listOf(true, true)),
+    // Standart J-tetromino (4 hucre)
+    listOf(listOf(false, true), listOf(false, true), listOf(true, true))
 )
 
 // SHAPE_PATTERNS ile ayni sirada agirliklar — duz uniform-random secim, 1x1/2'li
@@ -199,7 +242,16 @@ val SHAPE_WEIGHTS = listOf(
     3, // L1
     3, // L2
     3, // T
-    2  // 3x3
+    2, // 3x3
+    2, // 4x1 (Faz 46)
+    2, // 1x4 (Faz 46)
+    2, // Big L (Faz 48)
+    2, // 2x3 (Faz 48)
+    2, // 3x2 (Faz 48)
+    3, // S-tetromino (Faz 48)
+    3, // Z-tetromino (Faz 48)
+    3, // L-tetromino (Faz 48)
+    3  // J-tetromino (Faz 48)
 )
 
 data class BlockThemeOption(
@@ -370,16 +422,24 @@ fun BlastTheBlocksGame(
     // renkli kenarlik + sparkle) — gercek temizleme bu glow'dan hemen sonra
     // gerceklesiyor, boylece oyuncu "bu satirlar patlayacak" anini gorebiliyor.
     var glowingClearCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // Faz 50: kullanicinin istegiyle (gercek Block Blast'in kaydini izleyip
+    // karsilastirdik) — onceden glow SADECE hucre-hucre uygulaniyordu, rakipte
+    // tum satir/sutunun etrafinda TEK bir parlak cerceve var. Ayrica
+    // rakipte her patlamada tam o noktada yuzen bir "+N" puan yazisi cikiyor,
+    // bizde skor bonusu sadece merkezi tek bir banner metniydi.
+    var glowingRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var glowingCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
+    val popupProgress = remember { Animatable(0f) }
 
-    // Faz 38: Sonsuz Mod'da sistem geri tusu/jesti artik dogrudan menuye
-    // cikmiyor — once "cikmak istedigine emin misin" onay ekranini aciyor
-    // (kullanici geri bildirimi: yanlislikla cikip skoru kaybetme riski).
-    // Seviyeli Mod'da davranis DEGISMEDI (kullanicinin acikca "sonsuz oyunda"
-    // dedigi kapsam disinda kalmasin diye).
-    if (isEndless) {
-        BackHandler(enabled = !isGameOver && !isLevelComplete) {
-            showExitConfirmDialog = true
-        }
+    // Faz 38: sistem geri tusu/jesti artik dogrudan menuye cikmiyor — once
+    // "cikmak istedigine emin misin" onay ekranini aciyor (kullanici geri
+    // bildirimi: yanlislikla cikip skoru kaybetme riski). Onceden SADECE
+    // Sonsuz Mod'da vardi (kullanicinin ilk istegi acikca "sonsuz oyunda"
+    // diyordu) — Faz 47'de kullanici "level modunda geri tuşu direkt atıyor,
+    // çıkmak istiyor musunuz diye sormuyor" dedi, Seviyeli Mod'a da acildi.
+    BackHandler(enabled = !isGameOver && !isLevelComplete) {
+        showExitConfirmDialog = true
     }
 
     val glowPulse = remember { Animatable(0f) }
@@ -566,7 +626,10 @@ fun BlastTheBlocksGame(
         trayShapes.clear()
         // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
         // level modda caller'in verdigi sabit shapePoolTier kullanilir.
-        val effectiveTier = if (isEndless) ((score / 300) + 1).coerceAtMost(3) else shapePoolTier
+        // Faz 45: puanlama 10x kucultuldugu icin (bkz. placeShape) bu esik de
+        // orantili kuculdu (300->30), aksi halde Sonsuz Mod'da zorluk artik
+        // ONCEKINE gore 10 kat daha YAVAS yukselirdi.
+        val effectiveTier = if (isEndless) ((score / 30) + 1).coerceAtMost(3) else shapePoolTier
         val availableCount = when {
             effectiveTier <= 1 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
             effectiveTier == 2 -> 8 // + L shapes
@@ -662,15 +725,6 @@ fun BlastTheBlocksGame(
         onEndlessGameOver(score)
     }
 
-    fun useShuffleBooster() {
-        val owned = availableBoosterCounts[BoosterType.SHUFFLE] ?: 0
-        if (owned <= 0 || isGameOver || isLevelComplete) return
-        generateNewTray()
-        availableBoosterCounts[BoosterType.SHUFFLE] = owned - 1
-        onUseBooster(BoosterType.SHUFFLE)
-        SoundManager.playBeep(soundEnabled)
-    }
-
     fun applyBoosterAt(row: Int, col: Int) {
         val type = armedBooster ?: return
         val owned = availableBoosterCounts[type] ?: 0
@@ -696,7 +750,6 @@ fun BlastTheBlocksGame(
                 }
                 onLinesCleared(1)
             }
-            BoosterType.SHUFFLE -> { /* Tepsiden tetiklenir, hücre hedeflemez. */ }
         }
         SoundManager.playSuccess(soundEnabled)
         availableBoosterCounts[type] = owned - 1
@@ -779,7 +832,12 @@ fun BlastTheBlocksGame(
             }
         }
 
-        score += placedBlocks * 10
+        // Faz 45: onceden hucre basina 10 puan verilirdi — kullanici "puanlar kare
+        // sayısı kadar olmalı" dedi (hakli: eski sistemde HİÇ satir/sutun temizlemeden
+        // sadece 50 hucre doldurarak 500'luk bir hedefe ulasilabiliyordu, mantiksizdi).
+        // Artik 1 hucre = 1 puan; asagidaki satir temizleme bonusu ve hedef puanlari
+        // (bkz. LevelGenerator) bu YENİ 10x kucuk olceğe gore yeniden ayarlandi.
+        score += placedBlocks
 
         // Check full rows & columns
         val rowsToClear = mutableListOf<Int>()
@@ -811,7 +869,23 @@ fun BlastTheBlocksGame(
         if (totalLinesCleared > 0) {
             onLinesCleared(totalLinesCleared)
             comboCount++
-            val lineBonus = totalLinesCleared * 100 * comboCount
+            // Faz 45: onceden sabit 100 puan/satir idi (yeni 1puan/hucre olcegine
+            // gore orantisizca buyuktu). Artik satir basina bonus, o satirin gercek
+            // uzunluguna (gridSize hucre) esit — "bir satiri temizlemek, o satiri
+            // YENIDEN doldurmaya esdeger" gibi mantikli/orantili bir taban.
+            //
+            // Faz 46: kullanici "block blast'ın ödüllendirme mekaniğine bak" dedi —
+            // arastirma (blockblast.free/wiki/scoring-and-combos) iki ayri kavrami
+            // netlestirdi: "Streak" (ART ARDA hamlelerde patlatma — bizim comboCount,
+            // zaten dogrusal carpandi, degismedi) ve "Combo" (TEK hamlede BIRDEN
+            // FAZLA satir/sutun patlatma — bizim totalLinesCleared). Referansta 2.
+            // kavram DOGRUSAL DEGIL: "3 satiri BIRDEN patlatmak, 3 satiri AYRI AYRI
+            // patlatmaktan 3-4 kat daha degerli." Onceden totalLinesCleared sadece
+            // dogrusal carpiyordu (2 satir = tam 2 kat, fazlasi yoktu) — artik ek bir
+            // multiLineMultiplier var (1 satir icin carpan yok, her ekstra ESZAMANLI
+            // satir +%50 ekliyor: 2 satir=1.5x, 3 satir=2x, 4 satir=2.5x).
+            val multiLineMultiplier = 1f + (totalLinesCleared - 1) * 0.5f
+            val lineBonus = (totalLinesCleared * gridSize * comboCount * multiLineMultiplier).roundToInt()
             score += lineBonus
             // Kombo yukseldikce ovgu kelimesi de yukseliyor (Block Blast!'daki
             // "Excellent!"/thumbs-up tarzi geri bildirime benzer, kullanici istegi).
@@ -933,6 +1007,11 @@ fun BlastTheBlocksGame(
             // "3'lü patlamak üzereyken glow efekti falan ekliyor"). Gercek temizleme
             // (board sifirlama + parcacik patlamasi + ses) bu glow'dan HEMEN SONRA olur.
             glowingClearCells = clearedIndices
+            // Faz 50: hucre-hucre glow'a ek olarak tum satir/sutunun etrafinda
+            // TEK bir cerceve (rakip oyun referansi) — render tarafinda ayri
+            // bir Canvas katmaninda cizilecek.
+            glowingRows = rowsToClear.toSet()
+            glowingCols = colsToClear.toSet()
             dragCoroutineScope.launch {
                 glowPulse.snapTo(0f)
                 glowPulse.animateTo(1f, animationSpec = tween(160, easing = FastOutSlowInEasing))
@@ -946,16 +1025,45 @@ fun BlastTheBlocksGame(
                     SoundManager.playBlast(soundEnabled)
                 }
                 glowingClearCells = emptySet()
+                glowingRows = emptySet()
+                glowingCols = emptySet()
                 recentlyClearedCells = clearedIndices
                 dragCoroutineScope.launch {
                     clearFlashAlpha.snapTo(1f)
                     clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
                 }
 
+                // Faz 50: patlama noktasinda yuzen "+N" puan yazisi — her temizlenen
+                // satir/sutunun kendi orta noktasinda, kombo/coklu-satir carpanindan
+                // BAGIMSIZ olarak esit paylastirilmis (sadece gorsel, gercek toplam
+                // zaten `score`'a tam olarak eklendi).
+                val lineCount = (rowsToClear.size + colsToClear.size).coerceAtLeast(1)
+                val perLineScore = lineBonus / lineCount
+                val popupColor = if (totalLinesCleared >= 2) NeonGold else NeonGreen
+                val rowPopups = rowsToClear.map { r ->
+                    ScorePopup(row = r + 0.5f, col = gridSize / 2f, text = "+$perLineScore", color = popupColor)
+                }
+                val colPopups = colsToClear.map { c ->
+                    ScorePopup(row = gridSize / 2f, col = c + 0.5f, text = "+$perLineScore", color = popupColor)
+                }
+                scorePopups = rowPopups + colPopups
+                dragCoroutineScope.launch {
+                    popupProgress.snapTo(0f)
+                    popupProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
+                    scorePopups = emptyList()
+                }
+
                 // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
                 // rastgele acı/mesafeyle disari firlat — renkler board SIFIRLANMADAN
                 // ONCE okunuyor, aksi halde tum parcaciklar ayni "bos hucre" rengine duser.
-                particleBurst = clearedIndices.shuffled().take(20).map { index ->
+                // Faz 50: buyuk anlarda (kombo/coklu-satir) parcacik sayisi da artiyor —
+                // rakip oyunun kayittaki "Perfect!" anindaki yogun konfeti referansi.
+                // clearedIndices'ten BUYUK sayida parcacik istenebiliyor (kucuk bir
+                // tekli satir sadece 8 hucre saglar) — yerine koyarak (with replacement)
+                // ornekleme yapiliyor ki yogunluk gercekten combo/coklu-satir ile artsin.
+                val clearedList = clearedIndices.toList()
+                val particleCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10).coerceIn(20, 80)
+                particleBurst = List(particleCount) { clearedList[Random.nextInt(clearedList.size)] }.map { index ->
                     val r = index / gridSize
                     val c = index % gridSize
                     val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
@@ -1092,7 +1200,7 @@ fun BlastTheBlocksGame(
             ) {
                 IconButton(
                     onClick = {
-                        if (isEndless && !isGameOver && !isLevelComplete) {
+                        if (!isGameOver && !isLevelComplete) {
                             showExitConfirmDialog = true
                         } else {
                             onBack()
@@ -1352,7 +1460,6 @@ fun BlastTheBlocksGame(
                             val emoji = when (type) {
                                 BoosterType.BOMB -> "💣"
                                 BoosterType.LINE_CLEAR -> "⚡"
-                                BoosterType.SHUFFLE -> "🔀"
                             }
                             Surface(
                                 color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
@@ -1365,11 +1472,7 @@ fun BlastTheBlocksGame(
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                     .clickable {
-                                        if (type == BoosterType.SHUFFLE) {
-                                            useShuffleBooster()
-                                        } else {
-                                            armedBooster = if (isArmed) null else type
-                                        }
+                                        armedBooster = if (isArmed) null else type
                                     }
                                     .testTag("booster_button_${type.name}")
                             ) {
@@ -1413,11 +1516,21 @@ fun BlastTheBlocksGame(
                         .padding(vertical = 4.dp)
                         .scale(comboTextScale.value)
                 ) {
+                    // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
+                    // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
+                    // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
                     Text(
                         text = lastClearedText,
                         fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
                         fontWeight = FontWeight.Bold,
-                        color = comboColor
+                        color = comboColor,
+                        style = TextStyle(
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                offset = Offset(2f, 3f),
+                                blurRadius = 4f
+                            )
+                        )
                     )
                     // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
                     // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
@@ -1572,6 +1685,56 @@ fun BlastTheBlocksGame(
                                 }
                             }
                         }
+                    }
+                }
+
+                // Faz 50: tum satir/sutunun etrafinda TEK bir parlak cerceve — rakip
+                // oyun kaydinda gorulen, hucre-hucre glow'dan farkli/ek bir katman.
+                if (glowingRows.isNotEmpty() || glowingCols.isNotEmpty()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cell = size.width / gridSize
+                        val strokeWidth = 3.dp.toPx()
+                        val glowColor = NeonGold.copy(alpha = glowPulse.value)
+                        glowingRows.forEach { r ->
+                            drawRoundRect(
+                                color = glowColor,
+                                topLeft = Offset(strokeWidth / 2, r * cell + strokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, cell - strokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                style = Stroke(width = strokeWidth)
+                            )
+                        }
+                        glowingCols.forEach { c ->
+                            drawRoundRect(
+                                color = glowColor,
+                                topLeft = Offset(c * cell + strokeWidth / 2, strokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(cell - strokeWidth, size.height - strokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                style = Stroke(width = strokeWidth)
+                            )
+                        }
+                    }
+                }
+
+                // Faz 50: patlama noktasinda yuzen "+N" puan yazisi.
+                if (scorePopups.isNotEmpty()) {
+                    val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+                    val riseFraction = popupProgress.value
+                    val popupAlpha = (1f - riseFraction).coerceIn(0f, 1f)
+                    scorePopups.forEach { popup ->
+                        Text(
+                            text = popup.text,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = popup.color.copy(alpha = popupAlpha),
+                            style = TextStyle(
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
+                            ),
+                            modifier = Modifier.offset(
+                                x = cellDp * popup.col - 14.dp,
+                                y = cellDp * popup.row - 10.dp - (16.dp * riseFraction)
+                            )
+                        )
                     }
                 }
 
@@ -2002,12 +2165,24 @@ fun BlastTheBlocksGame(
                                 .height(50.dp)
                                 .testTag("continue_watch_ad_button")
                         ) {
-                            Text(
-                                text = language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR"),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
+                            // Faz 48: reklam yuklemesi (3-8sn) hicbir gorsel geri bildirim
+                            // vermiyordu — sadece Button'un varsayilan "disabled" soluklugu
+                            // pek fark edilmiyordu (ayni Loadout'taki WATCH sorunuyla ayni
+                            // kok neden). Artik acikca donen bir gosterge var.
+                            if (isRequestingContinueAd) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR"),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2066,7 +2241,11 @@ fun BlastTheBlocksGame(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = language.pick(tr = "Mevcut skorun ve serin kaybolacak", en = "Your current score and streak will be lost", it = "Il tuo punteggio e la tua serie attuali andranno persi", fr = "Votre score et votre série actuels seront perdus", es = "Se perderán tu puntuación y racha actuales"),
+                            text = if (isEndless) {
+                                language.pick(tr = "Mevcut skorun ve serin kaybolacak", en = "Your current score and streak will be lost", it = "Il tuo punteggio e la tua serie attuali andranno persi", fr = "Votre score et votre série actuels seront perdus", es = "Se perderán tu puntuación y racha actuales")
+                            } else {
+                                language.pick(tr = "Bu seviyedeki ilerlemen kaybolacak", en = "Your progress in this level will be lost", it = "I tuoi progressi in questo livello andranno persi", fr = "Votre progression dans ce niveau sera perdue", es = "Se perderá tu progreso en este nivel")
+                            },
                             fontSize = 13.sp,
                             color = palette.textSecondary,
                             textAlign = TextAlign.Center
@@ -2241,15 +2420,11 @@ fun BlastTheBlocksGame(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        val stars = computeStars(score, targetScore)
-                        Row {
-                            repeat(3) { index ->
-                                Text(
-                                    text = if (index < stars) "⭐" else "☆",
-                                    fontSize = 32.sp
-                                )
-                            }
-                        }
+                        // Faz 45: kullanici "yıldız mantığı yok, hedef başarma mantığı
+                        // var" dedi — bu modal zaten SADECE hedefe ulasilinca aciliyor
+                        // (yani her zaman "basari"), dereceli bir yildiz puanlamasi
+                        // anlamsizdi. 3 yildizlik satir yerine tek bir kupa gosteriliyor.
+                        Text(text = "🏆", fontSize = 48.sp)
 
                         Spacer(modifier = Modifier.height(12.dp))
 

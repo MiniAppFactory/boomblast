@@ -276,11 +276,23 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()
                             if (activity != null) {
+                                // Faz 48: kullanici "hamle kalmayınca reklam izle 3 hamle
+                                // kazan mekanizması çalışmadı" dedi. Kok neden: kullanici
+                                // reklami ODUL KAZANMADAN (video bitmeden) kapatirsa ne
+                                // onRewardEarned ne onFailure hic tetiklenmiyordu —
+                                // isRequestingContinueAd sonsuza kadar true kalip butonu
+                                // KALICI OLARAK devre disi birakiyordu (bir daha hic
+                                // tiklanamiyordu). `handled` bayragi + onAdClosed guvenlik
+                                // agi ile artik reklam NASIL kapanirsa kapansin (odullu/
+                                // odulsuz) en gec kapaninca onDenied() tetiklenip oturum
+                                // duzgunce sonlandiriliyor, buton sonsuza dek kilitli kalmiyor.
+                                var handled = false
                                 RewardedAdManager.loadAndShow(
                                     context = context,
                                     activity = activity,
-                                    onRewardEarned = onGranted,
-                                    onFailure = onDenied
+                                    onRewardEarned = { handled = true; onGranted() },
+                                    onFailure = { handled = true; onDenied() },
+                                    onAdClosed = { if (!handled) { handled = true; onDenied() } }
                                 )
                             } else {
                                 onDenied()

@@ -222,26 +222,21 @@ private fun BoosterCard(
     val icon = when (type) {
         BoosterType.BOMB -> "💣"
         BoosterType.LINE_CLEAR -> "⚡"
-        BoosterType.SHUFFLE -> "🔀"
     }
     // Uc guclendirici butonu birbirinden ayirt edilemiyordu (hepsi ayni mavi) —
     // UI/UX karsilastirma bulgusu. Her tur artik kendi vurgu rengini tasiyor,
-    // ikonun anlamiyla eslesecek sekilde (bomba->kirmizi/turuncu, simsek->altin,
-    // karistir->mor).
+    // ikonun anlamiyla eslesecek sekilde (bomba->kirmizi/turuncu, simsek->altin).
     val accent = when (type) {
         BoosterType.BOMB -> Color(0xFFFF6B35)
         BoosterType.LINE_CLEAR -> NeonGold
-        BoosterType.SHUFFLE -> NeonPurple
     }
     val name = when (type) {
         BoosterType.BOMB -> language.pick(tr = "BOMBA", en = "BOMB", it = "BOMBA", fr = "BOMBE", es = "BOMBA")
         BoosterType.LINE_CLEAR -> language.pick(tr = "SATIR TEMİZLE", en = "LINE CLEAR", it = "ELIMINA LINEA", fr = "EFFACER LIGNE", es = "LIMPIAR LÍNEA")
-        BoosterType.SHUFFLE -> language.pick(tr = "KARIŞTIR", en = "SHUFFLE", it = "MESCOLA", fr = "MÉLANGER", es = "MEZCLAR")
     }
     val description = when (type) {
         BoosterType.BOMB -> language.pick(tr = "3x3 alanı yok eder", en = "Destroys a 3x3 area", it = "Distrugge un'area 3x3", fr = "Détruit une zone 3x3", es = "Destruye un área de 3x3")
         BoosterType.LINE_CLEAR -> language.pick(tr = "Bir satır/sütunu anında temizler", en = "Instantly clears a row/column", it = "Elimina istantaneamente una riga/colonna", fr = "Efface instantanément une ligne/colonne", es = "Limpia instantáneamente una fila/columna")
-        BoosterType.SHUFFLE -> language.pick(tr = "Tepsiyi parça harcamadan yeniler", en = "Refreshes the tray without using a piece", it = "Rinnova il vassoio senza usare un pezzo", fr = "Renouvelle le plateau sans utiliser une pièce", es = "Renueva la bandeja sin usar una pieza")
     }
 
     Card(

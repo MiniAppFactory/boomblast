@@ -74,12 +74,60 @@ fun ModeSelectScreen(
             .padding(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ModeSelectHeader(
-                language = language,
-                tokens = tokens,
-                palette = palette,
-                onOpenMissions = onOpenMissions,
-                onOpenSettings = onOpenSettings
+            // Faz 44: logo+isim ve jeton/görevler/ayarlar oncede İKİ AYRI satirdi —
+            // kullanici "logo ve isim üste taşınmalı ki altta yer açılsın, böyle
+            // tasarım kötü gözüküyor" dedi. Artik TEK satirda: logo+isim sola
+            // (weight 1f, fill=false, gerekirse ellipsis), jeton/görevler/ayarlar
+            // saga (LevelMapHeader/oyun ekrani basligindaki ayni desen) — bir satir
+            // yuksekliginde alan mod kartlarina geri kazandiriliyor.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(palette.card)
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Boom Blocks",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        color = palette.textPrimary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                ModeSelectHeaderActions(
+                    language = language,
+                    tokens = tokens,
+                    palette = palette,
+                    onOpenMissions = onOpenMissions,
+                    onOpenSettings = onOpenSettings
+                )
+            }
+
+            Text(
+                text = language.pick(tr = "Bir oyun modu seç", en = "Choose a game mode", it = "Scegli una modalità di gioco", fr = "Choisissez un mode de jeu", es = "Elige un modo de juego"),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = palette.textSecondary,
+                modifier = Modifier.padding(start = 50.dp, top = 2.dp)
             )
 
             // Onceden basliktan sonraki tum icerik ekranin ustune sabitti ve
@@ -91,40 +139,7 @@ fun ModeSelectScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                // Marka kimligi icin logo rozeti — onceden sadece duz yazi vardi,
-                // rakip oyunlarin hepsinde basligin yaninda bir ikon/logo var (UI/UX
-                // karsilastirma bulgusu).
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(palette.card)
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = painterResource(R.drawable.ic_launcher_foreground),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Boom Blocks",
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color = palette.textPrimary
-                        )
-                        Text(
-                            text = language.pick(tr = "Bir oyun modu seç", en = "Choose a game mode", it = "Scegli una modalità di gioco", fr = "Choisissez un mode de jeu", es = "Elige un modo de juego"),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = palette.textSecondary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 ModeCard(
                     title = language.pick(tr = "SONSUZ MOD", en = "ENDLESS MODE", it = "MODALITÀ INFINITA", fr = "MODE INFINI", es = "MODO INFINITO"),
@@ -143,7 +158,7 @@ fun ModeSelectScreen(
 
                 ModeCard(
                     title = language.pick(tr = "SEVİYELİ MOD", en = "LEVEL MODE", it = "MODALITÀ LIVELLI", fr = "MODE NIVEAUX", es = "MODO NIVELES"),
-                    subtitle = language.pick(tr = "Seviye seviye ilerle, yıldız topla", en = "Progress level by level, earn stars", it = "Avanza livello dopo livello, guadagna stelle", fr = "Progressez niveau par niveau, gagnez des étoiles", es = "Avanza nivel a nivel, gana estrellas"),
+                    subtitle = language.pick(tr = "Seviye seviye ilerle, hedefleri tamamla", en = "Progress level by level, hit each target", it = "Avanza livello dopo livello, raggiungi l'obiettivo", fr = "Progressez niveau par niveau, atteignez l'objectif", es = "Avanza nivel a nivel, alcanza cada objetivo"),
                     statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
                     statValue = "$highestUnlockedLevel",
                     icon = Icons.Default.Extension,
@@ -159,7 +174,7 @@ fun ModeSelectScreen(
 }
 
 @Composable
-private fun ModeSelectHeader(
+private fun ModeSelectHeaderActions(
     language: AppLanguage,
     tokens: Int,
     palette: BlastPalette,
@@ -167,8 +182,6 @@ private fun ModeSelectHeader(
     onOpenSettings: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
@@ -179,41 +192,43 @@ private fun ModeSelectHeader(
                 .testTag("mode_select_token_pill")
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🪙", fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "🪙", fontSize = 13.sp)
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = "$tokens",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = NeonGold
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
-
+        // Faz 44: tek satira sigdirmak icin ikon dugmeleri de (oyun ekrani basligindaki
+        // Faz 28 desenine benzer) 48dp varsayilan dokunma alani yerine 36dp'ye daraltildi.
         IconButton(
             onClick = onOpenMissions,
-            modifier = Modifier.testTag("mode_select_missions_button")
+            modifier = Modifier.size(36.dp).testTag("mode_select_missions_button")
         ) {
             Icon(
                 imageVector = Icons.Default.EmojiEvents,
                 contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
-                tint = NeonPurple
+                tint = NeonPurple,
+                modifier = Modifier.size(20.dp)
             )
         }
 
         IconButton(
             onClick = onOpenSettings,
-            modifier = Modifier.testTag("mode_select_settings_button")
+            modifier = Modifier.size(36.dp).testTag("mode_select_settings_button")
         ) {
             Icon(
                 imageVector = Icons.Default.Settings,
                 contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
-                tint = palette.textPrimary
+                tint = palette.textPrimary,
+                modifier = Modifier.size(20.dp)
             )
         }
     }

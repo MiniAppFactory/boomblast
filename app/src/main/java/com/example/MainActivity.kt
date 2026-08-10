@@ -28,6 +28,7 @@ import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlastTheBlocksTheme
 import com.example.ads.AdIds
 import com.example.ui.theme.blastPalette
+import com.example.utils.SoundManager
 import com.example.utils.TextToSpeechManager
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
@@ -62,6 +63,10 @@ class MainActivity : ComponentActivity() {
         // soylemek icin — asenkron init, TTS motoru hazir olana kadar
         // speakPraise() sessizce no-op kalir (bkz. TextToSpeechManager).
         TextToSpeechManager.init(applicationContext)
+        // Faz 49: SoundManager artik SoundPool ile gercek SFX dosyalari
+        // caliyor (onceden elle sentezliyordu, context gerektirmiyordu) —
+        // TextToSpeechManager ile ayni desen: uygulama basinda bir kez init.
+        SoundManager.init(applicationContext)
         // Faz 27: rastgele araliklarla "geri gel" hatirlatma bildirimi zinciri.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -112,6 +117,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         TextToSpeechManager.shutdown()
+        SoundManager.release()
         super.onDestroy()
     }
 
