@@ -14,13 +14,11 @@ object AdIds {
     private const val PRODUCTION_REWARDED_AD_UNIT_ID = "ca-app-pub-8582550349019790/5534279692"
     private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
-    // Faz 39: Seviye Modu'nda her 2 bolumde bir zorunlu gecis (interstitial)
-    // reklami icin. UYARI: PRODUCTION ID henuz gercek degil — kullanicinin
-    // kendi AdMob konsolunda bu oyun icin YENI bir "Interstitial" reklam
-    // birimi olusturup ID'sini vermesi gerekiyor, o gelene kadar TEST ID
-    // release build'de de kullaniliyor (guvenli varsayilan: hicbir zaman
-    // reklam-ID-hata krasi olmaz, ama gercek kullanicilardan gelir gelmez).
-    private const val PRODUCTION_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    // Faz 39/51: Seviye Modu'nda her 2 bolumde bir zorunlu gecis (interstitial)
+    // reklami icin. Faz 51: kullanici kendi AdMob konsolunda gercek bir
+    // "Interstitial" reklam birimi olusturdu — artik release build'de test
+    // ID'si degil, gercek production ID kullaniliyor.
+    private const val PRODUCTION_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8582550349019790/4062199744"
     private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
 
     fun bannerAdUnitId(): String = if (BuildConfig.DEBUG) TEST_BANNER_AD_UNIT_ID else PRODUCTION_BANNER_AD_UNIT_ID

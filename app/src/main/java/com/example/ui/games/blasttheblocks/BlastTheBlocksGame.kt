@@ -606,6 +606,33 @@ fun BlastTheBlocksGame(
         return canPlaceShape(shape, r, c)
     }
 
+    // Faz 51: kullanici "sürüklerken, bırakınca 3'lü patlayacak olan blok
+    // önden glow oluyordu, Block Blast'ta böyleydi, bizimki öyle olmuyor"
+    // dedi. Su an surukleniyorsa ve gecerli bir konuma denk geliyorsa, o
+    // parca ORAYA birakilirsa hangi satir/sutunlarin tamamlanacagini
+    // ONCEDEN hesaplayip donduruyor — render tarafinda Faz 50'deki ayni
+    // satir/sutun cerceve katmaniyla (farkli renk/pulse ile) gosteriliyor.
+    fun previewClearedLines(): Pair<Set<Int>, Set<Int>> {
+        val shape = activeDragShape() ?: return emptySet<Int>() to emptySet()
+        val (r, c) = currentHoverCell() ?: return emptySet<Int>() to emptySet()
+        if (!canPlaceShape(shape, r, c)) return emptySet<Int>() to emptySet()
+        val simulated = board.toMutableList()
+        for (pr in shape.pattern.indices) {
+            for (pc in shape.pattern[pr].indices) {
+                if (shape.pattern[pr][pc]) {
+                    simulated[(r + pr) * gridSize + (c + pc)] = 1
+                }
+            }
+        }
+        val rows = (0 until gridSize).filterTo(mutableSetOf()) { row ->
+            (0 until gridSize).all { col -> simulated[row * gridSize + col] != 0 }
+        }
+        val cols = (0 until gridSize).filterTo(mutableSetOf()) { col ->
+            (0 until gridSize).all { row -> simulated[row * gridSize + col] != 0 }
+        }
+        return rows to cols
+    }
+
     fun isCellInDragFootprint(row: Int, col: Int): Boolean {
         val shape = activeDragShape() ?: return false
         val (hr, hc) = currentHoverCell() ?: return false
@@ -1712,6 +1739,39 @@ fun BlastTheBlocksGame(
                                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
                                 style = Stroke(width = strokeWidth)
                             )
+                        }
+                    }
+                }
+
+                // Faz 51: surukleme ONIZLEMESI — parca su an gecerli bir hucreye
+                // hover ediyorsa ve birakilirsa hangi satir/sutunlar tamamlanacaksa,
+                // onlarin etrafinda (Faz 50'deki gercek-patlama cercevesinden farkli
+                // renk/pulse ile) bir on-izleme cercevesi gosteriliyor.
+                if (draggedTrayIndex != -1) {
+                    val (previewRows, previewCols) = previewClearedLines()
+                    if (previewRows.isNotEmpty() || previewCols.isNotEmpty()) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val cell = size.width / gridSize
+                            val strokeWidth = 3.dp.toPx()
+                            val previewColor = NeonGreen.copy(alpha = sharedPulse)
+                            previewRows.forEach { r ->
+                                drawRoundRect(
+                                    color = previewColor,
+                                    topLeft = Offset(strokeWidth / 2, r * cell + strokeWidth / 2),
+                                    size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, cell - strokeWidth),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                    style = Stroke(width = strokeWidth)
+                                )
+                            }
+                            previewCols.forEach { c ->
+                                drawRoundRect(
+                                    color = previewColor,
+                                    topLeft = Offset(c * cell + strokeWidth / 2, strokeWidth / 2),
+                                    size = androidx.compose.ui.geometry.Size(cell - strokeWidth, size.height - strokeWidth),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                    style = Stroke(width = strokeWidth)
+                                )
+                            }
                         }
                     }
                 }

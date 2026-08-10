@@ -55,8 +55,14 @@ object TextToSpeechManager {
             val level = excitementLevel.coerceIn(0, 5)
             val pitchJitter = (Random.nextFloat() - 0.5f) * 0.08f
             val rateJitter = (Random.nextFloat() - 0.5f) * 0.06f
-            engine.setPitch((1.2f + level * 0.09f + pitchJitter).coerceAtLeast(0.5f))
-            engine.setSpeechRate((1.05f + level * 0.06f + rateJitter).coerceAtLeast(0.5f))
+            // Faz 51: kullanici en dusuk seviyede bile ("Good!") "cok duz
+            // okuyor" dedi — eski taban (1.2 pitch / 1.05 hiz) normal konusmaya
+            // cok yakindi, coskulu hissettirmiyordu. Taban degerler VE
+            // seviye-basi artis miktari yukseltildi, boylece en dusuk seviye
+            // bile belirgin sekilde "heyecanli" baslar, en yuksek seviye de
+            // daha da tiz/hizli kalir.
+            engine.setPitch((1.35f + level * 0.14f + pitchJitter).coerceAtLeast(0.5f))
+            engine.setSpeechRate((1.15f + level * 0.1f + rateJitter).coerceAtLeast(0.5f))
             engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "combo_praise")
         } catch (e: Exception) {
             Log.e("TextToSpeechManager", "speakPraise failed", e)
