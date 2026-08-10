@@ -28,6 +28,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -324,6 +325,11 @@ fun BlastTheBlocksGame(
     notificationsEnabled: Boolean = true,
     onToggleNotifications: (Boolean) -> Unit = {},
     onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
+    // Faz 39: "DEVAM ET" butonuna basinca cagrilir — geri tepe uc bardaki/fiziksel
+    // geri tusundaki onBack'ten AYRI tutuluyor ki AppNavigation araya (her 2
+    // bolumde bir) zorunlu interstitial reklami sokabilsin, oyun ici geri
+    // tusuna dokunmadan.
+    onLevelCompleteContinue: () -> Unit = onBack,
     onLevelFailed: (score: Int) -> Unit = {},
     onEndlessGameOver: (score: Int) -> Unit = {},
     onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() },
@@ -1090,7 +1096,10 @@ fun BlastTheBlocksGame(
                 ) {
                     Text(
                         text = if (isEndless) {
-                            language.pick(tr = "SONSUZ MOD", en = "ENDLESS MODE", it = "MODALITÀ INFINITA", fr = "MODE INFINI", es = "MODO INFINITO")
+                            // Faz 40: "SONSUZ MOD"/"ENDLESS MODE" TEMA piliyle cakisiyordu
+                            // bazi cihazlarda (kullanici geri bildirimi + ekran goruntusu).
+                            // Tek kelimeye kisaltildi, cakisma riski buyuk olcude azaliyor.
+                            language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO")
                         } else {
                             language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber")
                         },
@@ -1167,10 +1176,13 @@ fun BlastTheBlocksGame(
             }
 
             // Score & Level Banner
+            // Faz 40: dikey padding 4dp->2dp ve kart ic padding'i (yukarida) 8dp->6dp —
+            // reklam banner'i alani sikistirinca grid'e biraz daha pay birakmak icin
+            // (kullanici: "score combo best kutuları da çok geniş, daralabilir").
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Card(
@@ -1179,7 +1191,7 @@ fun BlastTheBlocksGame(
                     modifier = Modifier.weight(1f).padding(end = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -1225,7 +1237,7 @@ fun BlastTheBlocksGame(
                         )
                 ) {
                     Column(
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         if (isEndless) {
@@ -1280,7 +1292,7 @@ fun BlastTheBlocksGame(
                     modifier = Modifier.weight(1f).padding(start = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -1401,12 +1413,26 @@ fun BlastTheBlocksGame(
             }
 
             // 8x8 Main Grid
+            // Faz 40: onceden .fillMaxWidth().aspectRatio(1f) ile SADECE genislige gore
+            // kare boyutlaniyordu — banner reklam altta yer kaplayinca Column'un toplam
+            // yuksekligi asiliyor, en sonda kalan tepsi (sonraki 3 parca) ekran disina
+            // tasip goze neredeyse gorunmez ince seritler halinde kaliyordu (kullanici
+            // geri bildirimi: "sıradaki bloklar gözükmüyor reklam çıkınca"). Artik grid
+            // Column icinde weight(1f) ile SADECE kalan (header/skor/tepsi cikarilmis)
+            // dikey alani aliyor, BoxWithConstraints ile o alanin hem genislik hem
+            // yukseklik siniri arasindaki KUCUK olan kare kenari olarak kullaniliyor —
+            // boylece reklam yer actikca daralan tek eleman grid oluyor, tepsi sabit
+            // boyutunu (110dp) hep koruyor.
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+            val gridSide = minOf(maxWidth, maxHeight)
             Card(
                 colors = CardDefaults.cardColors(containerColor = animatedCard),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .size(gridSide)
                     .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
                     .border(2.dp, Brush.linearGradient(uiSkin.accentGradient), RoundedCornerShape(16.dp))
                     .padding(6.dp)
@@ -1547,6 +1573,7 @@ fun BlastTheBlocksGame(
                     }
                 }
               }
+            }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -2210,7 +2237,7 @@ fun BlastTheBlocksGame(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
-                            onClick = onBack,
+                            onClick = onLevelCompleteContinue,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier

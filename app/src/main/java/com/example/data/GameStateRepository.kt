@@ -38,6 +38,7 @@ class GameStateRepository(private val context: Context) {
         val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
         val HAS_MADE_FIRST_MOVE = booleanPreferencesKey("has_made_first_move")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val LEVELS_SINCE_INTERSTITIAL = intPreferencesKey("levels_since_interstitial")
 
         val MISSION_WEEK_ID = stringPreferencesKey("mission_week_id")
         val MISSION_PROGRESS = stringPreferencesKey("mission_progress")
@@ -68,7 +69,8 @@ class GameStateRepository(private val context: Context) {
             endlessHighScore = prefs[Keys.ENDLESS_HIGH_SCORE] ?: 0,
             hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false,
             hasMadeFirstMove = prefs[Keys.HAS_MADE_FIRST_MOVE] ?: false,
-            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true
+            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
+            levelsCompletedSinceInterstitial = prefs[Keys.LEVELS_SINCE_INTERSTITIAL] ?: 0
         )
     }
 
@@ -178,6 +180,19 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         context.gameDataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled }
+    }
+
+    // Faz 39: her seviye tamamlaninca 1 artar; AppNavigation 2'ye ulasinca
+    // interstitial gosterip resetIntervalCounter() ile sifirlar.
+    suspend fun incrementLevelsSinceInterstitial() {
+        context.gameDataStore.edit { prefs ->
+            val current = prefs[Keys.LEVELS_SINCE_INTERSTITIAL] ?: 0
+            prefs[Keys.LEVELS_SINCE_INTERSTITIAL] = current + 1
+        }
+    }
+
+    suspend fun resetLevelsSinceInterstitial() {
+        context.gameDataStore.edit { it[Keys.LEVELS_SINCE_INTERSTITIAL] = 0 }
     }
 
     suspend fun recordEndlessScore(score: Int) {

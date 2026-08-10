@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.ads.BannerAdView
+import com.example.ads.InterstitialAdManager
 import com.example.ads.RewardedAdManager
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
@@ -202,6 +203,24 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         hasMadeFirstMove = progress.hasMadeFirstMove,
                         onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onLevelComplete = { score, stars -> viewModel.recordLevelComplete(level, score, stars) },
+                        onLevelCompleteContinue = {
+                            // Faz 39: her 2 bolumde bir zorunlu gecis reklami — yeterli
+                            // reklam gosterimi olmadan oyuncu her seviyeyi ucretsiz
+                            // gecebiliyordu, bu da reklam gelirini cok dusuruyordu.
+                            val activity = context.findActivity()
+                            if (progress.levelsCompletedSinceInterstitial >= 2 && activity != null) {
+                                viewModel.resetLevelsSinceInterstitial()
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = {
+                                        navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
+                                    }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
+                            }
+                        },
                         onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
                     )
                 }

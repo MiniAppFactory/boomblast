@@ -60,7 +60,12 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
             repository.recordLevelResult(level, stars)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
+            repository.incrementLevelsSinceInterstitial()
         }
+    }
+
+    fun resetLevelsSinceInterstitial() {
+        viewModelScope.launch { repository.resetLevelsSinceInterstitial() }
     }
 
     fun claimMission(missionId: String) {

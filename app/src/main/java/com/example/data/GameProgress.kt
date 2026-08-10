@@ -22,7 +22,10 @@ data class PlayerProgress(
     val endlessHighScore: Int = 0,
     val hasAcceptedTerms: Boolean = false,
     val hasMadeFirstMove: Boolean = false,
-    val notificationsEnabled: Boolean = true
+    val notificationsEnabled: Boolean = true,
+    // Faz 39: Seviye Modu'nda son zorunlu gecis reklamindan bu yana kac
+    // bolum tamamlandi — 2'ye ulasinca sifirlanir ve bir interstitial gosterilir.
+    val levelsCompletedSinceInterstitial: Int = 0
 )
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS }
