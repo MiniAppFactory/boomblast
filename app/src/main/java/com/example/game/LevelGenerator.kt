@@ -40,9 +40,12 @@ object LevelGenerator {
     private fun targetScoreForLevel(n: Int): Int {
         var target = 100
         for (level in 2..n) {
+            // Faz 61: kullanici "amacımız çok oynatmak" dedi, 7-15 arasi
+            // seviye-basi artis 20 -> 10 puana dusuruldu (daha sik "seviye
+            // tamamlandi" hissi, daha hizli ilerleme).
             val increment = when {
                 level <= 6 -> 40
-                level <= 15 -> 20
+                level <= 15 -> 10
                 level <= 30 -> 8
                 else -> 2
             }

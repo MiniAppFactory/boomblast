@@ -10,15 +10,20 @@ class LevelGeneratorTest {
     fun `level 1 has base target score and easiest shape pool`() {
         val def = LevelGenerator.forLevel(1)
         assertEquals(1, def.number)
-        assertEquals(500, def.targetScore)
+        assertEquals(100, def.targetScore)
         assertEquals(1, def.shapePoolTier)
     }
 
     @Test
-    fun `target score increases by 250 per level`() {
-        val level5 = LevelGenerator.forLevel(5)
-        val level6 = LevelGenerator.forLevel(6)
-        assertEquals(250, level6.targetScore - level5.targetScore)
+    fun `target score increment matches the tiered curve`() {
+        // levels 2-6: +40/level
+        assertEquals(40, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
+        // levels 7-15: +10/level (Faz 61 - onceden 20'ydi)
+        assertEquals(10, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
+        // levels 16-30: +8/level
+        assertEquals(8, LevelGenerator.forLevel(20).targetScore - LevelGenerator.forLevel(19).targetScore)
+        // levels 31+: +2/level
+        assertEquals(2, LevelGenerator.forLevel(35).targetScore - LevelGenerator.forLevel(34).targetScore)
     }
 
     @Test
@@ -33,7 +38,7 @@ class LevelGeneratorTest {
     fun `non-positive level numbers are coerced to level 1`() {
         val def = LevelGenerator.forLevel(0)
         assertEquals(1, def.number)
-        assertEquals(500, def.targetScore)
+        assertEquals(100, def.targetScore)
     }
 
     @Test

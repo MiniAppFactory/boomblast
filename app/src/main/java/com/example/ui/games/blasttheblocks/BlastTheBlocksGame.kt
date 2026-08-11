@@ -194,8 +194,11 @@ val SHAPE_PATTERNS = listOf(
     listOf(listOf(true, true), listOf(false, true)),
     // T Shape
     listOf(listOf(true, true, true), listOf(false, true, false)),
-    // 3x3 Big Square
-    listOf(listOf(true, true, true), listOf(true, true, true), listOf(true, true, true)),
+    // Faz 61: 3x3 buyuk kare kullanici istegiyle TAMAMEN KALDIRILDI (tek
+    // hamlede tahtanin buyuk bir kismini kaplayip manevra alanini asiri
+    // daraltiyordu). SHAPE_PATTERNS/SHAPE_WEIGHTS/SHAPE_WEIGHTS_ENDLESS
+    // ucunden de kaldirildi, indeksler kaymadi cunku bu ucu de listenin AYNI
+    // sirasinda birlikte tutuluyor.
     // Faz 46: kullanici "4'lü de olmali yoksa 4'lü kombo olmaz" dedi — en uzun
     // duz parca onceden 3'tu, coklu-satir kombolarini kurmayi zorlastiriyordu.
     // 4x1 Line
@@ -249,7 +252,6 @@ val SHAPE_WEIGHTS = listOf(
     3, // L1
     3, // L2
     1, // T
-    1, // 3x3 — en zor/buyuk parca, en nadir olmali
     1, // 4x1 (Faz 46)
     1, // 1x4 (Faz 46)
     1, // Big L (Faz 48)
@@ -273,7 +275,6 @@ val SHAPE_WEIGHTS = listOf(
 val SHAPE_WEIGHTS_ENDLESS = listOf(
     1, 2, 2, 3, 3, 3, 3, 3, // 1x1..L2, Seviyeli Mod ile ayni
     2, // T
-    2, // 3x3
     2, // 4x1
     2, // 1x4
     2, // Big L
@@ -862,15 +863,32 @@ fun BlastTheBlocksGame(
     // mi" dedi — onceden Seviyeli Mod'da TEKRAR DENE tamamen ucretsiz/aninda
     // idi. Artik Sonsuz Mod'daki "reklamla devam et" ile AYNI generic
     // onRequestContinueAd kancasi kullanilarak zorunlu hale getirildi.
-    // Reklam basarisiz/no-fill olursa (onDenied) retry VERILMEZ — oyuncu
-    // ekrandaki "geri" butonuyla cikabilir, ayni Sonsuz Mod deseni.
+    // Faz 61: kullanici iki konu bildirdi — (1) reklam izleyince Sonsuz
+    // Mod'daki GIBI 3 hamle geri alip devam etsin istedi (tam seviye
+    // sifirlama YERINE), bomba hediyesi istemedi (kendi onerisini geri
+    // cekti); (2) bu buton "hala reklam cagiramiyor" dedi — kok neden
+    // bulundu: `AppNavigation.kt`'deki Routes.GAME (Seviyeli Mod) rotasi
+    // `onRequestContinueAd`'i HIC BAGLAMAMISTI, sadece Routes.ENDLESS_GAME
+    // bagliyordu — varsayilan deger aninda onDenied() cagiriyordu, yani
+    // Seviyeli Mod'da GERCEK bir reklam hicbir zaman yuklenmiyordu (ayri
+    // duzeltildi, bkz. AppNavigation.kt). Artik `continueOffered` ile ayni
+    // seviye denemesinde SADECE BIR KEZ reklamli devam sunuluyor (Endless'le
+    // birebir ayni kural); ikinci basarisizlikta buton duz "TEKRAR DENE"ye
+    // (reklamsiz, tam sifirlama) donuyor.
     fun handleRetryWithAd() {
         if (isRequestingContinueAd) return
+        if (continueOffered) {
+            resetGame()
+            return
+        }
         isRequestingContinueAd = true
         onRequestContinueAd(
             {
                 isRequestingContinueAd = false
-                resetGame()
+                continueOffered = true
+                isGameOver = false
+                undoMovesForContinue(3)
+                checkGameOver()
             },
             {
                 isRequestingContinueAd = false
@@ -917,10 +935,12 @@ fun BlastTheBlocksGame(
             onFirstMoveMade()
         }
 
-        if (isEndless) {
-            moveHistory.add(GameSnapshot(board = board.toList(), score = score))
-            while (moveHistory.size > MAX_MOVE_HISTORY) moveHistory.removeAt(0)
-        }
+        // Faz 61: onceden SADECE Sonsuz Mod'da tutuluyordu. Seviyeli Mod'daki
+        // "reklam izle, devam et" de artik ayni geri-alma mekanizmasini
+        // kullandigi icin (bkz. handleRetryWithAd) her iki modda da kayit
+        // tutuluyor.
+        moveHistory.add(GameSnapshot(board = board.toList(), score = score))
+        while (moveHistory.size > MAX_MOVE_HISTORY) moveHistory.removeAt(0)
 
         SoundManager.playLock(soundEnabled)
 
@@ -2498,10 +2518,19 @@ fun BlastTheBlocksGame(
                                 )
                             } else {
                                 Text(
-                                    text = if (isEndless) {
+                                    text = if (isEndless || continueOffered) {
+                                        // Faz 61: Seviyeli Mod'da bu denemede reklamli devam
+                                        // hakki zaten kullanildiysa (continueOffered=true),
+                                        // buton duz/reklamsiz "TEKRAR DENE"ye (tam sifirlama)
+                                        // donuyor — oyuncuya yanlislikla tekrar reklam vaat
+                                        // etmiyoruz.
                                         language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
                                     } else {
-                                        language.pick(tr = "REKLAM İZLE VE TEKRAR DENE", en = "WATCH AD TO RETRY", it = "GUARDA ANNUNCIO E RIPROVA", fr = "REGARDER PUB ET RÉESSAYER", es = "VER ANUNCIO Y REINTENTAR")
+                                        // Faz 61: kullanici istegiyle metin "reklam izle,
+                                        // devam et"e cevrildi — artik gercekten tam sifirlama
+                                        // degil, 3 hamle geri alip DEVAM ediyor (Endless'teki
+                                        // gibi), metin bunu dogru yansitmali.
+                                        language.pick(tr = "REKLAM İZLE, DEVAM ET", en = "WATCH AD, CONTINUE", it = "GUARDA ANNUNCIO, CONTINUA", fr = "REGARDER PUB, CONTINUER", es = "VER ANUNCIO, CONTINUAR")
                                     },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,

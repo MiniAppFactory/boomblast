@@ -233,7 +233,27 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                                 navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
                             }
                         },
-                        onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ }
+                        onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ },
+                        // Faz 61: bu kanca daha once HIC baglanmamisti — varsayilan deger
+                        // aninda onDenied() cagirdigi icin Seviyeli Mod'daki "REKLAM İZLE,
+                        // DEVAM ET" butonu gercekte HICBIR ZAMAN reklam yuklemiyordu
+                        // (kullanici: "hala reklam çağıramıyor"). Routes.ENDLESS_GAME'deki
+                        // ile BIREBIR ayni RewardedAdManager kablolamasi.
+                        onRequestContinueAd = { onGranted, onDenied ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                var handled = false
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { handled = true; onGranted() },
+                                    onFailure = { handled = true; onDenied() },
+                                    onAdClosed = { if (!handled) { handled = true; onDenied() } }
+                                )
+                            } else {
+                                onDenied()
+                            }
+                        }
                     )
                 }
                 if (adsConsentResolved) {
