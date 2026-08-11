@@ -261,6 +261,30 @@ val SHAPE_WEIGHTS = listOf(
     1  // J-tetromino (Faz 48)
 )
 
+// Faz 57: kullanici "sonsuz modda hic zorlasmiyor, hep en fazla 2x2 geliyor"
+// dedi. Kok neden: Sonsuz Mod, Seviyeli Mod ile AYNI SHAPE_WEIGHTS tablosunu
+// kullaniyordu — Faz 55'te buyuk parcalarin agirligi (T-shape dahil) bilerek
+// 1'e dusurulmustu (Seviyeli Mod'da "level 9 aniden zorlasiyor" sikayetini
+// cozmek icin), ama bu nadirlik yanlislikla Sonsuz Mod'u da etkiledi. Sonsuz
+// Mod hedefsiz/surekli oldugu icin (Seviyeli Mod'daki gibi sabit bir hedefe
+// yetismesi gerekmiyor) buyuk parcalarin daha sik gorunmesi sorun degil —
+// ayri bir tablo ile buyuk parcalarin agirligi 2'ye cikarildi (kucuk
+// parcalarla ayni degil, ama Seviyeli Mod'daki 1'in iki kati).
+val SHAPE_WEIGHTS_ENDLESS = listOf(
+    1, 2, 2, 3, 3, 3, 3, 3, // 1x1..L2, Seviyeli Mod ile ayni
+    2, // T
+    2, // 3x3
+    2, // 4x1
+    2, // 1x4
+    2, // Big L
+    2, // 2x3
+    2, // 3x2
+    2, // S-tetromino
+    2, // Z-tetromino
+    2, // L-tetromino
+    2  // J-tetromino
+)
+
 data class BlockThemeOption(
     val id: String,
     val titleTr: String,
@@ -670,19 +694,23 @@ fun BlastTheBlocksGame(
         // birden havuza giriyordu. Artik seviye 9'dan itibaren havuz her
         // seviyede +2 parca ile KADEMELI genisliyor (9'da 10 parca, ~14'te tam
         // 19'a ulasiyor) — ayni parcalar sonunda geliyor ama sok etkisi yok.
-        val progressLevel = if (isEndless) (score / 30) + 1 else levelNumber
+        // Faz 57: Sonsuz Mod'da esik boluci /30 -> /15 (buyuk parcalar iki kati
+        // hizla aciliyor, ortalama bir sonsuz oturumda gorulme sansi artiyor).
+        // Seviyeli Mod'un kendi levelNumber tabanli esigine DOKUNULMADI.
+        val progressLevel = if (isEndless) (score / 15) + 1 else levelNumber
         val availableCount = when {
             progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
             progressLevel <= 8 -> 8 // + L shapes
             else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
         }
-        val totalWeight = (0 until availableCount).sumOf { SHAPE_WEIGHTS[it] }
+        val weights = if (isEndless) SHAPE_WEIGHTS_ENDLESS else SHAPE_WEIGHTS
+        val totalWeight = (0 until availableCount).sumOf { weights[it] }
         repeat(3) {
             // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
             var roll = Random.nextInt(totalWeight)
             var chosenIndex = availableCount - 1
             for (idx in 0 until availableCount) {
-                val w = SHAPE_WEIGHTS[idx]
+                val w = weights[idx]
                 if (roll < w) {
                     chosenIndex = idx
                     break
