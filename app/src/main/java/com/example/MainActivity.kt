@@ -49,6 +49,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Faz 58: kullanici "telefonun sesini kissam da oyunun sesi kisilmiyor"
+        // dedi. Kok neden: SoundManager/SoundPool USAGE_MEDIA+CONTENT_TYPE_MUSIC
+        // ile STREAM_MUSIC'e cikiyor ama Activity hangi akisi donanim ses
+        // tuslarina baglayacagini hic belirtmiyordu — Android, aktif bir medya
+        // oturumu yoksa ses tuslarini varsayilan (zil/bildirim) akisina
+        // yonlendirir. `volumeControlStream` STREAM_MUSIC'e sabitlenince ses
+        // tuslari HER ZAMAN oyunun gercekten kullandigi akisi kontrol eder.
+        volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         // Faz 38: gelistirici/ekip cihazlarinda RELEASE build test edilirken
         // gercek kendi reklamlarimizi izlemis/tiklamis olmayalim diye (AdMob
         // "invalid traffic" politikasi) — bu cihazlara her zaman guvenli
