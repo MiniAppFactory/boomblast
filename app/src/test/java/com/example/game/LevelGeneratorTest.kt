@@ -15,15 +15,13 @@ class LevelGeneratorTest {
     }
 
     @Test
-    fun `target score increment matches the tiered curve`() {
-        // levels 2-6: +40/level
-        assertEquals(40, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
-        // levels 7-15: +10/level (Faz 61 - onceden 20'ydi)
-        assertEquals(10, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
-        // levels 16-30: +8/level
-        assertEquals(8, LevelGenerator.forLevel(20).targetScore - LevelGenerator.forLevel(19).targetScore)
-        // levels 31+: +2/level
-        assertEquals(2, LevelGenerator.forLevel(35).targetScore - LevelGenerator.forLevel(34).targetScore)
+    fun `target score increases by a flat 5 points per level`() {
+        // Faz 64: kademeli egri terk edildi, artik her yerde sabit +5.
+        assertEquals(5, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
+        assertEquals(5, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
+        assertEquals(5, LevelGenerator.forLevel(20).targetScore - LevelGenerator.forLevel(19).targetScore)
+        assertEquals(5, LevelGenerator.forLevel(35).targetScore - LevelGenerator.forLevel(34).targetScore)
+        assertEquals(345, LevelGenerator.forLevel(50).targetScore)
     }
 
     @Test

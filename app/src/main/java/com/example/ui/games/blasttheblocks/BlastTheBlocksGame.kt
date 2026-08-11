@@ -697,8 +697,16 @@ fun BlastTheBlocksGame(
         // 19'a ulasiyor) — ayni parcalar sonunda geliyor ama sok etkisi yok.
         // Faz 57: Sonsuz Mod'da esik boluci /30 -> /15 (buyuk parcalar iki kati
         // hizla aciliyor, ortalama bir sonsuz oturumda gorulme sansi artiyor).
-        // Seviyeli Mod'un kendi levelNumber tabanli esigine DOKUNULMADI.
-        val progressLevel = if (isEndless) (score / 15) + 1 else levelNumber
+        // Faz 64: Seviyeli Mod'da ise TERS yonde — kullanici "çok bölüm geçsin,
+        // challenge değil başarma isteğiyle oynatalım" dedi, hedef puanlar da
+        // (bkz. LevelGenerator) duz +5/seviyeye indirildi. Parca zorlugu ayni
+        // hizda artmaya devam etseydi, oyuncu hedefe kolay ulassa bile tahtada
+        // yer kalmama riski (gercek "basarisizlik" kaynagi) degismezdi. Gercek
+        // seviye numarasi yerine YARISI kullanilarak (levelNumber/2+1) tier
+        // esikleri 2 KATINA cikariliyor — tier3 artik seviye 9 yerine 17'de
+        // baslıyor, oyuncu cok daha uzun sure sadece kolay/basit parcalarla
+        // oynuyor. Sonsuz Mod'a DOKUNULMADI.
+        val progressLevel = if (isEndless) (score / 15) + 1 else (levelNumber / 2) + 1
         val availableCount = when {
             progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
             progressLevel <= 8 -> 8 // + L shapes

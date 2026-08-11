@@ -22,35 +22,12 @@ object LevelGenerator {
         return LevelDefinition(safeNumber, targetScore, shapePoolTier)
     }
 
-    // Faz 45: eski hedef formulu `500 + (n-1)*250` idi — SINIRSIZ dogrusal
-    // buyume, ama zorluk (shapePoolTier, yukarida) seviye 9'da SABITLENIYOR.
-    // Sonuc: ileri seviyelerde hedef gitgide zorlasirken oyuncunun elindeki
-    // parca cesitliligi hic artmiyor — kullanici "50. kademe oynanamaz hale
-    // gelmemeli" diye acikca belirtti. Ayrica puanlama tamamen yeniden
-    // olceklendi (bkz. BlastTheBlocksGame.placeShape — artik 1 hucre=1 puan,
-    // onceden 10'du), o yuzden hedefler de bu yeni olcege gore YENIDEN
-    // tasarlandi, eskisinin basit /10'u degil.
-    //
-    // Yeni egri: erken seviyelerde belirgin, sonra GITTIKCE KUCULEN artislarla
-    // ilerliyor (40 -> 20 -> 8 -> 2 puan/seviye), seviye ~30 civarinda pratikte
-    // duzlesiyor — tipki shapePoolTier'in seviye 9'da duzlesmesi gibi. Boylece
-    // seviye 30 ile seviye 50 arasindaki fark kucuk kaliyor (600 -> 640),
-    // "oynanamaz hale gelme" riski ortadan kalkiyor, ama uzun vadede (cok ileri
-    // seviyelerde) hala hafif bir ilerleme hissi (+2/seviye) korunuyor.
-    private fun targetScoreForLevel(n: Int): Int {
-        var target = 100
-        for (level in 2..n) {
-            // Faz 61: kullanici "amacımız çok oynatmak" dedi, 7-15 arasi
-            // seviye-basi artis 20 -> 10 puana dusuruldu (daha sik "seviye
-            // tamamlandi" hissi, daha hizli ilerleme).
-            val increment = when {
-                level <= 6 -> 40
-                level <= 15 -> 10
-                level <= 30 -> 8
-                else -> 2
-            }
-            target += increment
-        }
-        return target
-    }
+    // Faz 64: kullanici "amacımız çok bölüm geçsin, çok reklam izlesin —
+    // challenge ile değil bölümü geçtim başarma isteğiyle oynatmalıyız" dedi.
+    // Faz 45/61'deki kademeli (40/10/8/2) egri tamamen terk edildi — DUZ,
+    // sabit +5/seviye artis (100, 105, 110, 115...). Amac bilerek "hicbir
+    // zaman zorlasmiyor gibi hissettiren" bir egri: her seviye bir oncekine
+    // neredeyse ozdes, oyuncu skill/challenge yerine sadece "bir tane daha
+    // gectim" tekrarindan motive oluyor.
+    private fun targetScoreForLevel(n: Int): Int = 100 + (n - 1) * 5
 }
