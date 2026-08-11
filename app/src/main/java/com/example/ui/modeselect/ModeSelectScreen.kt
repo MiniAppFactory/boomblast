@@ -76,16 +76,26 @@ fun ModeSelectScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // Faz 44: logo+isim ve jeton/görevler/ayarlar oncede İKİ AYRI satirdi —
             // kullanici "logo ve isim üste taşınmalı ki altta yer açılsın, böyle
-            // tasarım kötü gözüküyor" dedi. Artik TEK satirda: logo+isim sola
-            // (weight 1f, fill=false, gerekirse ellipsis), jeton/görevler/ayarlar
-            // saga (LevelMapHeader/oyun ekrani basligindaki ayni desen) — bir satir
-            // yuksekliginde alan mod kartlarina geri kazandiriliyor.
+            // tasarım kötü gözüküyor" dedi. Artik TEK satirda: logo+isim sola,
+            // jeton/görevler/ayarlar saga (LevelMapHeader/oyun ekrani basligindaki
+            // ayni desen) — bir satir yuksekliginde alan mod kartlarina geri
+            // kazandiriliyor.
+            // Faz 60: kullanici ekran goruntusuyle "sagdaki jeton/kupa/ayarlar
+            // kumesi sag kenara yapisik degil, bosluk var" dedi — kok neden
+            // `weight(1f, fill = false)` idi: fill=false, bu Row'un icerigi
+            // (ikon+baslik) kadar KUCULMESINE izin veriyordu, bu yuzden Row
+            // kendi payinin tamamini KAPLAMIYOR, hemen ardindan gelen
+            // jeton/ayarlar kumesi de sag kenara degil, kucuk Row'un hemen
+            // sagina (ekranin ortalarina yakin bir yere) yerlesiyordu.
+            // fill=true (varsayilan) ile Row artik kalan TUM genisligi
+            // kapliyor, boylece sagdaki kume gercekten sag kenara yapisiyor.
+            // "Boom Blocks" sabit/kisa bir metin oldugu icin ellipsis riski yok.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
