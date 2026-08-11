@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -97,7 +99,21 @@ fun LevelMapScreen(
             // hesaplaniyor (saf formul, olculmus komsu-oge pozisyonuna ihtiyac yok —
             // LazyColumn sanallastirmasiyla tam uyumlu), aralarindaki kesikli çizgi de
             // ayni formulle her ogenin KENDI Canvas'inda (onceki->bu ogenin x'i) ciziliyor.
+            // Faz 62: kullanici "haritada direkt kaldığın basamağa otomatik
+            // kaydırmıyor" dedi — liste her acilista level 1'den (en ustten)
+            // basliyordu, oyuncu her seferinde elle asagi kaydirmak zorunda
+            // kaliyordu. Ekran acilir acilmaz, ekstra bir kaydirma animasyonu
+            // gostermeden (`scrollToItem`, `animateScrollToItem` DEGIL),
+            // oyuncunun oynayabilecegi bir sonraki seviyeye ataniyor —
+            // birkac tamamlanmis seviyeyi de baglam icin ustte gorebilsin diye
+            // 2 dugum kadar yukarisina.
+            val listState = rememberLazyListState()
+            LaunchedEffect(Unit) {
+                val targetIndex = (progress.highestUnlockedLevel - 1).coerceIn(0, lastLevel - 1)
+                listState.scrollToItem((targetIndex - 2).coerceAtLeast(0))
+            }
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("level_map_list"),
