@@ -3,6 +3,7 @@ package com.example.ui.navigation
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,8 @@ import androidx.navigation.navArgument
 import com.example.ads.BannerAdView
 import com.example.ads.InterstitialAdManager
 import com.example.ads.RewardedAdManager
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
 import com.example.ui.consent.TermsAcceptScreen
@@ -53,6 +56,26 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+// Faz 65: kullanici video kanitiyla bildirdi — reklam butonlarina basinca
+// yukleniyor gostergesi cikiyor, ama reklam gelmeyince (no-fill, GERCEK
+// AdMob envanteri sorunudur, kod hatasi degil — S8 test cihazinda ayni kod
+// yolu guvenilir sekilde calisiyor) buton SESSIZCE eski haline donuyor,
+// kullaniciya "neden hicbir sey olmadi" konusunda hicbir sinyal verilmiyordu.
+// Butonun "bozuk" hissi vermemesi icin kisa bir Toast ile aciklama eklendi.
+private fun showAdUnavailableToast(context: Context, language: AppLanguage) {
+    Toast.makeText(
+        context,
+        language.pick(
+            tr = "Şu anda reklam yok, birazdan tekrar dene",
+            en = "No ad available right now, try again shortly",
+            it = "Nessun annuncio disponibile ora, riprova a breve",
+            fr = "Aucune pub disponible pour le moment, réessayez bientôt",
+            es = "No hay anuncios disponibles ahora, inténtalo en un momento"
+        ),
+        Toast.LENGTH_SHORT
+    ).show()
 }
 
 @Composable
@@ -164,7 +187,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                                     context = context,
                                     activity = activity,
                                     onRewardEarned = { viewModel.watchAdForTokens() },
-                                    onFailure = { /* odul verilmez, oyun akisi bloklanmaz */ },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) },
                                     onAdClosed = { isWatchAdLoading = false }
                                 )
                             }
@@ -247,7 +270,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                                     context = context,
                                     activity = activity,
                                     onRewardEarned = { handled = true; onGranted() },
-                                    onFailure = { handled = true; onDenied() },
+                                    onFailure = { handled = true; showAdUnavailableToast(context, progress.language); onDenied() },
                                     onAdClosed = { if (!handled) { handled = true; onDenied() } }
                                 )
                             } else {
@@ -311,7 +334,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                                     context = context,
                                     activity = activity,
                                     onRewardEarned = { handled = true; onGranted() },
-                                    onFailure = { handled = true; onDenied() },
+                                    onFailure = { handled = true; showAdUnavailableToast(context, progress.language); onDenied() },
                                     onAdClosed = { if (!handled) { handled = true; onDenied() } }
                                 )
                             } else {
