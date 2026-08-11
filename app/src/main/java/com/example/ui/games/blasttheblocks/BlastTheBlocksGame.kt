@@ -1631,53 +1631,14 @@ fun BlastTheBlocksGame(
                 }
             }
 
-            // Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor
-            if (lastClearedText.isNotEmpty()) {
-                // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
-                // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
-                // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
-                // gorunuyordu). Taban renk artik yesil, kombo yukseldikce turuncu/altina donuyor.
-                val comboColor = when {
-                    comboCount >= 4 -> NeonGold
-                    comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
-                    else -> NeonGreen
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .padding(vertical = 4.dp)
-                        .scale(comboTextScale.value)
-                ) {
-                    // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
-                    // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
-                    // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
-                    Text(
-                        text = lastClearedText,
-                        fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = comboColor,
-                        style = TextStyle(
-                            shadow = Shadow(
-                                color = Color.Black.copy(alpha = 0.5f),
-                                offset = Offset(2f, 3f),
-                                blurRadius = 4f
-                            )
-                        )
-                    )
-                    // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
-                    // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
-                    if (comboCount >= 2) {
-                        Text(
-                            text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NeonGold
-                        )
-                    }
-                }
-            } else {
-                Spacer(modifier = Modifier.height(20.dp))
-            }
+            // Faz 66: "SUPER! +16 / 2x KOMBO" yazisi burada (Column'un normal akisinda)
+            // duruyordu — gorununce yer kapliyor, grid `weight(1f)` ile kalan alani
+            // kullandigi icin metin her belirdiginde grid GORUNUR SEKILDE kucaliyor/
+            // sicriyordu (kullanici ekran goruntusuyle bildirdi). Metin artik asagida,
+            // grid'in KENDI BoxWithConstraints'i icinde bir overlay katmani olarak
+            // (mevcut "+N" puan yazilari/parcacik efektleriyle AYNI desen) TopCenter'a
+            // hizalanmis sekilde ciziliyor — grid'in olcumunu hic etkilemiyor, gorunse
+            // de gorunmese de grid boyutu SABIT kaliyor.
 
             // 8x8 Main Grid
             // Faz 40: onceden .fillMaxWidth().aspectRatio(1f) ile SADECE genislige gore
@@ -1918,6 +1879,56 @@ fun BlastTheBlocksGame(
                                 color = particle.color.copy(alpha = alpha),
                                 radius = 4f + 3f * (1f - progress),
                                 center = Offset(originX + dx, originY + dy)
+                            )
+                        }
+                    }
+                }
+
+                // Faz 66: Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor.
+                // Grid'in olcumunu etkilememesi icin (bkz. yukaridaki not) burada, grid'in
+                // KENDI Box'i icinde bir overlay olarak, TopCenter'a hizalanmis sekilde
+                // ciziliyor — hicbir zaman grid'i sikistirmiyor/kaydirmiyor.
+                if (lastClearedText.isNotEmpty()) {
+                    // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
+                    // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
+                    // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
+                    // gorunuyordu). Taban renk artik yesil, kombo yukseldikce turuncu/altina donuyor.
+                    val comboColor = when {
+                        comboCount >= 4 -> NeonGold
+                        comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
+                        else -> NeonGreen
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 10.dp)
+                            .scale(comboTextScale.value)
+                    ) {
+                        // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
+                        // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
+                        // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
+                        Text(
+                            text = lastClearedText,
+                            fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = comboColor,
+                            style = TextStyle(
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    offset = Offset(2f, 3f),
+                                    blurRadius = 4f
+                                )
+                            )
+                        )
+                        // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
+                        // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
+                        if (comboCount >= 2) {
+                            Text(
+                                text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonGold
                             )
                         }
                     }
