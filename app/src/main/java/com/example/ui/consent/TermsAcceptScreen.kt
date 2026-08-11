@@ -35,7 +35,9 @@ import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.blastPalette
 
-private const val PRIVACY_POLICY_URL = "https://whatsthisapp.github.io/blasttheblocks/"
+// Faz 63: GitHub hesabi whatsthisapp -> MiniAppFactory olarak yeniden
+// adlandirildi, repo da blasttheblocks -> boomblast oldu (kullanici istegi).
+private const val PRIVACY_POLICY_URL = "https://miniappfactory.github.io/boomblast/"
 
 // Ilk acilista, onboarding tutorial'dan ONCE, atlanamaz bir kabul ekrani —
 // Play Store'a gonderilecek her uygulamada beklenen standart bir uygulama
