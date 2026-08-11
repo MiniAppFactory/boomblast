@@ -776,17 +776,21 @@ fun BlastTheBlocksGame(
         // game over'a dustu" dedi. Kok neden: geri alinan tahta gercekten
         // oynanabilir bir gecmis durumdu, AMA generateNewTray() tamamen
         // RASTGELE yeni 3 parca uretiyordu — bu yeni parcalarin o tahtaya
-        // sigacaginin hicbir garantisi yoktu. Sanssizlik olursa (3 parca da
-        // sigmazsa) checkGameOver() hemen tekrar tetikleniyor, continueOffered
-        // zaten true oldugu icin dogrudan GERCEK game over'a dusuyordu —
-        // kullaniciya "reklam ise yaramadi" gibi geliyordu. Artik en az bir
+        // sigacaginin hicbir garantisi yoktu. Artik en az yeterli sayida
         // parcanin sigdigi bir tepsi bulunana kadar (en fazla 12 deneme,
         // pratikte 1-2 denemede bulunur) yeniden uretiliyor.
+        // Faz 69: kullanici cihazda test edip "sadece 1 tanesi sigiyor,
+        // yerlestirince patlama bile olmuyor, reklam izlemek anlamsiz kaliyor"
+        // dedi — SADECE 1 parcanin sigmasi garantisi yetersizdi, oyuncu
+        // yerlestirir yerlestirmez tekrar sikisip "reklam bosa gitti" hissi
+        // yasiyordu. Esik 1'den 2'ye cikarildi: en az 2 parca sigana kadar
+        // yeniden uretiliyor — reklam sonrasi gercekten birkac hamlelik bir
+        // nefes alani kaliyor, tek hamlelik sahte bir "devam" olmuyor.
         var attempts = 0
         do {
             generateNewTray()
             attempts++
-        } while (trayShapes.filterNotNull().none { canPlaceAnywhere(it) } && attempts < 12)
+        } while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && attempts < 12)
     }
 
     fun handleContinueWithAd() {
