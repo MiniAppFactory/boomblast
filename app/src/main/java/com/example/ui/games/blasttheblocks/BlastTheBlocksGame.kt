@@ -763,7 +763,21 @@ fun BlastTheBlocksGame(
         for (i in board.indices) board[i] = snapshot.board[i]
         score = snapshot.score
         while (moveHistory.size > targetIndex) moveHistory.removeAt(moveHistory.size - 1)
-        generateNewTray()
+        // Faz 59: kullanici "reklam izledim ama 3 hamleyi geri almadi, direkt
+        // game over'a dustu" dedi. Kok neden: geri alinan tahta gercekten
+        // oynanabilir bir gecmis durumdu, AMA generateNewTray() tamamen
+        // RASTGELE yeni 3 parca uretiyordu — bu yeni parcalarin o tahtaya
+        // sigacaginin hicbir garantisi yoktu. Sanssizlik olursa (3 parca da
+        // sigmazsa) checkGameOver() hemen tekrar tetikleniyor, continueOffered
+        // zaten true oldugu icin dogrudan GERCEK game over'a dusuyordu —
+        // kullaniciya "reklam ise yaramadi" gibi geliyordu. Artik en az bir
+        // parcanin sigdigi bir tepsi bulunana kadar (en fazla 12 deneme,
+        // pratikte 1-2 denemede bulunur) yeniden uretiliyor.
+        var attempts = 0
+        do {
+            generateNewTray()
+            attempts++
+        } while (trayShapes.filterNotNull().none { canPlaceAnywhere(it) } && attempts < 12)
     }
 
     fun handleContinueWithAd() {
