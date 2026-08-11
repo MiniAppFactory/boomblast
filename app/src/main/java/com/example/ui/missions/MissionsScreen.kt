@@ -1,6 +1,7 @@
 package com.example.ui.missions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -31,6 +30,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -170,11 +171,29 @@ private fun MissionCard(
     val isComplete = currentCount >= mission.target
     val isClaimable = isComplete && !isClaimed
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = palette.card),
-        shape = RoundedCornerShape(14.dp),
+    // Faz 70: kullanici "haftalik gorevler sayfasinin gorseli cirkin, kabartmali
+    // gibi olsun" dedi. Duz Material3 Card yerine — CFO-Catch projesindeki
+    // EmbossedCard deseninden esinlenerek — golge + dikey gradyan arka plan +
+    // ust kenari acik/alt kenari koyu bir gradyan kenarlik ile "kabartilmis
+    // panel" hissi verildi. Tamamlanan gorevlerde kenarlik altin renge donuyor,
+    // kucuk bir "basarildi" isareti.
+    val borderTopColor = if (isComplete) NeonGold.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.16f)
+    val borderBottomColor = if (isComplete) NeonGold.copy(alpha = 0.35f) else palette.cardBorder
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp), spotColor = Color.Black)
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(palette.card, palette.card.copy(alpha = 0.88f))
+                )
+            )
+            .border(
+                width = 1.5.dp,
+                brush = Brush.verticalGradient(colors = listOf(borderTopColor, borderBottomColor)),
+                shape = RoundedCornerShape(16.dp)
+            )
             .testTag("mission_card_${mission.id}")
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
