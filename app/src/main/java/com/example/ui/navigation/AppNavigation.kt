@@ -33,13 +33,19 @@ import com.example.ui.BlastViewModel
 import com.example.ui.challenge.NoLivesScreen
 import com.example.ui.consent.TermsAcceptScreen
 import com.example.ui.games.boomblocks.BlastTheBlocksGame
+import com.example.ui.games.retro.RetroGameScreen
+import com.example.ui.games.retro.RetroHighScoreScreen
+import com.example.ui.games.retro.RetroMenuScreen
+import com.example.ui.games.retro.RetroSettingsScreen
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
 import com.example.ui.modeselect.ModeSelectScreen
 import com.example.ui.onboarding.OnboardingScreen
+import com.example.ui.retro.RetroViewModel
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.shop.LoadoutScreen
 import com.example.ui.theme.BlastSkin
+import com.example.ui.theme.retro.getThemePalette
 import com.example.utils.SoundManager
 
 object Routes {
@@ -57,6 +63,14 @@ object Routes {
     const val CHALLENGE_LOADOUT = "challenge_loadout/{level}"
     const val CHALLENGE_GAME = "challenge_game/{level}"
     const val CHALLENGE_NO_LIVES = "challenge_no_lives"
+
+    // Faz 78: Retro Modu — AI Studio'da uretilen bagimsiz Tetris motoru/UI'sinin
+    // Boom Blocks'a route olarak entegrasyonu (kendi ic ScreenState/Crossfade
+    // navigasyonu yerine).
+    const val RETRO_MENU = "retro_menu"
+    const val RETRO_GAME = "retro_game"
+    const val RETRO_HIGH_SCORES = "retro_high_scores"
+    const val RETRO_SETTINGS = "retro_settings"
 
     fun loadout(level: Int) = "loadout/$level"
     fun game(level: Int) = "game/$level"
@@ -91,10 +105,12 @@ private fun showAdUnavailableToast(context: Context, language: AppLanguage) {
 }
 
 @Composable
-fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
+fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, adsConsentResolved: Boolean) {
     val navController = rememberNavController()
     val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
+    val retroHighScoreState by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
+    val retroHighScore = retroHighScoreState ?: 0
     val context = LocalContext.current
     val skin = BlastSkin.fromId(progress.uiSkin)
     val onSelectSkin: (BlastSkin) -> Unit = { viewModel.setUiSkin(it.name) }
@@ -120,9 +136,11 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                             endlessBestScore = progress.endlessHighScore,
                             highestUnlockedLevel = progress.highestUnlockedLevel,
                             highestChallengeLevel = progress.challengeHighestUnlockedLevel,
+                            retroHighScore = retroHighScore,
                             onOpenLevels = { navController.navigate(Routes.LEVEL_MAP) },
                             onOpenEndless = { navController.navigate(Routes.ENDLESS_GAME) },
                             onOpenChallenge = { navController.navigate(Routes.CHALLENGE_MAP) },
+                            onOpenRetro = { navController.navigate(Routes.RETRO_MENU) },
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                         )
@@ -494,6 +512,115 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                             }
                         },
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        // Faz 78: Retro Modu — AI Studio'da uretilen Tetris motoru/UI'si.
+        // retroViewModel Activity-omurlu TEK instance (bkz. MainActivity),
+        // route'lar arasi state (motor/ayarlar) burada KAYBOLMUYOR.
+        composable(Routes.RETRO_MENU) {
+            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
+            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
+            val retroPalette = getThemePalette(retroSettings.theme)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    RetroMenuScreen(
+                        settings = retroSettings,
+                        highestScoreEver = retroHighest ?: 0,
+                        palette = retroPalette,
+                        onStartGame = {
+                            retroViewModel.startNewGame()
+                            navController.navigate(Routes.RETRO_GAME)
+                        },
+                        onSelectDifficulty = { diff -> retroViewModel.updateSettings(retroSettings.copy(difficultyPreset = diff)) },
+                        onOpenHighScores = { navController.navigate(Routes.RETRO_HIGH_SCORES) },
+                        onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(Routes.RETRO_GAME) {
+            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
+            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
+            val retroPalette = getThemePalette(retroSettings.theme)
+            Box(modifier = Modifier.fillMaxSize()) {
+                RetroGameScreen(
+                    gameEngine = retroViewModel.gameEngine,
+                    settings = retroSettings,
+                    palette = retroPalette,
+                    highestScoreEver = retroHighest ?: 0,
+                    onSaveHighScore = { name -> retroViewModel.saveHighScore(name) },
+                    onRestartGame = { retroViewModel.startNewGame() },
+                    onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) },
+                    onReturnToMenu = {
+                        // Kullanicinin kendi istegi: her Retro oturumu (bir "game
+                        // over") sonunda menuye donuste bir gecis reklami —
+                        // Seviyeli Mod'daki gibi bir "her N bolum" esigi YOK,
+                        // her donuste bir kez.
+                        retroViewModel.pauseGame()
+                        val activity = context.findActivity()
+                        if (activity != null) {
+                            InterstitialAdManager.loadAndShow(
+                                context = context,
+                                activity = activity,
+                                onProceed = {
+                                    navController.popBackStack(Routes.RETRO_MENU, inclusive = false)
+                                }
+                            )
+                        } else {
+                            navController.popBackStack(Routes.RETRO_MENU, inclusive = false)
+                        }
+                    }
+                )
+            }
+        }
+
+        composable(Routes.RETRO_HIGH_SCORES) {
+            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
+            val retroScores by retroViewModel.topScores.collectAsStateWithLifecycle()
+            val retroTotalGames by retroViewModel.totalGamesPlayed.collectAsStateWithLifecycle()
+            val retroTotalLines by retroViewModel.totalLinesCleared.collectAsStateWithLifecycle()
+            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
+            val retroSelectedDiff by retroViewModel.selectedLeaderboardDifficulty.collectAsStateWithLifecycle()
+            val retroPalette = getThemePalette(retroSettings.theme)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    RetroHighScoreScreen(
+                        scores = retroScores,
+                        totalGamesPlayed = retroTotalGames,
+                        totalLinesCleared = retroTotalLines ?: 0,
+                        highestScoreEver = retroHighest ?: 0,
+                        selectedDifficulty = retroSelectedDiff,
+                        palette = retroPalette,
+                        onSelectDifficultyFilter = { diff -> retroViewModel.selectLeaderboardDifficulty(diff) },
+                        onBackToMenu = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(Routes.RETRO_SETTINGS) {
+            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
+            val retroPalette = getThemePalette(retroSettings.theme)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    RetroSettingsScreen(
+                        settings = retroSettings,
+                        palette = retroPalette,
+                        onUpdateSettings = { newSettings -> retroViewModel.updateSettings(newSettings) },
+                        onBackToMenu = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {

@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.notifications.ReminderWorker
 import com.example.ui.BlastViewModel
 import com.example.ui.navigation.AppNavigation
+import com.example.ui.retro.RetroViewModel
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.BlastTheBlocksTheme
 import com.example.ads.AdIds
@@ -37,6 +38,11 @@ import com.google.android.ump.UserMessagingPlatform
 
 class MainActivity : ComponentActivity() {
     private val viewModel: BlastViewModel by viewModels()
+    // Faz 78: Pro Mode'daki BlastViewModel deseniyle ayni — TEK instance,
+    // Activity omru boyunca yasar, tum Retro route'lari arasinda paylasilir
+    // (Compose Navigation'in route-basina-yeni-instance varsayilanindan
+    // KACINMAK icin — aksi halde Menu'den Game'e gecince motor/ayarlar sifirlanirdi).
+    private val retroViewModel: RetroViewModel by viewModels()
     private val adsConsentResolved = mutableStateOf(false)
 
     // Faz 27: Android 13+ bildirim izni sonucundan bagimsiz olarak zamanlama
@@ -116,7 +122,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .windowInsetsPadding(WindowInsets.systemBars)
                     ) {
-                        AppNavigation(viewModel = viewModel, adsConsentResolved = consentResolved)
+                        AppNavigation(viewModel = viewModel, retroViewModel = retroViewModel, adsConsentResolved = consentResolved)
                     }
                 }
             }

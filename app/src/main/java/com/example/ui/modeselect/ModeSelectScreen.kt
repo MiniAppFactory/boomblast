@@ -69,9 +69,12 @@ fun ModeSelectScreen(
     // Faz 77: Pro Mode (eski "Challenge") artik oynanabilir — kart YAKINDA/
     // kilitli degil, kendi ilerlemesini gosteriyor.
     highestChallengeLevel: Int,
+    // Faz 78: Retro Modu artik oynanabilir — kart YAKINDA/kilitli degil.
+    retroHighScore: Int,
     onOpenLevels: () -> Unit,
     onOpenEndless: () -> Unit,
     onOpenChallenge: () -> Unit,
+    onOpenRetro: () -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -215,14 +218,14 @@ fun ModeSelectScreen(
                         Spacer(modifier = Modifier.width(16.dp))
                         ModeCard(
                             title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
-                            statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
-                            statValue = "",
+                            statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
+                            statValue = "$retroHighScore",
                             icon = Icons.Default.ViewModule,
                             accent = NeonPurple,
                             palette = palette,
-                            onClick = {},
+                            onClick = onOpenRetro,
                             testTag = "mode_select_retro_button",
-                            locked = true,
+                            locked = false,
                             modifier = Modifier.weight(1f).aspectRatio(1f)
                         )
                     }
