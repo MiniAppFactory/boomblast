@@ -264,29 +264,33 @@ private fun BoosterCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                // Faz 79: "Sahip: N" rozeti ADI ile AYNI satirdaydi, sabit
+                // genislikte oldugu icin (weight yok) her zaman tam yer
+                // kapliyordu — kalan dar alanda uzun isimler ("SATIR TEMİZLE")
+                // "SATIR TE..." diye kirpiliyordu. Kullanici: "sahiplik sayisini
+                // asagi indir". Rozet artik ADIN ALTINDA kendi satirinda,
+                // isim artik TAM genislik kullanabiliyor.
+                Text(
+                    text = name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Surface(
+                    color = palette.cardAlt,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
                     Text(
-                        text = name,
-                        fontSize = 14.sp,
+                        text = language.pick(tr = "Sahip: ", en = "Owned: ", it = "Posseduti: ", fr = "Possédés : ", es = "Poseídos: ") + owned,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = palette.textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        color = palette.textSecondary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = palette.cardAlt,
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = language.pick(tr = "Sahip: ", en = "Owned: ", it = "Posseduti: ", fr = "Possédés : ", es = "Poseídos: ") + owned,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = palette.textSecondary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(

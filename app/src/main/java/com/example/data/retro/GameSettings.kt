@@ -17,11 +17,11 @@ enum class ControlStyle {
     HYBRID
 }
 
+// Faz 79: kullanici "custom'i cikart, easy/normal/hard kalsin" dedi.
 enum class DifficultyPreset {
     EASY,
     NORMAL,
-    HARD,
-    CUSTOM
+    HARD
 }
 
 data class GameSettings(

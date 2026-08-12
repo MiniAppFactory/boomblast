@@ -35,13 +35,17 @@ object LevelGenerator {
     // gectim" tekrarindan motive oluyor.
     private fun targetScoreForLevel(n: Int): Int = 100 + (n - 1) * 5
 
-    // Faz 77: Pro Mode — kullanici "daha zor zorluk eğrisi, daha yüksek puan
-    // çarpanı" istedi (handover 6.1). forLevel'in BILEREK duz/kolay egrisinin
-    // (Faz 64) tam tersi: daha dik hedef artisi + 1.5x puan carpani, parca
-    // havuzu da daha erken zorlasiyor (Seviye 1'den itibaren tier 2).
+    // Faz 77: Pro Mode — "daha zor zorluk eğrisi, daha yüksek puan çarpanı"
+    // (handover 6.1). Faz 79'da zorluk agirligi PUANDAN PARCA HAVUZUNA
+    // kaydirildi (bkz. BoomBlocksGame.kt generateNewTray isChallengeMode dali,
+    // 1x1 hic gelmiyor, havuz cok daha hizli aciliyor) — bu yuzden hedef puan
+    // egrisi de +20/seviyeden +10/seviyeye YUMUSATILDI (kullanicinin kendi
+    // onerisi: "zorlugu parcadan yonetirsek puanı o kadar dik tutmaya gerek yok").
+    // 1.5x puan carpani ve shapePoolTier (dead/kullanilmiyor, bkz. generateNewTray)
+    // aynen kaliyor.
     fun forChallengeLevel(number: Int): LevelDefinition {
         val safeNumber = number.coerceAtLeast(1)
-        val targetScore = 150 + (safeNumber - 1) * 20
+        val targetScore = 150 + (safeNumber - 1) * 10
         val shapePoolTier = when {
             safeNumber <= 2 -> 2
             else -> 3

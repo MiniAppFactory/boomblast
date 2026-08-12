@@ -11,6 +11,6 @@ data class HighScore(
     val linesCleared: Int,
     val levelReached: Int,
     val durationSeconds: Int,
-    val difficultyMode: String, // "EASY", "NORMAL", "HARD", "CUSTOM"
+    val difficultyMode: String, // "EASY", "NORMAL", "HARD"
     val timestamp: Long = System.currentTimeMillis()
 )

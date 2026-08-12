@@ -12,9 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,7 +28,6 @@ import com.example.data.AppLanguage
 import com.example.data.pick
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
-import com.example.ui.challenge.NoLivesScreen
 import com.example.ui.consent.TermsAcceptScreen
 import com.example.ui.games.boomblocks.BlastTheBlocksGame
 import com.example.ui.games.retro.RetroGameScreen
@@ -62,7 +59,6 @@ object Routes {
     const val CHALLENGE_MAP = "challenge_map"
     const val CHALLENGE_LOADOUT = "challenge_loadout/{level}"
     const val CHALLENGE_GAME = "challenge_game/{level}"
-    const val CHALLENGE_NO_LIVES = "challenge_no_lives"
 
     // Faz 78: Retro Modu — AI Studio'da uretilen bagimsiz Tetris motoru/UI'sinin
     // Boom Blocks'a route olarak entegrasyonu (kendi ic ScreenState/Crossfade
@@ -321,11 +317,11 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             }
         }
 
-        // Faz 77: Pro Mode (Challenge) — Seviyeli Mod'un AYNI ekranlarini
+        // Faz 77/79: Pro Mode (Challenge) — Seviyeli Mod'un AYNI ekranlarini
         // (LevelMapScreen/LoadoutScreen/BlastTheBlocksGame) kendi ilerleme +
-        // hedef egrisi + can sistemiyle kullanir. "BAŞLA" butonuna basinca
-        // (onStartLevel) can tuketilir — yeterli can yoksa CHALLENGE_NO_LIVES'a
-        // yonlendirilir, oyun BASLAMAZ.
+        // hedef egrisi + can sistemiyle kullanir. Can artik bolume GIRERKEN
+        // degil, kaybedip "YENIDEN BASLA" secilince harcaniyor (bkz. Game Over
+        // modalindeki Pro Mode'a ozel buton, BoomBlocksGame.kt).
         composable(Routes.CHALLENGE_MAP) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
@@ -357,7 +353,6 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forChallengeLevel(level)
             var isWatchAdLoading by remember { mutableStateOf(false) }
-            val coroutineScope = rememberCoroutineScope()
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
                     LoadoutScreen(
@@ -382,15 +377,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 )
                             }
                         },
-                        onStartLevel = {
-                            coroutineScope.launch {
-                                if (viewModel.consumeChallengeLife()) {
-                                    navController.navigate(Routes.challengeGame(level))
-                                } else {
-                                    navController.navigate(Routes.CHALLENGE_NO_LIVES)
-                                }
-                            }
-                        },
+                        onStartLevel = { navController.navigate(Routes.challengeGame(level)) },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -406,6 +393,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
         ) { backStackEntry ->
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forChallengeLevel(level)
+            var isWatchAdForLifeLoading by remember { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
                     BlastTheBlocksGame(
@@ -413,6 +401,22 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         targetScore = definition.targetScore,
                         shapePoolTier = definition.shapePoolTier,
                         scoreMultiplier = definition.scoreMultiplier,
+                        isChallengeMode = true,
+                        challengeLives = progress.challengeLives,
+                        onChallengeRestart = { viewModel.spendChallengeLifeForRestart() },
+                        onChallengeWatchAdForLife = {
+                            val activity = context.findActivity()
+                            if (activity != null && !isWatchAdForLifeLoading) {
+                                isWatchAdForLifeLoading = true
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { viewModel.grantChallengeLife() },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) },
+                                    onAdClosed = { isWatchAdForLifeLoading = false }
+                                )
+                            }
+                        },
                         currentTheme = progress.blockTheme,
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
@@ -456,7 +460,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
                             }
                         },
-                        onLevelFailed = { /* can zaten bolume girerken tuketildi, ekstra kayip yok */ },
+                        onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()
                             if (activity != null) {
@@ -472,46 +476,6 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 onDenied()
                             }
                         }
-                    )
-                }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
-            }
-        }
-
-        composable(Routes.CHALLENGE_NO_LIVES) {
-            var isWatchAdLoading by remember { mutableStateOf(false) }
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    NoLivesScreen(
-                        language = progress.language,
-                        darkMode = progress.darkMode,
-                        skin = skin,
-                        lastLifeTimestamp = progress.challengeLastLifeTimestamp,
-                        isWatchAdLoading = isWatchAdLoading,
-                        onWatchAd = {
-                            val activity = context.findActivity()
-                            if (activity != null && !isWatchAdLoading) {
-                                isWatchAdLoading = true
-                                // Faz 77: onAdClosed reklam yuklenemese BILE (no-fill)
-                                // tetikleniyor (bkz. RewardedAdManager.onAdFailedToLoad)
-                                // — geri navigasyonu SADECE odul gercekten kazanildiysa
-                                // yapmak icin yerel bir bayrak kullaniliyor.
-                                var rewardEarned = false
-                                RewardedAdManager.loadAndShow(
-                                    context = context,
-                                    activity = activity,
-                                    onRewardEarned = { rewardEarned = true; viewModel.grantChallengeLife() },
-                                    onFailure = { showAdUnavailableToast(context, progress.language) },
-                                    onAdClosed = {
-                                        isWatchAdLoading = false
-                                        if (rewardEarned) navController.popBackStack()
-                                    }
-                                )
-                            }
-                        },
-                        onBack = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {
@@ -539,7 +503,8 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         },
                         onSelectDifficulty = { diff -> retroViewModel.updateSettings(retroSettings.copy(difficultyPreset = diff)) },
                         onOpenHighScores = { navController.navigate(Routes.RETRO_HIGH_SCORES) },
-                        onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) }
+                        onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) },
+                        onQuitToMain = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {

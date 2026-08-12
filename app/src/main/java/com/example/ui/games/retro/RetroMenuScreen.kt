@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.PlayArrow
@@ -57,7 +58,11 @@ fun RetroMenuScreen(
     onStartGame: () -> Unit,
     onSelectDifficulty: (DifficultyPreset) -> Unit,
     onOpenHighScores: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    // Faz 79: bu ekranin hic geri/cikis yolu yoktu (baslik banner'inda geri
+    // oku yok, sistem geri tusu disinda Boom Blocks ana menusune donmenin
+    // bir yolu yoktu) — kullanici "quit to main koyman lazim" dedi.
+    onQuitToMain: () -> Unit
 ) {
     var showHowToPlay by remember { mutableStateOf(false) }
 
@@ -246,6 +251,15 @@ fun RetroMenuScreen(
                     icon = Icons.Default.HelpOutline,
                     palette = palette,
                     onClick = { showHowToPlay = true }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                MenuNavButton(
+                    text = "QUIT TO MAIN",
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    palette = palette,
+                    onClick = onQuitToMain
                 )
             }
 

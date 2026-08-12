@@ -78,9 +78,12 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Bir Pro Mode bolumune baslamadan once cagrilir — can yoksa false doner,
-    // cagiran taraf navigasyonu YAPMAMALI (can-bitti ekranini gostermeli).
-    suspend fun consumeChallengeLife(): Boolean = repository.consumeChallengeLife()
+    // Faz 79: artik bolume GIRERKEN degil, kaybedip "YENIDEN BASLA (-1 can)"
+    // secilince cagriliyor — UI zaten challengeLives>0 kontrolunu yaptigi icin
+    // burada sonucu beklemeye (suspend/Boolean) gerek yok, fire-and-forget.
+    fun spendChallengeLifeForRestart() {
+        viewModelScope.launch { repository.consumeChallengeLife() }
+    }
 
     fun grantChallengeLife() {
         viewModelScope.launch { repository.grantChallengeLife() }

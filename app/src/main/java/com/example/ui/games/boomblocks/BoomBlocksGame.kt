@@ -287,6 +287,31 @@ val SHAPE_WEIGHTS_ENDLESS = listOf(
     2  // J-tetromino
 )
 
+// Faz 79: Pro Mode — kullanici "puan degil parca zorlugu yuksek olmali,
+// 1x1 hic olmamali" dedi. 1x1'in agirligi 0 (matematiksel olarak asla
+// secilmez, availableCount kapsaminda olsa bile), buyuk/karmasik parcalar
+// Sonsuz Mod'dan da agir.
+val SHAPE_WEIGHTS_CHALLENGE = listOf(
+    0, // 1x1 — ASLA gelmez
+    1, // 2x1
+    1, // 1x2
+    2, // 3x1
+    2, // 1x3
+    2, // 2x2
+    2, // L1
+    2, // L2
+    3, // T
+    3, // 4x1
+    3, // 1x4
+    3, // Big L
+    3, // 2x3
+    3, // 3x2
+    3, // S-tetromino
+    3, // Z-tetromino
+    3, // L-tetromino
+    3  // J-tetromino
+)
+
 data class BlockThemeOption(
     val id: String,
     val titleTr: String,
@@ -385,6 +410,15 @@ fun BlastTheBlocksGame(
     // (Level/Sonsuz Mod), Pro Mode LevelDefinition.scoreMultiplier'i buraya
     // gecirir.
     scoreMultiplier: Float = 1f,
+    // Faz 79: Pro Mode — parca havuzu farkli (daha zor, 1x1 yok) ve oyun-bitti
+    // modalinda ekstra bir "YENIDEN BASLA (-1 can)" secenegi var. Can artik
+    // seviyeye GIRERKEN degil, kaybedip yeniden baslamayi SECINCE harcaniyor
+    // (reklamla-devam-et alternatifine karsi bir bedel, Level Mod'daki AYNI
+    // 3-hamle-geri-al mekanizmasi hala UCRETSIZ kaliyor).
+    isChallengeMode: Boolean = false,
+    challengeLives: Int = 0,
+    onChallengeRestart: () -> Unit = {},
+    onChallengeWatchAdForLife: () -> Unit = {},
     currentTheme: String = "CLASSIC",
     language: AppLanguage = AppLanguage.TR,
     soundEnabled: Boolean = true,
@@ -730,13 +764,35 @@ fun BlastTheBlocksGame(
         // esikleri 2 KATINA cikariliyor — tier3 artik seviye 9 yerine 17'de
         // baslıyor, oyuncu cok daha uzun sure sadece kolay/basit parcalarla
         // oynuyor. Sonsuz Mod'a DOKUNULMADI.
-        val progressLevel = if (isEndless) (score / 15) + 1 else (levelNumber / 2) + 1
-        val availableCount = when {
-            progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-            progressLevel <= 8 -> 8 // + L shapes
-            else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+        // Faz 79: Pro Mode kendi egrisi — kullanici "zorluk puandan degil
+        // parca havuzundan gelsin" dedi. Seviyeli Mod'un YARISI hizi (levelNumber/2+1)
+        // YERINE TAM levelNumber kullanilir, kolay-6'lik tier (1x1 dahil) baastan
+        // ATLANIR (8'den, yani L sekilleri dahil, baslar), tam havuza (19 parca)
+        // sadece birkac seviyede ulasilir. 1x1'in kendisi zaten SHAPE_WEIGHTS_CHALLENGE'da
+        // agirlik 0 oldugu icin (asagida) availableCount kapsaminda olsa bile hic gelmez.
+        val progressLevel = when {
+            isEndless -> (score / 15) + 1
+            isChallengeMode -> levelNumber
+            else -> (levelNumber / 2) + 1
         }
-        val weights = if (isEndless) SHAPE_WEIGHTS_ENDLESS else SHAPE_WEIGHTS
+        val availableCount = if (isChallengeMode) {
+            when {
+                progressLevel <= 1 -> 8 // L sekilleri dahil, kolay-6 tier YOK
+                progressLevel <= 4 -> (8 + (progressLevel - 1) * 3).coerceAtMost(SHAPE_PATTERNS.size)
+                else -> SHAPE_PATTERNS.size
+            }
+        } else {
+            when {
+                progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+                progressLevel <= 8 -> 8 // + L shapes
+                else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+            }
+        }
+        val weights = when {
+            isChallengeMode -> SHAPE_WEIGHTS_CHALLENGE
+            isEndless -> SHAPE_WEIGHTS_ENDLESS
+            else -> SHAPE_WEIGHTS
+        }
         val totalWeight = (0 until availableCount).sumOf { weights[it] }
         repeat(3) {
             // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
@@ -2592,6 +2648,44 @@ fun BlastTheBlocksGame(
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Black
+                                )
+                            }
+                        }
+
+                        // Faz 79: Pro Mode'a ozel — "REKLAM IZLE, DEVAM ET"in
+                        // ALTINDA, can harcayarak leveli TAM sifirlayan bir
+                        // ikinci secenek. Can varsa tuketip resetGame() cagirir,
+                        // yoksa reklamla +1 can akisini tetikler.
+                        if (isChallengeMode) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    if (challengeLives > 0) {
+                                        onChallengeRestart()
+                                        resetGame()
+                                    } else {
+                                        onChallengeWatchAdForLife()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                            ) {
+                                Text(
+                                    text = if (challengeLives > 0) {
+                                        language.pick(
+                                            tr = "YENİDEN BAŞLA (-1 ❤ · Kalan: $challengeLives)",
+                                            en = "RESTART (-1 ❤ · Left: $challengeLives)",
+                                            it = "RICOMINCIA (-1 ❤ · Rimasti: $challengeLives)",
+                                            fr = "RECOMMENCER (-1 ❤ · Restants : $challengeLives)",
+                                            es = "REINICIAR (-1 ❤ · Quedan: $challengeLives)"
+                                        )
+                                    } else {
+                                        language.pick(tr = "REKLAM İZLE: +1 CAN", en = "WATCH AD: +1 LIFE", it = "GUARDA PUBBLICITÀ: +1 VITA", fr = "REGARDER PUB : +1 VIE", es = "VER ANUNCIO: +1 VIDA")
+                                    },
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
                                 )
                             }
                         }

@@ -48,7 +48,6 @@ class TetrisGameEngine {
             DifficultyPreset.EASY -> settings.startingLevel.coerceAtMost(3)
             DifficultyPreset.NORMAL -> settings.startingLevel
             DifficultyPreset.HARD -> maxOf(5, settings.startingLevel)
-            DifficultyPreset.CUSTOM -> settings.startingLevel
         }
 
         val initialState = GameState(

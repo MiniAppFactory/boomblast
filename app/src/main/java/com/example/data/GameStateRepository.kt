@@ -316,7 +316,8 @@ class GameStateRepository(private val context: Context) {
     }
 
     companion object {
-        const val CHALLENGE_MAX_LIVES = 5
+        // Faz 79: kullanici 5'ten 4'e dusurdu.
+        const val CHALLENGE_MAX_LIVES = 4
         const val CHALLENGE_LIFE_REFILL_MS = 30 * 60 * 1000L
 
         // Saf fonksiyon: depolanan can + son zaman damgasi + "simdi"den, GUNCEL

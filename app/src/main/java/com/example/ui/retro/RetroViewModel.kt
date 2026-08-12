@@ -170,7 +170,6 @@ class RetroViewModel(application: Application) : AndroidViewModel(application) {
             DifficultyPreset.EASY -> 1.25f
             DifficultyPreset.NORMAL -> 1.0f
             DifficultyPreset.HARD -> 0.75f
-            DifficultyPreset.CUSTOM -> 1.0f
         }
 
         return (baseMs * multiplier).toLong().coerceAtLeast(40L)

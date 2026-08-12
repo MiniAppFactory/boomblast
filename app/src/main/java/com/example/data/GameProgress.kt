@@ -35,7 +35,7 @@ data class PlayerProgress(
     // GameStateRepository.regenChallengeLives) veya 1 reklam = 1 can.
     val challengeHighestUnlockedLevel: Int = 1,
     val challengeLevelStars: Map<Int, Int> = emptyMap(),
-    val challengeLives: Int = 5,
+    val challengeLives: Int = 4,
     // Son can dususu/regen hesaplamasinin baz aldigi epoch-millis zaman damgasi.
     val challengeLastLifeTimestamp: Long = 0L
 )

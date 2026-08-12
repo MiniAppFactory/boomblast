@@ -114,7 +114,7 @@ fun RetroHighScoreScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Difficulty Filter Tabs
-            val difficultyTabs = listOf("ALL", "EASY", "NORMAL", "HARD", "CUSTOM")
+            val difficultyTabs = listOf("ALL", "EASY", "NORMAL", "HARD")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
