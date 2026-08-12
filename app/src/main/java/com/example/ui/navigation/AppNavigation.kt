@@ -497,6 +497,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         settings = retroSettings,
                         highestScoreEver = retroHighest ?: 0,
                         palette = retroPalette,
+                        language = progress.language,
                         onStartGame = {
                             retroViewModel.startNewGame()
                             navController.navigate(Routes.RETRO_GAME)
@@ -523,9 +524,11 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     settings = retroSettings,
                     palette = retroPalette,
                     highestScoreEver = retroHighest ?: 0,
+                    language = progress.language,
                     onSaveHighScore = { name -> retroViewModel.saveHighScore(name) },
                     onRestartGame = { retroViewModel.startNewGame() },
                     onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) },
+                    onResume = { retroViewModel.resumeGame() },
                     onReturnToMenu = {
                         // Kullanicinin kendi istegi: her Retro oturumu (bir "game
                         // over") sonunda menuye donuste bir gecis reklami —
@@ -566,6 +569,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         highestScoreEver = retroHighest ?: 0,
                         selectedDifficulty = retroSelectedDiff,
                         palette = retroPalette,
+                        language = progress.language,
                         onSelectDifficultyFilter = { diff -> retroViewModel.selectLeaderboardDifficulty(diff) },
                         onBackToMenu = { navController.popBackStack() }
                     )
@@ -584,6 +588,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     RetroSettingsScreen(
                         settings = retroSettings,
                         palette = retroPalette,
+                        language = progress.language,
                         onUpdateSettings = { newSettings -> retroViewModel.updateSettings(newSettings) },
                         onBackToMenu = { navController.popBackStack() }
                     )

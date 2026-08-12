@@ -46,8 +46,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.data.retro.DifficultyPreset
 import com.example.data.retro.GameSettings
+import com.example.data.retro.label
 import com.example.ui.theme.retro.ThemeColorPalette
 
 @Composable
@@ -55,6 +58,7 @@ fun RetroMenuScreen(
     settings: GameSettings,
     highestScoreEver: Int,
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onStartGame: () -> Unit,
     onSelectDifficulty: (DifficultyPreset) -> Unit,
     onOpenHighScores: () -> Unit,
@@ -121,13 +125,16 @@ fun RetroMenuScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.EmojiEvents,
-                        contentDescription = "High Score",
+                        contentDescription = language.pick(tr = "En Yüksek Skor", en = "High Score", it = "Punteggio Massimo", fr = "Meilleur Score", es = "Puntuación Máxima"),
                         tint = palette.accentColor,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "TOP RECORD: $highestScoreEver",
+                        text = language.pick(
+                            tr = "EN İYİ REKOR: $highestScoreEver", en = "TOP RECORD: $highestScoreEver",
+                            it = "RECORD: $highestScoreEver", fr = "MEILLEUR SCORE : $highestScoreEver", es = "RÉCORD: $highestScoreEver"
+                        ),
                         color = palette.textColor,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
@@ -161,12 +168,12 @@ fun RetroMenuScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Start Game",
+                            contentDescription = language.pick(tr = "Oyunu Başlat", en = "Start Game", it = "Inizia Partita", fr = "Démarrer", es = "Iniciar Juego"),
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "START GAME",
+                            text = language.pick(tr = "OYUNU BAŞLAT", en = "START GAME", it = "INIZIA PARTITA", fr = "DÉMARRER", es = "INICIAR JUEGO"),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold,
                             fontFamily = FontFamily.Monospace,
@@ -179,7 +186,7 @@ fun RetroMenuScreen(
 
                 // Difficulty Mode Selector Label
                 Text(
-                    text = "SELECT DIFFICULTY",
+                    text = language.pick(tr = "ZORLUK SEÇ", en = "SELECT DIFFICULTY", it = "SELEZIONA DIFFICOLTÀ", fr = "CHOISIR DIFFICULTÉ", es = "SELECCIONAR DIFICULTAD"),
                     color = palette.textColor.copy(alpha = 0.7f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -213,7 +220,7 @@ fun RetroMenuScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = preset.name,
+                                text = preset.label(language),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else palette.textColor,
@@ -229,7 +236,7 @@ fun RetroMenuScreen(
             // Bottom Nav Buttons
             Column(modifier = Modifier.fillMaxWidth()) {
                 MenuNavButton(
-                    text = "HIGH SCORES & STATS",
+                    text = language.pick(tr = "YÜKSEK SKORLAR & İSTATİSTİK", en = "HIGH SCORES & STATS", it = "PUNTEGGI & STATISTICHE", fr = "SCORES & STATS", es = "PUNTUACIONES Y ESTADÍSTICAS"),
                     icon = Icons.Default.EmojiEvents,
                     palette = palette,
                     onClick = onOpenHighScores
@@ -238,7 +245,7 @@ fun RetroMenuScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 MenuNavButton(
-                    text = "SETTINGS & THEMES",
+                    text = language.pick(tr = "AYARLAR & TEMALAR", en = "SETTINGS & THEMES", it = "IMPOSTAZIONI & TEMI", fr = "PARAMÈTRES & THÈMES", es = "AJUSTES Y TEMAS"),
                     icon = Icons.Default.Settings,
                     palette = palette,
                     onClick = onOpenSettings
@@ -247,7 +254,7 @@ fun RetroMenuScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 MenuNavButton(
-                    text = "HOW TO PLAY",
+                    text = language.pick(tr = "NASIL OYNANIR", en = "HOW TO PLAY", it = "COME GIOCARE", fr = "COMMENT JOUER", es = "CÓMO JUGAR"),
                     icon = Icons.Default.HelpOutline,
                     palette = palette,
                     onClick = { showHowToPlay = true }
@@ -256,7 +263,7 @@ fun RetroMenuScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 MenuNavButton(
-                    text = "QUIT TO MAIN",
+                    text = language.pick(tr = "ANA MENÜYE DÖN", en = "QUIT TO MAIN", it = "TORNA AL MENU", fr = "RETOUR AU MENU", es = "VOLVER AL MENÚ"),
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     palette = palette,
                     onClick = onQuitToMain
@@ -267,7 +274,7 @@ fun RetroMenuScreen(
         }
 
         if (showHowToPlay) {
-            HowToPlayDialog(palette = palette, onDismiss = { showHowToPlay = false })
+            HowToPlayDialog(palette = palette, language = language, onDismiss = { showHowToPlay = false })
         }
     }
 }
@@ -318,6 +325,7 @@ private fun MenuNavButton(
 @Composable
 private fun HowToPlayDialog(
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -333,7 +341,7 @@ private fun HowToPlayDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "HOW TO PLAY",
+                    text = language.pick(tr = "NASIL OYNANIR", en = "HOW TO PLAY", it = "COME GIOCARE", fr = "COMMENT JOUER", es = "CÓMO JUGAR"),
                     color = palette.textColor,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -348,13 +356,41 @@ private fun HowToPlayDialog(
                         .background(palette.gridBackground, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    InstructionItem("🕹️ D-Pad Left/Right", "Move falling block sideways", palette)
-                    InstructionItem("⬇️ Soft Drop", "Speed up falling block (+1 pt/cell)", palette)
-                    InstructionItem("⚡ Hard Drop", "Instantly drop block to bottom (+2 pt/cell)", palette)
-                    InstructionItem("🔄 Rotate A / B", "Rotate piece clockwise / counter-clockwise", palette)
-                    InstructionItem("📦 Hold Button", "Swap current piece with held piece", palette)
-                    InstructionItem("🧱 Clear Lines", "Fill full rows to clear blocks & score points", palette)
-                    InstructionItem("🏆 Back-To-Back", "Perform consecutive Tetris 4-line clears for bonus!", palette)
+                    InstructionItem(
+                        "🕹️ " + language.pick(tr = "Yön Tuşu Sol/Sağ", en = "D-Pad Left/Right", it = "D-Pad Sinistra/Destra", fr = "D-Pad Gauche/Droite", es = "D-Pad Izquierda/Derecha"),
+                        language.pick(tr = "Düşen parçayı yana kaydır", en = "Move falling block sideways", it = "Sposta il blocco lateralmente", fr = "Déplace le bloc sur le côté", es = "Mueve el bloque hacia los lados"),
+                        palette
+                    )
+                    InstructionItem(
+                        "⬇️ " + language.pick(tr = "Yumuşak Düşüş", en = "Soft Drop", it = "Discesa Lenta", fr = "Chute Douce", es = "Caída Suave"),
+                        language.pick(tr = "Düşen parçayı hızlandır (+1 puan/hücre)", en = "Speed up falling block (+1 pt/cell)", it = "Velocizza la caduta (+1 pt/cella)", fr = "Accélère la chute (+1 pt/case)", es = "Acelera la caída (+1 pt/celda)"),
+                        palette
+                    )
+                    InstructionItem(
+                        "⚡ " + language.pick(tr = "Sert Düşüş", en = "Hard Drop", it = "Discesa Rapida", fr = "Chute Rapide", es = "Caída Rápida"),
+                        language.pick(tr = "Parçayı anında en alta düşür (+2 puan/hücre)", en = "Instantly drop block to bottom (+2 pt/cell)", it = "Fa cadere subito il blocco (+2 pt/cella)", fr = "Fait tomber le bloc instantanément (+2 pt/case)", es = "Hace caer el bloque al instante (+2 pt/celda)"),
+                        palette
+                    )
+                    InstructionItem(
+                        "🔄 " + language.pick(tr = "Döndür A / B", en = "Rotate A / B", it = "Ruota A / B", fr = "Pivoter A / B", es = "Girar A / B"),
+                        language.pick(tr = "Parçayı saat yönünde / tersine döndür", en = "Rotate piece clockwise / counter-clockwise", it = "Ruota in senso orario / antiorario", fr = "Pivote dans le sens horaire / antihoraire", es = "Gira en sentido horario / antihorario"),
+                        palette
+                    )
+                    InstructionItem(
+                        "📦 " + language.pick(tr = "Tut Düğmesi", en = "Hold Button", it = "Pulsante Tieni", fr = "Bouton Garder", es = "Botón Guardar"),
+                        language.pick(tr = "Mevcut parçayı tutulan parçayla değiştir", en = "Swap current piece with held piece", it = "Scambia il pezzo con quello tenuto", fr = "Échange la pièce avec celle gardée", es = "Cambia la pieza actual con la guardada"),
+                        palette
+                    )
+                    InstructionItem(
+                        "🧱 " + language.pick(tr = "Satır Temizle", en = "Clear Lines", it = "Elimina Righe", fr = "Effacer Lignes", es = "Eliminar Líneas"),
+                        language.pick(tr = "Satırları tam doldurup blokları patlat, puan kazan", en = "Fill full rows to clear blocks & score points", it = "Riempi le righe per eliminare blocchi e punti", fr = "Remplis les lignes pour effacer et marquer", es = "Llena filas para eliminar bloques y ganar puntos"),
+                        palette
+                    )
+                    InstructionItem(
+                        "🏆 " + language.pick(tr = "Ardışık Bonus", en = "Back-To-Back", it = "Back-To-Back", fr = "Back-To-Back", es = "Back-To-Back"),
+                        language.pick(tr = "Art arda 4'lü satır temizleyerek bonus kazan!", en = "Perform consecutive Tetris 4-line clears for bonus!", it = "Fai Tetris consecutivi (4 righe) per un bonus!", fr = "Enchaîne des Tetris (4 lignes) pour un bonus !", es = "¡Encadena Tetris (4 líneas) para un bono!"),
+                        palette
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -367,7 +403,10 @@ private fun HowToPlayDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = "GOT IT!", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(
+                        text = language.pick(tr = "ANLADIM!", en = "GOT IT!", it = "OK!", fr = "COMPRIS !", es = "¡ENTENDIDO!"),
+                        fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace
+                    )
                 }
             }
         }

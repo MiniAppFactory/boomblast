@@ -38,11 +38,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.ui.theme.retro.ThemeColorPalette
 
 @Composable
 fun ArcadeControlPanel(
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit,
     onRotateClockwise: () -> Unit,
@@ -67,7 +70,7 @@ fun ArcadeControlPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ArcadeRectButton(
-                text = "HOLD",
+                text = language.pick(tr = "TUT", en = "HOLD", it = "TIENI", fr = "GARDER", es = "GUARDAR"),
                 icon = Icons.Default.SwapHoriz,
                 enabled = canHold,
                 palette = palette,
@@ -78,7 +81,7 @@ fun ArcadeControlPanel(
             Spacer(modifier = Modifier.width(12.dp))
 
             ArcadeRectButton(
-                text = "HARD DROP",
+                text = language.pick(tr = "SERT DÜŞÜŞ", en = "HARD DROP", it = "DISCESA RAPIDA", fr = "CHUTE RAPIDE", es = "CAÍDA RÁPIDA"),
                 icon = Icons.Default.KeyboardDoubleArrowDown,
                 accent = true,
                 palette = palette,
@@ -105,7 +108,7 @@ fun ArcadeControlPanel(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ArcadeCircularButton(
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Move Left",
+                        contentDescription = language.pick(tr = "Sola Hareket", en = "Move Left", it = "Sposta a Sinistra", fr = "Déplacer à Gauche", es = "Mover Izquierda"),
                         palette = palette,
                         onClick = onMoveLeft,
                         sizeDp = 54
@@ -115,7 +118,7 @@ fun ArcadeControlPanel(
 
                     ArcadeCircularButton(
                         icon = Icons.Default.ArrowDownward,
-                        contentDescription = "Soft Drop",
+                        contentDescription = language.pick(tr = "Yumuşak Düşüş", en = "Soft Drop", it = "Discesa Lenta", fr = "Chute Douce", es = "Caída Suave"),
                         palette = palette,
                         onClick = onSoftDrop,
                         sizeDp = 54
@@ -125,7 +128,7 @@ fun ArcadeControlPanel(
 
                     ArcadeCircularButton(
                         icon = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Move Right",
+                        contentDescription = language.pick(tr = "Sağa Hareket", en = "Move Right", it = "Sposta a Destra", fr = "Déplacer à Droite", es = "Mover Derecha"),
                         palette = palette,
                         onClick = onMoveRight,
                         sizeDp = 54
@@ -141,7 +144,7 @@ fun ArcadeControlPanel(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ArcadeCircularButton(
                         icon = Icons.Default.RotateLeft,
-                        contentDescription = "Rotate CCW",
+                        contentDescription = language.pick(tr = "Sola Döndür", en = "Rotate CCW", it = "Ruota Antiorario", fr = "Pivoter Antihoraire", es = "Girar Antihorario"),
                         palette = palette,
                         onClick = onRotateCounterClockwise,
                         sizeDp = 58,
@@ -150,7 +153,7 @@ fun ArcadeControlPanel(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "ROTATE L",
+                        text = language.pick(tr = "DÖNDÜR S", en = "ROTATE L", it = "RUOTA S", fr = "PIVOTER G", es = "GIRAR I"),
                         fontSize = 10.sp,
                         color = palette.textColor.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Bold,
@@ -161,7 +164,7 @@ fun ArcadeControlPanel(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ArcadeCircularButton(
                         icon = Icons.Default.RotateRight,
-                        contentDescription = "Rotate CW",
+                        contentDescription = language.pick(tr = "Sağa Döndür", en = "Rotate CW", it = "Ruota Orario", fr = "Pivoter Horaire", es = "Girar Horario"),
                         palette = palette,
                         onClick = onRotateClockwise,
                         sizeDp = 64,
@@ -170,7 +173,7 @@ fun ArcadeControlPanel(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "ROTATE R",
+                        text = language.pick(tr = "DÖNDÜR D", en = "ROTATE R", it = "RUOTA D", fr = "PIVOTER D", es = "GIRAR D"),
                         fontSize = 10.sp,
                         color = palette.textColor.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Bold,

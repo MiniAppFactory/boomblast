@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.game.retro.GameState
 import com.example.ui.theme.retro.ThemeColorPalette
 
@@ -39,6 +41,7 @@ fun GameOverDialog(
     gameState: GameState,
     defaultPlayerName: String,
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onSaveScore: (playerName: String) -> Unit,
     onPlayAgain: () -> Unit,
     onReturnToMenu: () -> Unit
@@ -58,7 +61,7 @@ fun GameOverDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "GAME OVER",
+                    text = language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "PARTITA FINITA", fr = "PARTIE TERMINÉE", es = "FIN DEL JUEGO"),
                     color = palette.accentColor,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -69,7 +72,7 @@ fun GameOverDialog(
                 if (gameState.isNewHighScore) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "🏆 NEW HIGH SCORE! 🏆",
+                        text = language.pick(tr = "🏆 YENİ REKOR! 🏆", en = "🏆 NEW HIGH SCORE! 🏆", it = "🏆 NUOVO RECORD! 🏆", fr = "🏆 NOUVEAU RECORD ! 🏆", es = "🏆 ¡NUEVO RÉCORD! 🏆"),
                         color = palette.textColor,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -86,17 +89,20 @@ fun GameOverDialog(
                         .background(palette.gridBackground, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    StatRow("FINAL SCORE", "${gameState.score}", palette)
-                    StatRow("LINES CLEARED", "${gameState.lines}", palette)
-                    StatRow("MAX LEVEL", "${gameState.level}", palette)
-                    StatRow("DURATION", formatDuration(gameState.gameDurationSeconds), palette)
+                    StatRow(language.pick(tr = "SONUÇ SKOR", en = "FINAL SCORE", it = "PUNTEGGIO FINALE", fr = "SCORE FINAL", es = "PUNTUACIÓN FINAL"), "${gameState.score}", palette)
+                    StatRow(language.pick(tr = "SİLİNEN SATIR", en = "LINES CLEARED", it = "RIGHE ELIMINATE", fr = "LIGNES EFFACÉES", es = "LÍNEAS ELIMINADAS"), "${gameState.lines}", palette)
+                    StatRow(language.pick(tr = "MAKS SEVİYE", en = "MAX LEVEL", it = "LIVELLO MAX", fr = "NIVEAU MAX", es = "NIVEL MÁX"), "${gameState.level}", palette)
+                    StatRow(language.pick(tr = "SÜRE", en = "DURATION", it = "DURATA", fr = "DURÉE", es = "DURACIÓN"), formatDuration(gameState.gameDurationSeconds), palette)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Name Input for High Score
                 Text(
-                    text = "ENTER PLAYER INITIALS / NAME:",
+                    text = language.pick(
+                        tr = "OYUNCU ADI/RUMUZU GİR:", en = "ENTER PLAYER INITIALS / NAME:",
+                        it = "INSERISCI NOME GIOCATORE:", fr = "ENTREZ VOTRE NOM :", es = "INTRODUCE TU NOMBRE:"
+                    ),
                     color = palette.textColor.copy(alpha = 0.8f),
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
@@ -134,7 +140,7 @@ fun GameOverDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "SAVE & PLAY AGAIN",
+                        text = language.pick(tr = "KAYDET & TEKRAR OYNA", en = "SAVE & PLAY AGAIN", it = "SALVA & GIOCA ANCORA", fr = "SAUVER & REJOUER", es = "GUARDAR Y JUGAR DE NUEVO"),
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
@@ -154,7 +160,7 @@ fun GameOverDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "MAIN MENU",
+                        text = language.pick(tr = "ANA MENÜ", en = "MAIN MENU", it = "MENU PRINCIPALE", fr = "MENU PRINCIPAL", es = "MENÚ PRINCIPAL"),
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
@@ -167,6 +173,7 @@ fun GameOverDialog(
 @Composable
 fun PauseDialog(
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onResume: () -> Unit,
     onRestart: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -185,7 +192,7 @@ fun PauseDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PAUSED",
+                    text = language.pick(tr = "DURAKLATILDI", en = "PAUSED", it = "IN PAUSA", fr = "EN PAUSE", es = "PAUSADO"),
                     color = palette.textColor,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -194,13 +201,13 @@ fun PauseDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                DialogActionButton("RESUME GAME", palette.accentColor, Color.White, onResume)
+                DialogActionButton(language.pick(tr = "OYUNA DEVAM ET", en = "RESUME GAME", it = "RIPRENDI PARTITA", fr = "REPRENDRE", es = "REANUDAR JUEGO"), palette.accentColor, Color.White, onResume)
                 Spacer(modifier = Modifier.height(10.dp))
-                DialogActionButton("RESTART", palette.buttonBackground, palette.buttonContentColor, onRestart)
+                DialogActionButton(language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"), palette.buttonBackground, palette.buttonContentColor, onRestart)
                 Spacer(modifier = Modifier.height(10.dp))
-                DialogActionButton("SETTINGS", palette.buttonBackground, palette.buttonContentColor, onOpenSettings)
+                DialogActionButton(language.pick(tr = "AYARLAR", en = "SETTINGS", it = "IMPOSTAZIONI", fr = "PARAMÈTRES", es = "AJUSTES"), palette.buttonBackground, palette.buttonContentColor, onOpenSettings)
                 Spacer(modifier = Modifier.height(10.dp))
-                DialogActionButton("QUIT TO MENU", palette.buttonBackground, palette.textColor.copy(alpha = 0.7f), onReturnToMenu)
+                DialogActionButton(language.pick(tr = "MENÜYE DÖN", en = "QUIT TO MENU", it = "TORNA AL MENU", fr = "RETOUR AU MENU", es = "VOLVER AL MENÚ"), palette.buttonBackground, palette.textColor.copy(alpha = 0.7f), onReturnToMenu)
             }
         }
     }

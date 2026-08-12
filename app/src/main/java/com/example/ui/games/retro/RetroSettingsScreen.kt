@@ -37,9 +37,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.data.retro.ControlStyle
 import com.example.data.retro.GameSettings
 import com.example.data.retro.RetroThemeStyle
+import com.example.data.retro.label
 import com.example.ui.theme.retro.ThemeColorPalette
 import kotlin.math.roundToInt
 
@@ -47,6 +50,7 @@ import kotlin.math.roundToInt
 fun RetroSettingsScreen(
     settings: GameSettings,
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onUpdateSettings: (GameSettings) -> Unit,
     onBackToMenu: () -> Unit
 ) {
@@ -74,7 +78,7 @@ fun RetroSettingsScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
                         tint = palette.textColor
                     )
                 }
@@ -82,7 +86,7 @@ fun RetroSettingsScreen(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "SETTINGS & THEMES",
+                    text = language.pick(tr = "AYARLAR & TEMALAR", en = "SETTINGS & THEMES", it = "IMPOSTAZIONI & TEMI", fr = "PARAMÈTRES & THÈMES", es = "AJUSTES Y TEMAS"),
                     color = palette.accentColor,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -94,7 +98,7 @@ fun RetroSettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // 1. Visual Theme Style Selector
-            SettingsSectionTitle("VISUAL THEME PRESET", palette)
+            SettingsSectionTitle(language.pick(tr = "GÖRSEL TEMA", en = "VISUAL THEME PRESET", it = "TEMA VISIVO", fr = "THÈME VISUEL", es = "TEMA VISUAL"), palette)
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(
@@ -107,13 +111,7 @@ fun RetroSettingsScreen(
             ) {
                 RetroThemeStyle.entries.forEach { style ->
                     val isSelected = settings.theme == style
-                    val themeTitle = when (style) {
-                        RetroThemeStyle.NEON_CYBERPUNK -> "Neon Cyberpunk (Default)"
-                        RetroThemeStyle.GAME_BOY_LCD -> "1989 Game Boy Green LCD"
-                        RetroThemeStyle.ARCADE_CRT -> "Retro Arcade CRT"
-                        RetroThemeStyle.MONOCHROME_8BIT -> "8-Bit Monochrome Matrix"
-                        RetroThemeStyle.NES_SYNTH -> "80s Synthwave Sunset"
-                    }
+                    val themeTitle = style.label(language)
 
                     Box(
                         modifier = Modifier
@@ -141,7 +139,7 @@ fun RetroSettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // 2. Control Scheme Selection
-            SettingsSectionTitle("CONTROL SCHEME", palette)
+            SettingsSectionTitle(language.pick(tr = "KONTROL ŞEMASI", en = "CONTROL SCHEME", it = "SCHEMA CONTROLLI", fr = "SCHÉMA DE CONTRÔLE", es = "ESQUEMA DE CONTROL"), palette)
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
@@ -154,11 +152,7 @@ fun RetroSettingsScreen(
             ) {
                 ControlStyle.entries.forEach { ctrl ->
                     val isSelected = settings.controlStyle == ctrl
-                    val label = when (ctrl) {
-                        ControlStyle.DPAD_BUTTONS -> "D-PAD"
-                        ControlStyle.TOUCH_GESTURES -> "GESTURES"
-                        ControlStyle.HYBRID -> "HYBRID"
-                    }
+                    val label = ctrl.label(language)
 
                     Box(
                         modifier = Modifier
@@ -187,7 +181,13 @@ fun RetroSettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // 3. Starting Level Slider
-            SettingsSectionTitle("STARTING LEVEL: ${settings.startingLevel}", palette)
+            SettingsSectionTitle(
+                language.pick(
+                    tr = "BAŞLANGIÇ SEVİYESİ: ${settings.startingLevel}", en = "STARTING LEVEL: ${settings.startingLevel}",
+                    it = "LIVELLO INIZIALE: ${settings.startingLevel}", fr = "NIVEAU DE DÉPART : ${settings.startingLevel}", es = "NIVEL INICIAL: ${settings.startingLevel}"
+                ),
+                palette
+            )
             Spacer(modifier = Modifier.height(6.dp))
 
             Column(
@@ -213,7 +213,7 @@ fun RetroSettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // 4. Audio, Haptics, Ghost Piece Switches
-            SettingsSectionTitle("GAMEPLAY PREFERENCES", palette)
+            SettingsSectionTitle(language.pick(tr = "OYUN TERCİHLERİ", en = "GAMEPLAY PREFERENCES", it = "PREFERENZE DI GIOCO", fr = "PRÉFÉRENCES DE JEU", es = "PREFERENCIAS DE JUEGO"), palette)
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(
@@ -225,21 +225,21 @@ fun RetroSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SettingSwitchRow(
-                    label = "RETRO SOUND EFFECTS",
+                    label = language.pick(tr = "RETRO SES EFEKTLERİ", en = "RETRO SOUND EFFECTS", it = "EFFETTI SONORI RETRO", fr = "EFFETS SONORES RÉTRO", es = "EFECTOS DE SONIDO RETRO"),
                     checked = settings.soundEnabled,
                     palette = palette,
                     onCheckedChange = { onUpdateSettings(settings.copy(soundEnabled = it)) }
                 )
 
                 SettingSwitchRow(
-                    label = "HAPTIC TOUCH FEEDBACK",
+                    label = language.pick(tr = "DOKUNSAL GERİ BİLDİRİM", en = "HAPTIC TOUCH FEEDBACK", it = "FEEDBACK APTICO", fr = "RETOUR HAPTIQUE", es = "RETROALIMENTACIÓN HÁPTICA"),
                     checked = settings.hapticsEnabled,
                     palette = palette,
                     onCheckedChange = { onUpdateSettings(settings.copy(hapticsEnabled = it)) }
                 )
 
                 SettingSwitchRow(
-                    label = "GHOST PIECE PREVIEW",
+                    label = language.pick(tr = "HAYALET PARÇA ÖNİZLEME", en = "GHOST PIECE PREVIEW", it = "ANTEPRIMA PEZZO FANTASMA", fr = "APERÇU PIÈCE FANTÔME", es = "VISTA PREVIA PIEZA FANTASMA"),
                     checked = settings.ghostPieceEnabled,
                     palette = palette,
                     onCheckedChange = { onUpdateSettings(settings.copy(ghostPieceEnabled = it)) }

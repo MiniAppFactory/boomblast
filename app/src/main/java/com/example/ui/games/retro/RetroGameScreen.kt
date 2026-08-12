@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.AppLanguage
+import com.example.data.pick
 import com.example.data.retro.GameSettings
 import com.example.game.retro.GameStatus
 import com.example.game.retro.TetrisGameEngine
@@ -43,10 +45,18 @@ fun RetroGameScreen(
     settings: GameSettings,
     palette: ThemeColorPalette,
     highestScoreEver: Int,
+    language: AppLanguage,
     onSaveHighScore: (String) -> Unit,
     onRestartGame: () -> Unit,
     onOpenSettings: () -> Unit,
-    onReturnToMenu: () -> Unit
+    onReturnToMenu: () -> Unit,
+    // Faz 80 bug fix: gameEngine.resumeGame() dogrudan cagirmak sadece motorun
+    // durumunu PLAYING'e ceviriyor ama viewModel'in dropJob/timerJob
+    // coroutine'lerini yeniden BASLATMIYOR (bunlar pause'da status PAUSED
+    // olunca dogal olarak sona eriyor) — sonuc: resume sonrasi parcalar
+    // otomatik dusmeyi birakiyor. onResume artik RetroViewModel.resumeGame()'e
+    // baglaniyor (o hem gameEngine.resumeGame() hem startGameLoops() cagiriyor).
+    onResume: () -> Unit
 ) {
     val gameState by gameEngine.gameState.collectAsStateWithLifecycle()
 
@@ -85,15 +95,15 @@ fun RetroGameScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Pause,
-                        contentDescription = "Pause",
+                        contentDescription = language.pick(tr = "Duraklat", en = "Pause", it = "Pausa", fr = "Pause", es = "Pausa"),
                         tint = palette.buttonContentColor
                     )
                 }
 
                 // Stats Header
-                HudItem(label = "SCORE", value = "${gameState.score}", palette = palette)
-                HudItem(label = "LINES", value = "${gameState.lines}", palette = palette)
-                HudItem(label = "LEVEL", value = "${gameState.level}", palette = palette)
+                HudItem(label = language.pick(tr = "SKOR", en = "SCORE", it = "PUNTI", fr = "SCORE", es = "PUNTOS"), value = "${gameState.score}", palette = palette)
+                HudItem(label = language.pick(tr = "SATIR", en = "LINES", it = "RIGHE", fr = "LIGNES", es = "LÍNEAS"), value = "${gameState.lines}", palette = palette)
+                HudItem(label = language.pick(tr = "SEVİYE", en = "LEVEL", it = "LIVELLO", fr = "NIVEAU", es = "NIVEL"), value = "${gameState.level}", palette = palette)
             }
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -113,7 +123,7 @@ fun RetroGameScreen(
                     verticalArrangement = Arrangement.Top
                 ) {
                     PiecePreviewBox(
-                        title = "HOLD",
+                        title = language.pick(tr = "TUT", en = "HOLD", it = "TIENI", fr = "GARDER", es = "GUARDAR"),
                         pieceType = gameState.holdPiece,
                         palette = palette,
                         boxSize = 68.dp
@@ -152,7 +162,10 @@ fun RetroGameScreen(
                                 }
                                 if (event.comboCount > 1) {
                                     Text(
-                                        text = "${event.comboCount}x COMBO",
+                                        text = language.pick(
+                                            tr = "${event.comboCount}x KOMBO", en = "${event.comboCount}x COMBO",
+                                            it = "${event.comboCount}x COMBO", fr = "${event.comboCount}x COMBO", es = "${event.comboCount}x COMBO"
+                                        ),
                                         color = palette.textColor,
                                         fontSize = 9.sp,
                                         fontFamily = FontFamily.Monospace
@@ -185,7 +198,7 @@ fun RetroGameScreen(
                 ) {
                     val next1 = gameState.nextPieces.getOrNull(0)
                     PiecePreviewBox(
-                        title = "NEXT",
+                        title = language.pick(tr = "SIRADAKİ", en = "NEXT", it = "PROSSIMO", fr = "SUIVANT", es = "SIGUIENTE"),
                         pieceType = next1,
                         palette = palette,
                         boxSize = 68.dp
@@ -210,6 +223,7 @@ fun RetroGameScreen(
             // Bottom Arcade Controls
             ArcadeControlPanel(
                 palette = palette,
+                language = language,
                 onMoveLeft = { gameEngine.moveLeft() },
                 onMoveRight = { gameEngine.moveRight() },
                 onRotateClockwise = { gameEngine.rotateClockwise() },
@@ -225,9 +239,10 @@ fun RetroGameScreen(
         if (showPauseModal || gameState.status == GameStatus.PAUSED) {
             PauseDialog(
                 palette = palette,
+                language = language,
                 onResume = {
                     showPauseModal = false
-                    gameEngine.resumeGame()
+                    onResume()
                 },
                 onRestart = {
                     showPauseModal = false
@@ -250,6 +265,7 @@ fun RetroGameScreen(
                 gameState = gameState,
                 defaultPlayerName = settings.lastPlayerName,
                 palette = palette,
+                language = language,
                 onSaveScore = { playerName ->
                     onSaveHighScore(playerName)
                 },

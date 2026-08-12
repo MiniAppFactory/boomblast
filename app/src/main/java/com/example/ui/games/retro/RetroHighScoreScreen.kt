@@ -34,7 +34,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AppLanguage
+import com.example.data.pick
+import com.example.data.retro.DifficultyPreset
 import com.example.data.retro.HighScore
+import com.example.data.retro.label
 import com.example.ui.theme.retro.ThemeColorPalette
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,6 +51,7 @@ fun RetroHighScoreScreen(
     highestScoreEver: Int,
     selectedDifficulty: String?,
     palette: ThemeColorPalette,
+    language: AppLanguage,
     onSelectDifficultyFilter: (String?) -> Unit,
     onBackToMenu: () -> Unit
 ) {
@@ -78,7 +83,7 @@ fun RetroHighScoreScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
                         tint = palette.textColor
                     )
                 }
@@ -86,7 +91,7 @@ fun RetroHighScoreScreen(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "HALL OF FAME",
+                    text = language.pick(tr = "ŞEREF LİSTESİ", en = "HALL OF FAME", it = "ALBO D'ORO", fr = "TABLEAU D'HONNEUR", es = "SALÓN DE LA FAMA"),
                     color = palette.accentColor,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -106,15 +111,19 @@ fun RetroHighScoreScreen(
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                CareerStatItem(label = "CAREER BEST", value = "$highestScoreEver", palette = palette)
-                CareerStatItem(label = "GAMES PLAYED", value = "$totalGamesPlayed", palette = palette)
-                CareerStatItem(label = "TOTAL LINES", value = "$totalLinesCleared", palette = palette)
+                CareerStatItem(label = language.pick(tr = "EN İYİ SKOR", en = "CAREER BEST", it = "MIGLIOR RECORD", fr = "MEILLEUR SCORE", es = "MEJOR RÉCORD"), value = "$highestScoreEver", palette = palette)
+                CareerStatItem(label = language.pick(tr = "OYNANAN OYUN", en = "GAMES PLAYED", it = "PARTITE GIOCATE", fr = "PARTIES JOUÉES", es = "PARTIDAS JUGADAS"), value = "$totalGamesPlayed", palette = palette)
+                CareerStatItem(label = language.pick(tr = "TOPLAM SATIR", en = "TOTAL LINES", it = "RIGHE TOTALI", fr = "LIGNES TOTALES", es = "LÍNEAS TOTALES"), value = "$totalLinesCleared", palette = palette)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Difficulty Filter Tabs
             val difficultyTabs = listOf("ALL", "EASY", "NORMAL", "HARD")
+            val difficultyTabLabel: (String) -> String = { tab ->
+                if (tab == "ALL") language.pick(tr = "TÜMÜ", en = "ALL", it = "TUTTI", fr = "TOUT", es = "TODOS")
+                else DifficultyPreset.valueOf(tab).label(language)
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -139,7 +148,7 @@ fun RetroHighScoreScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = tab,
+                            text = difficultyTabLabel(tab),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSelected) Color.White else palette.textColor,
@@ -165,20 +174,23 @@ fun RetroHighScoreScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             imageVector = Icons.Default.VideogameAsset,
-                            contentDescription = "No Scores",
+                            contentDescription = language.pick(tr = "Skor Yok", en = "No Scores", it = "Nessun Punteggio", fr = "Aucun Score", es = "Sin Puntuaciones"),
                             tint = palette.textColor.copy(alpha = 0.4f),
                             modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "NO HIGH SCORES YET!",
+                            text = language.pick(tr = "HENÜZ YÜKSEK SKOR YOK!", en = "NO HIGH SCORES YET!", it = "NESSUN PUNTEGGIO ANCORA!", fr = "AUCUN SCORE ENCORE !", es = "¡AÚN SIN PUNTUACIONES!"),
                             color = palette.textColor.copy(alpha = 0.7f),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            text = "Play a game to set the first record.",
+                            text = language.pick(
+                                tr = "İlk rekoru kırmak için bir oyun oyna.", en = "Play a game to set the first record.",
+                                it = "Gioca una partita per il primo record.", fr = "Joue une partie pour le premier record.", es = "Juega una partida para el primer récord."
+                            ),
                             color = palette.textColor.copy(alpha = 0.5f),
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
@@ -194,7 +206,8 @@ fun RetroHighScoreScreen(
                         ScoreRowItem(
                             rank = index + 1,
                             score = scoreItem,
-                            palette = palette
+                            palette = palette,
+                            language = language
                         )
                     }
                 }
@@ -232,7 +245,8 @@ private fun CareerStatItem(
 private fun ScoreRowItem(
     rank: Int,
     score: HighScore,
-    palette: ThemeColorPalette
+    palette: ThemeColorPalette,
+    language: AppLanguage
 ) {
     val rankBadgeColor = when (rank) {
         1 -> Color(0xFFFFD700) // Gold
@@ -276,8 +290,15 @@ private fun ScoreRowItem(
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
+                val diffLabel = runCatching { DifficultyPreset.valueOf(score.difficultyMode).label(language) }.getOrDefault(score.difficultyMode)
                 Text(
-                    text = "${score.linesCleared} Lines • Lvl ${score.levelReached} • ${score.difficultyMode}",
+                    text = language.pick(
+                        tr = "${score.linesCleared} Satır • Sv ${score.levelReached} • $diffLabel",
+                        en = "${score.linesCleared} Lines • Lvl ${score.levelReached} • $diffLabel",
+                        it = "${score.linesCleared} Righe • Lv ${score.levelReached} • $diffLabel",
+                        fr = "${score.linesCleared} Lignes • Niv ${score.levelReached} • $diffLabel",
+                        es = "${score.linesCleared} Líneas • Niv ${score.levelReached} • $diffLabel"
+                    ),
                     color = palette.textColor.copy(alpha = 0.6f),
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace
