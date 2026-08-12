@@ -1,4 +1,4 @@
-package com.example.ui.games.blasttheblocks
+package com.example.ui.games.boomblocks
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -80,6 +80,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -429,6 +430,21 @@ fun BlastTheBlocksGame(
     // yuzeyde (kok zemin + ana kart) yumusak bir crossfade uygulanir.
     val animatedBackground by animateColorAsState(palette.background, animationSpec = tween(400), label = "bgCrossfade")
     val animatedCard by animateColorAsState(palette.card, animationSpec = tween(400), label = "cardCrossfade")
+    // Kullanici geri bildirimi: "oyun duz siyah ekranda, hic cezbedici degil" —
+    // kok zemin artik TEK DUZ RENK degil, mevcut skin'in accentGradient
+    // renklerine dogru cok hafif (yaklasik %12-%18) karisan yumusak bir dikey
+    // gradyan. lerp() DUZ RENK uretir (alfa/seffaflik yok), boylece hem koyu
+    // hem acik modda (BlastLightPalette/BlastDarkPalette) board/tray okunabilirligi
+    // bozulmadan zemine skin'in rengini hissettiren bir derinlik katilir.
+    val backgroundAccentTop = uiSkin.accentGradient[0]
+    val backgroundAccentBottom = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }
+    val animatedBackgroundBrush = Brush.verticalGradient(
+        colors = listOf(
+            lerp(animatedBackground, backgroundAccentTop, 0.16f),
+            animatedBackground,
+            lerp(animatedBackground, backgroundAccentBottom, 0.12f)
+        )
+    )
     val gridSize = 8
     val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
     var score by remember { mutableIntStateOf(0) }
@@ -1274,7 +1290,13 @@ fun BlastTheBlocksGame(
         // Remove used shape from tray
         trayShapes[shapeIndex] = null
 
-        if (!isEndless && !isLevelComplete && score >= targetScore) {
+        // Faz 72: sadece hedef puani gecmek yetmiyor artik — kullanici geri
+        // bildirimi: "98 puandayken 1x2 koydun ama patlama yoksa devam etmeli."
+        // totalLinesCleared>0 sarti eklendi: hedef, SADECE bu hamlede en az bir
+        // satir/sutun gercekten patladiysa tamamlaniyor (hedefi onceki, patlamasiz
+        // bir hamleyle gecmis olmak tek basina yetmiyor, bir sonraki patlamaya kadar
+        // oyun devam ediyor).
+        if (!isEndless && !isLevelComplete && score >= targetScore && totalLinesCleared > 0) {
             isLevelComplete = true
             SoundManager.playSuccess(soundEnabled)
             onLevelComplete(score, computeStars(score, targetScore))
@@ -1298,7 +1320,7 @@ fun BlastTheBlocksGame(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(animatedBackground)
+            .background(animatedBackgroundBrush)
             .onGloballyPositioned { rootOriginPx = it.positionInRoot() }
             .padding(16.dp)
     ) {
@@ -1310,14 +1332,14 @@ fun BlastTheBlocksGame(
             val cx1 = size.width * (0.3f + 0.2f * sin(ambientPhase * twoPi))
             val cy1 = size.height * (0.2f + 0.15f * cos(ambientPhase * twoPi * 0.7f))
             drawCircle(
-                color = uiSkin.accentGradient[0].copy(alpha = 0.06f),
+                color = uiSkin.accentGradient[0].copy(alpha = 0.09f),
                 radius = size.minDimension * 0.55f,
                 center = Offset(cx1, cy1)
             )
             val cx2 = size.width * (0.7f - 0.2f * cos(ambientPhase * twoPi * 0.6f))
             val cy2 = size.height * (0.8f - 0.15f * sin(ambientPhase * twoPi * 0.9f))
             drawCircle(
-                color = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }.copy(alpha = 0.05f),
+                color = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }.copy(alpha = 0.08f),
                 radius = size.minDimension * 0.5f,
                 center = Offset(cx2, cy2)
             )

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -151,67 +153,75 @@ fun ModeSelectScreen(
             // Retro henuz oynanabilir olmadigi icin "YAKINDA" kilitli
             // tasarim olarak eklendi — grid'in tamamlanmis gorunmesi ve
             // gelecek modlarin onizlemesi icin.
-            Column(
+            // Faz 72: kullanici "kareler olsun, gridde ortalansinlar alttan
+            // ustten bosluk esit kalacak sekilde" dedi — eskiden bu Column
+            // weight(1f) ile kalan TUM dikey alani zorla dolduruyor, kartlar
+            // da fillMaxHeight() ile o alana GERiliyordu (genis dikdortgen).
+            // Artik disaridaki Box weight(1f) alani aliyor ama iceride kartlar
+            // aspectRatio(1f) ile KARE kalip, Box'un contentAlignment=Center'i
+            // sayesinde ust/alt bosluk otomatik esitleniyor.
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        ModeCard(
+                            title = language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO"),
+                            statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
+                            statValue = "$endlessBestScore",
+                            icon = Icons.Default.AllInclusive,
+                            accent = NeonGreen,
+                            palette = palette,
+                            onClick = onOpenEndless,
+                            testTag = "mode_select_endless_button",
+                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        ModeCard(
+                            title = language.pick(tr = "SEVİYELİ", en = "LEVEL", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
+                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
+                            statValue = "$highestUnlockedLevel",
+                            icon = Icons.Default.Extension,
+                            accent = NeonCyan,
+                            palette = palette,
+                            onClick = onOpenLevels,
+                            testTag = "mode_select_levels_button",
+                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                        )
+                    }
 
-                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    ModeCard(
-                        title = language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO"),
-                        statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
-                        statValue = "$endlessBestScore",
-                        icon = Icons.Default.AllInclusive,
-                        accent = NeonGreen,
-                        palette = palette,
-                        onClick = onOpenEndless,
-                        testTag = "mode_select_endless_button",
-                        modifier = Modifier.weight(1f).fillMaxHeight()
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    ModeCard(
-                        title = language.pick(tr = "SEVİYELİ", en = "LEVEL", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
-                        statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
-                        statValue = "$highestUnlockedLevel",
-                        icon = Icons.Default.Extension,
-                        accent = NeonCyan,
-                        palette = palette,
-                        onClick = onOpenLevels,
-                        testTag = "mode_select_levels_button",
-                        modifier = Modifier.weight(1f).fillMaxHeight()
-                    )
-                }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    ModeCard(
-                        title = language.pick(tr = "CHALLENGE", en = "CHALLENGE", it = "CHALLENGE", fr = "DÉFI", es = "DESAFÍO"),
-                        statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
-                        statValue = "",
-                        icon = Icons.Default.LocalFireDepartment,
-                        accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
-                        palette = palette,
-                        onClick = {},
-                        testTag = "mode_select_challenge_button",
-                        locked = true,
-                        modifier = Modifier.weight(1f).fillMaxHeight()
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    ModeCard(
-                        title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
-                        statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
-                        statValue = "",
-                        icon = Icons.Default.ViewModule,
-                        accent = NeonPurple,
-                        palette = palette,
-                        onClick = {},
-                        testTag = "mode_select_retro_button",
-                        locked = true,
-                        modifier = Modifier.weight(1f).fillMaxHeight()
-                    )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        ModeCard(
+                            title = language.pick(tr = "CHALLENGE", en = "CHALLENGE", it = "CHALLENGE", fr = "DÉFI", es = "DESAFÍO"),
+                            statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
+                            statValue = "",
+                            icon = Icons.Default.LocalFireDepartment,
+                            accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
+                            palette = palette,
+                            onClick = {},
+                            testTag = "mode_select_challenge_button",
+                            locked = true,
+                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        ModeCard(
+                            title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
+                            statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
+                            statValue = "",
+                            icon = Icons.Default.ViewModule,
+                            accent = NeonPurple,
+                            palette = palette,
+                            onClick = {},
+                            testTag = "mode_select_retro_button",
+                            locked = true,
+                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                        )
+                    }
                 }
             }
         }
@@ -300,16 +310,28 @@ private fun ModeCard(
     modifier: Modifier = Modifier
 ) {
     val effectiveAccent = if (locked) palette.textSecondary else accent
+    // Faz 72: kullanici "transparan cerceve uzerinde durmasinlar, canli
+    // renklerle dolu olsun, zeminleri buton gibi olsun" dedi — kilit acik
+    // kartlar artik notr palette.card yerine kendi accent renginin
+    // gradyaniyla DOLU (gercek bir buton gibi). Kilitli (Challenge/Retro)
+    // kartlar eskisi gibi notr/soluk kaliyor, sadece unlocked kartlar
+    // canli dolgu aliyor.
+    val fillBrush = if (locked) {
+        SolidColor(palette.card)
+    } else {
+        Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.72f)))
+    }
     Card(
-        colors = CardDefaults.cardColors(containerColor = palette.card),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
             .then(modifier)
+            .background(fillBrush, RoundedCornerShape(20.dp))
             .border(
                 2.dp,
                 if (locked) {
-                    androidx.compose.ui.graphics.SolidColor(palette.cardBorder)
+                    SolidColor(palette.cardBorder)
                 } else {
                     Brush.linearGradient(listOf(accent, NeonGold))
                 },
@@ -330,13 +352,13 @@ private fun ModeCard(
                     modifier = Modifier
                         .size(52.dp)
                         .clip(CircleShape)
-                        .background(effectiveAccent.copy(alpha = if (locked) 0.10f else 0.18f)),
+                        .background(if (locked) effectiveAccent.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.22f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (locked) Icons.Default.Lock else icon,
                         contentDescription = null,
-                        tint = effectiveAccent,
+                        tint = if (locked) effectiveAccent else Color.White,
                         modifier = Modifier.size(if (locked) 22.dp else 26.dp)
                     )
                 }
@@ -347,7 +369,7 @@ private fun ModeCard(
                     text = title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
-                    color = if (locked) palette.textSecondary else palette.textPrimary,
+                    color = if (locked) palette.textSecondary else Color.White,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
@@ -357,7 +379,7 @@ private fun ModeCard(
                 Text(
                     text = statLabel,
                     fontSize = 9.sp,
-                    color = palette.textSecondary,
+                    color = if (locked) palette.textSecondary else Color.White.copy(alpha = 0.85f),
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
@@ -366,7 +388,7 @@ private fun ModeCard(
                         text = statValue,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = NeonGold,
+                        color = if (locked) NeonGold else Color.White,
                         maxLines = 1
                     )
                 }

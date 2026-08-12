@@ -191,8 +191,13 @@ private fun LevelMapHeader(
             )
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
+        // Faz 72: sag gruptaki IconButton'lar varsayilan 48dp dokunma alaniyla
+        // aralarinda gorsel bir bosluk birakiyordu (kullanici defalarca bildirdi:
+        // "kupa ile disli arasinda cok bosluk var"). Dokunma hedefi 40dp'ye
+        // dusuruldu ve Spacer'lar kaldirildi/daraltildi — grup artik saga
+        // yapisik, sikistirilmis tek blok halinde duruyor.
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Token balance pill
             Surface(
@@ -203,7 +208,7 @@ private fun LevelMapHeader(
                     .testTag("level_map_token_pill")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text = "🪙", fontSize = 14.sp) // 🪙
@@ -217,11 +222,13 @@ private fun LevelMapHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
             IconButton(
                 onClick = onOpenMissions,
-                modifier = Modifier.testTag("level_map_missions_button")
+                modifier = Modifier
+                    .size(40.dp)
+                    .testTag("level_map_missions_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.EmojiEvents,
@@ -232,7 +239,9 @@ private fun LevelMapHeader(
 
             IconButton(
                 onClick = onOpenSettings,
-                modifier = Modifier.testTag("level_map_settings_button")
+                modifier = Modifier
+                    .size(40.dp)
+                    .testTag("level_map_settings_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
@@ -325,11 +334,25 @@ private fun LevelPathNode(
                 .testTag("level_card_$levelNumber")
         ) {
             // Seviye numarasi/kilit rozeti — dugumun kendisi
+            // Faz 72: tamamlanmis seviyeler eskiden sadece yesil KENARLIKLI, ici
+            // transparan bir daireydi — kullanici bunu "tamamlandi" gibi
+            // okumuyordu. Artik tamamlanan daireler ici tamamen yesil DOLU
+            // (kabartma/embossed hissi icin hafif ust-sol acik / alt-sag koyu
+            // radial gradient) ve rakam beyaza donuyor.
+            val completedFill = Brush.verticalGradient(
+                colors = listOf(NeonGreen, NeonGreen.copy(alpha = 0.8f))
+            )
             Box(
                 modifier = Modifier
                     .size(LEVEL_NODE_SIZE)
                     .clip(CircleShape)
-                    .background(if (unlocked) palette.card else palette.cardAlt)
+                    .then(
+                        if (completed) {
+                            Modifier.background(completedFill)
+                        } else {
+                            Modifier.background(if (unlocked) palette.card else palette.cardAlt)
+                        }
+                    )
                     .border(2.5.dp, borderBrush, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -338,7 +361,7 @@ private fun LevelPathNode(
                         text = "$levelNumber",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
-                        color = nodeAccent
+                        color = if (completed) Color.White else nodeAccent
                     )
                 } else {
                     Icon(
@@ -353,7 +376,16 @@ private fun LevelPathNode(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = language.pick(tr = "HEDEF: $targetScore", en = "TARGET: $targetScore", it = "OBIETTIVO: $targetScore", fr = "OBJECTIF : $targetScore", es = "OBJETIVO: $targetScore"),
+                // Faz 72: oynanis kurali artik "hedef puan + en az 1 satir/sutun
+                // patlatma" — haritadaki etiket bu kurali acikca yansitiyor,
+                // aksi halde kullanici hedefi gecince neden bitmedigini anlamaz.
+                text = language.pick(
+                    tr = "HEDEF: $targetScore + 1 satır",
+                    en = "TARGET: $targetScore + 1 row",
+                    it = "OBIETTIVO: $targetScore + 1 riga",
+                    fr = "OBJECTIF : $targetScore + 1 ligne",
+                    es = "OBJETIVO: $targetScore + 1 fila"
+                ),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 color = palette.textSecondary,

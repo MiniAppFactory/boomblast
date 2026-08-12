@@ -29,7 +29,7 @@ import com.example.data.pick
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
 import com.example.ui.consent.TermsAcceptScreen
-import com.example.ui.games.blasttheblocks.BlastTheBlocksGame
+import com.example.ui.games.boomblocks.BlastTheBlocksGame
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
 import com.example.ui.modeselect.ModeSelectScreen
