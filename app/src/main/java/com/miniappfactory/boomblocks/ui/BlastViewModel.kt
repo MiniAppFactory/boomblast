@@ -51,6 +51,42 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Faz 94: Pro Mode kendi ayri booster envanterini kullanir — buyBooster/
+    // consumeBoosterFromInventory ile AYNI desen, sadece repository'nin
+    // Challenge-ozel fonksiyonlarina yonlendiriyor.
+    fun buyChallengeBooster(type: BoosterType) {
+        viewModelScope.launch {
+            if (repository.spendTokens(type.tokenPrice)) {
+                repository.addChallengeBooster(type)
+            }
+        }
+    }
+
+    fun consumeChallengeBoosterFromInventory(type: BoosterType) {
+        viewModelScope.launch {
+            repository.consumeChallengeBooster(type)
+            repository.incrementMissionProgress(MissionType.USE_BOOSTERS, 1)
+        }
+    }
+
+    // Faz 94: Sonsuz Mod kendi ayri booster envanterini kullanir — coin ile
+    // SATIN ALINMAZ (buyBooster/buyChallengeBooster'in aksine), sadece reklam
+    // odulu sonrasi grantEndlessBoosterFromAd cagrilir.
+    fun consumeEndlessBoosterFromInventory(type: BoosterType) {
+        viewModelScope.launch {
+            repository.consumeEndlessBooster(type)
+            repository.incrementMissionProgress(MissionType.USE_BOOSTERS, 1)
+        }
+    }
+
+    fun grantEndlessBoosterFromAd(type: BoosterType) {
+        viewModelScope.launch { repository.addEndlessBooster(type) }
+    }
+
+    fun resetEndlessBoosters() {
+        viewModelScope.launch { repository.resetEndlessBoosters() }
+    }
+
     fun recordLinesCleared(count: Int) {
         viewModelScope.launch { repository.incrementMissionProgress(MissionType.CLEAR_LINES, count) }
     }

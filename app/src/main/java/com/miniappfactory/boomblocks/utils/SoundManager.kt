@@ -23,6 +23,13 @@ object SoundManager {
     private var chimeId = 0
     private var successId = 0
     private var successId2 = 0
+    // Faz 93: kullanicinin gonderdigi 4 gercek ses kaydi (good/great/amazing/
+    // incredible) — kombo ovgu kelimeleri artik cihaz TTS motoru yerine bu
+    // kayitlarla calinir (TextToSpeechManager.speakPraise artik cagrilmiyor).
+    private var praiseGoodId = 0
+    private var praiseGreatId = 0
+    private var praiseAmazingId = 0
+    private var praiseIncredibleId = 0
 
     // Faz 27/28: dogrudan kaydirici degeri = kazanc kullanimi "artırınca
     // artmıyor" hissi veriyordu — %50 mutedil bir referans noktasi, ustu
@@ -66,6 +73,10 @@ object SoundManager {
         chimeId = pool.load(context, R.raw.sfx_chime, 1)
         successId = pool.load(context, R.raw.sfx_success, 1)
         successId2 = pool.load(context, R.raw.sfx_success_2, 1)
+        praiseGoodId = pool.load(context, R.raw.praise_good, 1)
+        praiseGreatId = pool.load(context, R.raw.praise_great, 1)
+        praiseAmazingId = pool.load(context, R.raw.praise_amazing, 1)
+        praiseIncredibleId = pool.load(context, R.raw.praise_incredible, 1)
     }
 
     fun release() {
@@ -115,5 +126,21 @@ object SoundManager {
         val index = (comboCount - 2).coerceIn(0, 3)
         play(comboIds[index])
         play(chimeId)
+    }
+
+    // Faz 93: kombo ovgu kelimeleri (GÜZEL/HARİKA/MÜKEMMEL/İNANILMAZ) artik
+    // cihaz TTS motoru yerine kullanicinin gonderdigi 4 gercek ses kaydiyla
+    // calinir. 6 excitement kademesi (BoomBlocksGame.kt, else/1/2/3/4/5+) 4
+    // sese eslenir: dusuk -> good, orta -> great, yuksek -> incredible,
+    // en yuksek -> amazing.
+    fun playPraise(soundEnabled: Boolean, excitementLevel: Int) {
+        if (!soundEnabled) return
+        val id = when {
+            excitementLevel >= 5 -> praiseAmazingId
+            excitementLevel == 4 -> praiseIncredibleId
+            excitementLevel >= 2 -> praiseGreatId
+            else -> praiseGoodId
+        }
+        play(id)
     }
 }

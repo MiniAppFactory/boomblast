@@ -14,6 +14,13 @@ data class PlayerProgress(
     val highestUnlockedLevel: Int = 1,
     val levelStars: Map<Int, Int> = emptyMap(),
     val ownedBoosters: Map<BoosterType, Int> = emptyMap(),
+    // Faz 94: kullanici "seviyelideki bomba/satir temizle boosterlari
+    // sonsuzlukta da geçerli oluyor, bu dogru degil" dedi — her mod artik
+    // kendi AYRI booster envanterine sahip. `ownedBoosters` (yukarida)
+    // Seviyeli Mod icin "legacy/varsayilan" adiyla aynen kaliyor (geriye
+    // donuk uyumluluk, mevcut kullanici verisi kaybolmasin).
+    val challengeOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
+    val endlessOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
     val soundEnabled: Boolean = true,
     val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,

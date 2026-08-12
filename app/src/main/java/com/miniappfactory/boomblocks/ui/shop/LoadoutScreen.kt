@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
-import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
@@ -56,7 +55,11 @@ import com.miniappfactory.boomblocks.ui.theme.blastPalette
 fun LoadoutScreen(
     levelNumber: Int,
     targetScore: Int,
-    progress: PlayerProgress,
+    // Faz 94: `progress: PlayerProgress` yerine dar parametreler — bu ekran
+    // zaten sadece bu iki alani okuyordu, boylece cagiran taraf (Seviyeli/Pro
+    // Mode) kendi dogru booster envanterini gecirebiliyor.
+    tokens: Int,
+    ownedBoosters: Map<BoosterType, Int>,
     language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
@@ -138,7 +141,7 @@ fun LoadoutScreen(
                         Text(text = "🪙", fontSize = 14.sp)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "${progress.tokens}",
+                            text = "$tokens",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = NeonGold
@@ -168,8 +171,8 @@ fun LoadoutScreen(
                 BoosterType.entries.forEach { type ->
                     BoosterCard(
                         type = type,
-                        owned = progress.ownedBoosters[type] ?: 0,
-                        canAfford = progress.tokens >= type.tokenPrice,
+                        owned = ownedBoosters[type] ?: 0,
+                        canAfford = tokens >= type.tokenPrice,
                         language = language,
                         palette = palette,
                         onBuy = { onBuyBooster(type) }

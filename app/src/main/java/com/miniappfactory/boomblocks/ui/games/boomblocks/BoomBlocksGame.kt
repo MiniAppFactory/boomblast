@@ -428,6 +428,11 @@ fun BlastTheBlocksGame(
     initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
     onSelectTheme: (String) -> Unit = {},
     onUseBooster: (BoosterType) -> Unit = {},
+    // Faz 94: sadece Sonsuz Mod'da dolu geçirilir — coin'den bagimsiz, reklam
+    // izleyerek anlik +1 booster alma. onGranted, bu composable'in local
+    // availableBoosterCounts state'ini ANINDA gunceller (kalici DataStore
+    // yazma islemi cagiran tarafta/AppNavigation'da ayrica yapılır).
+    onWatchAdForBooster: ((BoosterType, onGranted: () -> Unit) -> Unit)? = null,
     onLinesCleared: (count: Int) -> Unit = {},
     // Faz 73: tek hamlede 2+ satir/sutun patlatinca ("Coklu Patlama" haftalik
     // gorevi icin) tetiklenir — onLinesCleared'dan AYRI, cunku onLinesCleared
@@ -778,7 +783,6 @@ fun BlastTheBlocksGame(
         // sadece birkac seviyede ulasilir. 1x1'in kendisi zaten SHAPE_WEIGHTS_CHALLENGE'da
         // agirlik 0 oldugu icin (asagida) availableCount kapsaminda olsa bile hic gelmez.
         val progressLevel = when {
-            isEndless -> (score / 15) + 1
             isChallengeMode -> levelNumber
             else -> (levelNumber / 2) + 1
         }
@@ -788,6 +792,14 @@ fun BlastTheBlocksGame(
                 progressLevel <= 4 -> (8 + (progressLevel - 1) * 3).coerceAtMost(SHAPE_PATTERNS.size)
                 else -> SHAPE_PATTERNS.size
             }
+        } else if (isEndless) {
+            // Faz 92/93: kullanici once "score/15 ile 200 puanda TUM havuz
+            // cok erken aciliyor" dedi, birkac egri denendi (kare, ozel
+            // esikler) — sonunda kullanici "zaten oyun ici bomba/satir-sil
+            // alma ekliyoruz, o yuzden havuz sabit 100'er puan bantlarinda
+            // duz artsin" karariyla basitlestirdi. Her 100 puanda +2 parca,
+            // 6 parcadan (0-99) baslar, 600+ puanda TAM havuza (18) ulasir.
+            (6 + (score / 100) * 2).coerceAtMost(SHAPE_PATTERNS.size)
         } else {
             when {
                 progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
@@ -1184,7 +1196,6 @@ fun BlastTheBlocksGame(
                 )
             }
             val praiseWord = praiseFrom(language, pools.tr, pools.en, pools.it, pools.fr, pools.es)
-            val speechWord = pools.en.random()
             val praiseEmoji = when {
                 excitement >= 5 -> " 🔥"
                 excitement >= 2 -> " 👍"
@@ -1196,19 +1207,11 @@ fun BlastTheBlocksGame(
 
             // Faz 34: orijinal oyunda ovgu kelimeleri sesle de soyleniyordu
             // (kullanici gozlemi) — sadece gercek bir kutlama aninda (kucuk
-            // her tekli patlamada degil) TTS ile praiseWord seslendiriliyor.
-            // Kullanici ilk denemede "hep SÜPER diyor, robot gibi" dedi — kok
-            // neden yukaridaki ayni excitement hesabiydi (pitch/hiz hep dusuk
-            // kaliyordu). Artik excitement'a gore olculeniyor, aralik da
-            // genisletildi + hafif rastgele jitter eklendi (bkz.
-            // TextToSpeechManager.speakPraise) boylece ayni kelime bile her
-            // seferinde birebir ayni "robotik" tonlamayla cikmiyor.
+            // her tekli patlamada degil) seslendiriliyor. Faz 93: kullanicinin
+            // gonderdigi 4 gercek ses kaydiyla (good/great/amazing/incredible)
+            // cihaz TTS motorunun (robotik) yerini aldi.
             if (lastClearWasCelebration && soundEnabled) {
-                TextToSpeechManager.speakPraise(
-                    text = speechWord,
-                    isTr = false,
-                    excitementLevel = excitement
-                )
+                SoundManager.playPraise(soundEnabled, excitement)
             }
 
             sessionLinesCleared += totalLinesCleared
@@ -1679,7 +1682,11 @@ fun BlastTheBlocksGame(
             }
 
             // Booster Row
-            if (availableBoosterCounts.values.any { it > 0 }) {
+            // Faz 94: Sonsuz Mod'da (onWatchAdForBooster != null) satir artik
+            // owned==0 iken de gosteriliyor — "reklam izle +1" secenegi sunmak
+            // icin (diger modlarda mevcut davranis: hic booster yoksa satir
+            // tamamen gizlenir).
+            if (availableBoosterCounts.values.any { it > 0 } || onWatchAdForBooster != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1688,12 +1695,12 @@ fun BlastTheBlocksGame(
                 ) {
                     BoosterType.entries.forEach { type ->
                         val owned = availableBoosterCounts[type] ?: 0
+                        val emoji = when (type) {
+                            BoosterType.BOMB -> "💣"
+                            BoosterType.LINE_CLEAR -> "⚡"
+                        }
                         if (owned > 0) {
                             val isArmed = armedBooster == type
-                            val emoji = when (type) {
-                                BoosterType.BOMB -> "💣"
-                                BoosterType.LINE_CLEAR -> "⚡"
-                            }
                             Surface(
                                 color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
                                 shape = RoundedCornerShape(10.dp),
@@ -1716,6 +1723,33 @@ fun BlastTheBlocksGame(
                                     Text(text = emoji, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                                }
+                            }
+                        } else if (onWatchAdForBooster != null) {
+                            // Faz 94: Sonsuz Mod'a ozel — coin harcamadan, reklam
+                            // izleyerek anlik +1. onGranted local
+                            // availableBoosterCounts'u ANINDA gunceller (kalici
+                            // DataStore yazimi cagiran tarafta/AppNavigation'da).
+                            Surface(
+                                color = palette.card,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, palette.cardBorder, RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        onWatchAdForBooster(type) {
+                                            availableBoosterCounts[type] = (availableBoosterCounts[type] ?: 0) + 1
+                                        }
+                                    }
+                                    .testTag("booster_watch_ad_${type.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = emoji, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "📺+1", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
                                 }
                             }
                         }

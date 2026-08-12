@@ -50,6 +50,11 @@ class GameStateRepository(private val context: Context) {
         val CHALLENGE_LEVEL_STARS = stringPreferencesKey("challenge_level_stars")
         val CHALLENGE_LIVES = intPreferencesKey("challenge_lives")
         val CHALLENGE_LAST_LIFE_TS = longPreferencesKey("challenge_last_life_timestamp")
+
+        // Faz 94: her mod kendi AYRI booster envanterine sahip (OWNED_BOOSTERS
+        // yukarida Seviyeli Mod icin legacy adiyla kaliyor).
+        val CHALLENGE_OWNED_BOOSTERS = stringPreferencesKey("challenge_owned_boosters")
+        val ENDLESS_OWNED_BOOSTERS = stringPreferencesKey("endless_owned_boosters")
     }
 
     val playerProgress: Flow<PlayerProgress> = context.gameDataStore.data.map { prefs ->
@@ -91,7 +96,9 @@ class GameStateRepository(private val context: Context) {
             challengeHighestUnlockedLevel = prefs[Keys.CHALLENGE_HIGHEST_LEVEL] ?: 1,
             challengeLevelStars = decodeIntMap(prefs[Keys.CHALLENGE_LEVEL_STARS]),
             challengeLives = challengeLives,
-            challengeLastLifeTimestamp = challengeLastLifeTs
+            challengeLastLifeTimestamp = challengeLastLifeTs,
+            challengeOwnedBoosters = decodeBoosterMap(prefs[Keys.CHALLENGE_OWNED_BOOSTERS]),
+            endlessOwnedBoosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS])
         )
     }
 
@@ -157,6 +164,66 @@ class GameStateRepository(private val context: Context) {
             }
         }
         return success
+    }
+
+    // Faz 94: Pro Mode icin ayri booster envanteri — addBooster/consumeBooster
+    // ile AYNI desen, sadece farkli DataStore alanina yaziyor.
+    suspend fun addChallengeBooster(type: BoosterType, count: Int = 1) {
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.CHALLENGE_OWNED_BOOSTERS]).toMutableMap()
+            boosters[type] = (boosters[type] ?: 0) + count
+            prefs[Keys.CHALLENGE_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+        }
+    }
+
+    suspend fun consumeChallengeBooster(type: BoosterType): Boolean {
+        var success = false
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.CHALLENGE_OWNED_BOOSTERS]).toMutableMap()
+            val owned = boosters[type] ?: 0
+            if (owned > 0) {
+                boosters[type] = owned - 1
+                prefs[Keys.CHALLENGE_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+                success = true
+            }
+        }
+        return success
+    }
+
+    // Faz 94: Sonsuz Mod icin ayri booster envanteri — coin ile SATIN ALINMAZ,
+    // sadece reklam odulu sonrasi addEndlessBooster cagrilir (BlastViewModel.
+    // grantEndlessBoosterFromAd).
+    suspend fun addEndlessBooster(type: BoosterType, count: Int = 1) {
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS]).toMutableMap()
+            boosters[type] = (boosters[type] ?: 0) + count
+            prefs[Keys.ENDLESS_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+        }
+    }
+
+    suspend fun consumeEndlessBooster(type: BoosterType): Boolean {
+        var success = false
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS]).toMutableMap()
+            val owned = boosters[type] ?: 0
+            if (owned > 0) {
+                boosters[type] = owned - 1
+                prefs[Keys.ENDLESS_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+                success = true
+            }
+        }
+        return success
+    }
+
+    // Faz 94: kullanici "sadece sonsuz oyun modundan cikinca guclendirici
+    // envanteri sifirlanmali (diger modlarda sifirlanmamali)" dedi — reklamla
+    // kazanilan boosterlar coin ile satin alinan Level/Pro Mode boosterlari
+    // gibi KALICI bir yatirim degil, o oturuma ozel bir kaynak. Sonsuz Mod'dan
+    // cikilirken (AppNavigation onBack) cagirilir.
+    suspend fun resetEndlessBoosters() {
+        context.gameDataStore.edit { prefs ->
+            prefs[Keys.ENDLESS_OWNED_BOOSTERS] = encodeBoosterMap(emptyMap())
+        }
     }
 
     suspend fun setSoundEnabled(enabled: Boolean) {

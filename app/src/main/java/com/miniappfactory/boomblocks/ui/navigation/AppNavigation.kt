@@ -207,7 +207,8 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     LoadoutScreen(
                         levelNumber = level,
                         targetScore = definition.targetScore,
-                        progress = progress,
+                        tokens = progress.tokens,
+                        ownedBoosters = progress.ownedBoosters,
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
@@ -361,11 +362,12 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     LoadoutScreen(
                         levelNumber = level,
                         targetScore = definition.targetScore,
-                        progress = progress,
+                        tokens = progress.tokens,
+                        ownedBoosters = progress.challengeOwnedBoosters,
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
-                        onBuyBooster = { type -> viewModel.buyBooster(type) },
+                        onBuyBooster = { type -> viewModel.buyChallengeBooster(type) },
                         isWatchAdLoading = isWatchAdLoading,
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
@@ -424,9 +426,9 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         darkMode = progress.darkMode,
-                        initialBoosterCounts = progress.ownedBoosters,
+                        initialBoosterCounts = progress.challengeOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
-                        onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        onUseBooster = { type -> viewModel.consumeChallengeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
                         onBack = { navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false) },
@@ -616,12 +618,19 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         darkMode = progress.darkMode,
-                        initialBoosterCounts = progress.ownedBoosters,
+                        initialBoosterCounts = progress.endlessOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
-                        onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        onUseBooster = { type -> viewModel.consumeEndlessBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
-                        onBack = { navController.popBackStack() },
+                        // Faz 94: kullanici "sadece sonsuz moddan cikinca guclendirici
+                        // envanteri sifirlanmali" dedi — reklamla kazanilanlar o
+                        // oturuma ozel, Level/Pro Mode'daki coin ile alinanlar gibi
+                        // kalici degil.
+                        onBack = {
+                            viewModel.resetEndlessBoosters()
+                            navController.popBackStack()
+                        },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
@@ -636,6 +645,28 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         hasMadeFirstMove = progress.hasMadeFirstMove,
                         onFirstMoveMade = { viewModel.markFirstMoveMade() },
                         onEndlessGameOver = { score -> viewModel.recordEndlessScore(score) },
+                        // Faz 94: kullanici "sonsuzluk modunda coin'den bagimsiz,
+                        // reklam izleyerek anlik +1 bomba/satir-sil alabilmeliler"
+                        // dedi. Odul kazaninca hem KALICI (viewModel, DataStore'a
+                        // yazar) hem ANLIK (onGranted, BoomBlocksGame'in local
+                        // availableBoosterCounts'unu +1 yapar) guncelleniyor —
+                        // "reddedilirse" ozel bir aksiyon gerekmedigi icin (sadece
+                        // hicbir sey olmaz) onRequestContinueAd'daki handled/onDenied
+                        // guvenlik agina burada gerek yok.
+                        onWatchAdForBooster = { type, onGranted ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = {
+                                        viewModel.grantEndlessBoosterFromAd(type)
+                                        onGranted()
+                                    },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) }
+                                )
+                            }
+                        },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()
                             if (activity != null) {
