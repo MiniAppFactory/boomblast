@@ -24,7 +24,7 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -220,7 +220,7 @@ fun ModeSelectScreen(
                             title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
                             statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
                             statValue = "$retroHighScore",
-                            icon = Icons.Default.ViewModule,
+                            icon = Icons.Default.SportsEsports,
                             accent = NeonPurple,
                             palette = palette,
                             onClick = onOpenRetro,
