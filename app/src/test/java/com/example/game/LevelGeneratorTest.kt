@@ -48,4 +48,17 @@ class LevelGeneratorTest {
             previous = current
         }
     }
+
+    @Test
+    fun `challenge levels have a steeper curve and a score multiplier above 1`() {
+        val level = LevelGenerator.forLevel(5)
+        val challenge = LevelGenerator.forChallengeLevel(5)
+        assertEquals(1f, level.scoreMultiplier)
+        assertTrue("challenge multiplier must exceed normal level multiplier", challenge.scoreMultiplier > level.scoreMultiplier)
+        assertTrue(
+            "challenge target growth per level must exceed normal level growth",
+            LevelGenerator.forChallengeLevel(6).targetScore - LevelGenerator.forChallengeLevel(5).targetScore >
+                LevelGenerator.forLevel(6).targetScore - LevelGenerator.forLevel(5).targetScore
+        )
+    }
 }

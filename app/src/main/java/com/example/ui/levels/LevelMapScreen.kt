@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -51,7 +52,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.AppLanguage
 import com.example.data.PlayerProgress
 import com.example.data.pick
-import com.example.game.LevelGenerator
 import com.example.ui.theme.BlastPalette
 import com.example.ui.theme.BlastSkin
 import com.example.ui.theme.NeonCyan
@@ -61,19 +61,33 @@ import com.example.ui.theme.NeonPurple
 import com.example.ui.theme.blastPalette
 import kotlin.math.sin
 
+// ModeSelectScreen'deki Challenge kart aksanniyla (Color(0xFFFF6B35)) ayni —
+// Pro Mode'un her yerde tutarli bir "marka rengi" olmasi icin.
+private val ProModeOrange = Color(0xFFFF6B35)
+
+// Faz 77: Pro Mode kendi haritasi icin bu ekrani AYNEN yeniden kullaniyor —
+// eskiden `progress.highestUnlockedLevel`/`progress.levelStars`/`LevelGenerator.
+// forLevel` DOGRUDAN icerde okunuyordu (Seviyeli Mod'a kilitli). Artik cagiran
+// taraf (AppNavigation) hangi ilerleme/hedef egrisinin kullanilacagini
+// parametre olarak veriyor, bu ekran mod-agnostik.
 @Composable
 fun LevelMapScreen(
     progress: PlayerProgress,
+    highestUnlockedLevel: Int,
+    levelStars: Map<Int, Int>,
+    targetScoreForLevel: (Int) -> Int,
     language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
+    isChallengeMode: Boolean = false,
     onSelectLevel: (Int) -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
-    val lastLevel = progress.highestUnlockedLevel + 3
+    val lastLevel = highestUnlockedLevel + 3
+    val accentColor = if (isChallengeMode) ProModeOrange else NeonCyan
 
     Box(
         modifier = Modifier
@@ -86,10 +100,45 @@ fun LevelMapScreen(
                 progress = progress,
                 language = language,
                 palette = palette,
+                isChallengeMode = isChallengeMode,
+                accentColor = accentColor,
                 onOpenMissions = onOpenMissions,
                 onOpenSettings = onOpenSettings,
                 onBack = onBack
             )
+
+            // Faz 77: can rozeti onceden basligin YANINDA (ayni satirda) idi —
+            // "PRO MOD" + kalp rozeti birlikte sikisip baslik "PRO ..." diye
+            // kirpiliyordu (Faz 72'nin tam duzelttigi "Seviyel..." sorununun
+            // ayni tekrari). Artik TAMAMEN AYRI, kendi satirinda — basligin
+            // genisligiyle asla yarismiyor.
+            if (isChallengeMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Favorite,
+                        contentDescription = language.pick(tr = "Canlar", en = "Lives", it = "Vite", fr = "Vies", es = "Vidas"),
+                        tint = Color(0xFFE53E3E),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = language.pick(
+                            tr = "${progress.challengeLives} Can",
+                            en = "${progress.challengeLives} Lives",
+                            it = "${progress.challengeLives} Vite",
+                            fr = "${progress.challengeLives} Vies",
+                            es = "${progress.challengeLives} Vidas"
+                        ),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE53E3E),
+                        modifier = Modifier.testTag("level_map_lives_pill")
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -109,7 +158,7 @@ fun LevelMapScreen(
             // 2 dugum kadar yukarisina.
             val listState = rememberLazyListState()
             LaunchedEffect(Unit) {
-                val targetIndex = (progress.highestUnlockedLevel - 1).coerceIn(0, lastLevel - 1)
+                val targetIndex = (highestUnlockedLevel - 1).coerceIn(0, lastLevel - 1)
                 listState.scrollToItem((targetIndex - 2).coerceAtLeast(0))
             }
             LazyColumn(
@@ -121,16 +170,18 @@ fun LevelMapScreen(
             ) {
                 items(count = lastLevel, key = { it + 1 }) { index ->
                     val levelNumber = index + 1
-                    val unlocked = levelNumber <= progress.highestUnlockedLevel
+                    val unlocked = levelNumber <= highestUnlockedLevel
                     // Faz 43: kullanici "yıldızların anlamı yok, gitsin, tamamlanan level
                     // yeşil olsun" dedi — yildizlar kaldirildi, tamamlanma durumu artik
                     // dugumun rengiyle gosteriliyor. levelStars'ta kayit varsa (recordLevelResult
                     // sadece seviye bitirilince yaziyor) o seviye tamamlanmis demektir.
-                    val completed = progress.levelStars[levelNumber] != null
+                    val completed = levelStars[levelNumber] != null
                     LevelPathNode(
                         levelNumber = levelNumber,
+                        targetScore = targetScoreForLevel(levelNumber),
                         unlocked = unlocked,
                         completed = completed,
+                        accentColor = accentColor,
                         prevXFraction = if (index == 0) null else pathXFraction(index - 1),
                         currXFraction = pathXFraction(index),
                         isLastItem = index == lastLevel - 1,
@@ -149,6 +200,8 @@ private fun LevelMapHeader(
     progress: PlayerProgress,
     language: AppLanguage,
     palette: BlastPalette,
+    isChallengeMode: Boolean = false,
+    accentColor: Color = NeonCyan,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onBack: () -> Unit
@@ -181,10 +234,14 @@ private fun LevelMapHeader(
             }
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = language.pick(tr = "SEVİYELER", en = "LEVELS", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
+                text = if (isChallengeMode) {
+                    language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO")
+                } else {
+                    language.pick(tr = "SEVİYELER", en = "LEVELS", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES")
+                },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
-                color = NeonCyan,
+                color = accentColor,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
@@ -277,8 +334,10 @@ private val LEVEL_NODE_CENTER_Y = 40.dp
 @Composable
 private fun LevelPathNode(
     levelNumber: Int,
+    targetScore: Int,
     unlocked: Boolean,
     completed: Boolean,
+    accentColor: Color,
     prevXFraction: Float?,
     currXFraction: Float,
     isLastItem: Boolean,
@@ -286,11 +345,10 @@ private fun LevelPathNode(
     palette: BlastPalette,
     onClick: () -> Unit
 ) {
-    val targetScore = LevelGenerator.forLevel(levelNumber).targetScore
-    val nodeAccent = if (completed) NeonGreen else NeonCyan
+    val nodeAccent = if (completed) NeonGreen else accentColor
     val borderBrush = when {
         completed -> Brush.linearGradient(listOf(NeonGreen, NeonGreen))
-        unlocked -> Brush.linearGradient(listOf(NeonCyan, NeonPurple))
+        unlocked -> Brush.linearGradient(listOf(accentColor, NeonPurple))
         else -> Brush.linearGradient(listOf(palette.cardBorder, palette.cardBorder))
     }
     val pathColor = if (unlocked) nodeAccent.copy(alpha = 0.45f) else palette.cardBorder.copy(alpha = 0.35f)

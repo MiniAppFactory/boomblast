@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -43,9 +44,25 @@ class GameStateRepository(private val context: Context) {
         val MISSION_WEEK_ID = stringPreferencesKey("mission_week_id")
         val MISSION_PROGRESS = stringPreferencesKey("mission_progress")
         val MISSION_CLAIMED = stringPreferencesKey("mission_claimed")
+
+        // Faz 77: Pro Mode (Challenge) — Seviyeli Mod'dan AYRI ilerleme + can sistemi.
+        val CHALLENGE_HIGHEST_LEVEL = intPreferencesKey("challenge_highest_unlocked_level")
+        val CHALLENGE_LEVEL_STARS = stringPreferencesKey("challenge_level_stars")
+        val CHALLENGE_LIVES = intPreferencesKey("challenge_lives")
+        val CHALLENGE_LAST_LIFE_TS = longPreferencesKey("challenge_last_life_timestamp")
     }
 
     val playerProgress: Flow<PlayerProgress> = context.gameDataStore.data.map { prefs ->
+        // Faz 77: can sayisi OKUMA aninda turetiliyor (yazma yapmadan, Flow.map
+        // saf bir donusum olmali) — gecen sureye gore kac can biriktigi hesaplanip
+        // UI'a hep GUNCEL deger gosteriliyor, arka planda calisan bir zamanlayiciya
+        // gerek yok. Gercek yazma (dusme/kazanma) sadece consumeChallengeLife/
+        // grantChallengeLife SUSPEND fonksiyonlarinda, DataStore.edit icinde olur.
+        val (challengeLives, challengeLastLifeTs) = regenChallengeLives(
+            storedLives = prefs[Keys.CHALLENGE_LIVES] ?: CHALLENGE_MAX_LIVES,
+            lastTimestamp = prefs[Keys.CHALLENGE_LAST_LIFE_TS] ?: 0L,
+            now = System.currentTimeMillis()
+        )
         PlayerProgress(
             tokens = prefs[Keys.TOKENS] ?: 150,
             highestUnlockedLevel = prefs[Keys.HIGHEST_LEVEL] ?: 1,
@@ -70,7 +87,11 @@ class GameStateRepository(private val context: Context) {
             hasAcceptedTerms = prefs[Keys.HAS_ACCEPTED_TERMS] ?: false,
             hasMadeFirstMove = prefs[Keys.HAS_MADE_FIRST_MOVE] ?: false,
             notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
-            levelsCompletedSinceInterstitial = prefs[Keys.LEVELS_SINCE_INTERSTITIAL] ?: 0
+            levelsCompletedSinceInterstitial = prefs[Keys.LEVELS_SINCE_INTERSTITIAL] ?: 0,
+            challengeHighestUnlockedLevel = prefs[Keys.CHALLENGE_HIGHEST_LEVEL] ?: 1,
+            challengeLevelStars = decodeIntMap(prefs[Keys.CHALLENGE_LEVEL_STARS]),
+            challengeLives = challengeLives,
+            challengeLastLifeTimestamp = challengeLastLifeTs
         )
     }
 
@@ -241,7 +262,77 @@ class GameStateRepository(private val context: Context) {
         }
     }
 
+    // --- Pro Mode (Challenge) ---
+
+    suspend fun recordChallengeLevelResult(level: Int, stars: Int) {
+        context.gameDataStore.edit { prefs ->
+            val currentHighest = prefs[Keys.CHALLENGE_HIGHEST_LEVEL] ?: 1
+            if (level >= currentHighest) {
+                prefs[Keys.CHALLENGE_HIGHEST_LEVEL] = level + 1
+            }
+            val starsMap = decodeIntMap(prefs[Keys.CHALLENGE_LEVEL_STARS]).toMutableMap()
+            val best = maxOf(starsMap[level] ?: 0, stars)
+            starsMap[level] = best
+            prefs[Keys.CHALLENGE_LEVEL_STARS] = encodeIntMap(starsMap)
+        }
+    }
+
+    // Bir bolume BASLARKEN cagrilir (kazanilsin/kaybedilsin fark etmez, mobil
+    // oyunlarda standart "attempt basina 1 can" deseni). Guncel (regen dahil)
+    // can 0'sa false doner, cagiran taraf oyunu baslatmamali.
+    suspend fun consumeChallengeLife(): Boolean {
+        var success = false
+        context.gameDataStore.edit { prefs ->
+            val now = System.currentTimeMillis()
+            val stored = prefs[Keys.CHALLENGE_LIVES] ?: CHALLENGE_MAX_LIVES
+            val ts = prefs[Keys.CHALLENGE_LAST_LIFE_TS] ?: 0L
+            val (current, adjustedTs) = regenChallengeLives(stored, ts, now)
+            if (current > 0) {
+                val wasFull = current >= CHALLENGE_MAX_LIVES
+                prefs[Keys.CHALLENGE_LIVES] = current - 1
+                // Dolu haldeyken ilk dususse yeni regen sayaci SIMDI baslar —
+                // aksi halde eski (bos) zaman damgasindan sayilip oyuncuya
+                // haksiz uzun bir bekleme cikar.
+                prefs[Keys.CHALLENGE_LAST_LIFE_TS] = if (wasFull) now else adjustedTs
+                success = true
+            } else {
+                prefs[Keys.CHALLENGE_LIVES] = current
+                prefs[Keys.CHALLENGE_LAST_LIFE_TS] = adjustedTs
+            }
+        }
+        return success
+    }
+
+    // "1 reklam = 1 can" akisi.
+    suspend fun grantChallengeLife() {
+        context.gameDataStore.edit { prefs ->
+            val now = System.currentTimeMillis()
+            val stored = prefs[Keys.CHALLENGE_LIVES] ?: CHALLENGE_MAX_LIVES
+            val ts = prefs[Keys.CHALLENGE_LAST_LIFE_TS] ?: 0L
+            val (current, adjustedTs) = regenChallengeLives(stored, ts, now)
+            prefs[Keys.CHALLENGE_LIVES] = (current + 1).coerceAtMost(CHALLENGE_MAX_LIVES)
+            prefs[Keys.CHALLENGE_LAST_LIFE_TS] = adjustedTs
+        }
+    }
+
     companion object {
+        const val CHALLENGE_MAX_LIVES = 5
+        const val CHALLENGE_LIFE_REFILL_MS = 30 * 60 * 1000L
+
+        // Saf fonksiyon: depolanan can + son zaman damgasi + "simdi"den, GUNCEL
+        // can sayisini ve yeni regen baz zamanini turetir. Dolu ise (>=MAX)
+        // zaman damgasini "simdi"ye ilerletir (bos regen suresi birikmesin).
+        fun regenChallengeLives(storedLives: Int, lastTimestamp: Long, now: Long): Pair<Int, Long> {
+            if (storedLives >= CHALLENGE_MAX_LIVES) return storedLives to now
+            if (lastTimestamp <= 0L) return storedLives to now
+            val elapsed = now - lastTimestamp
+            if (elapsed < CHALLENGE_LIFE_REFILL_MS) return storedLives to lastTimestamp
+            val gained = (elapsed / CHALLENGE_LIFE_REFILL_MS).toInt()
+            val newLives = (storedLives + gained).coerceAtMost(CHALLENGE_MAX_LIVES)
+            val newTimestamp = if (newLives >= CHALLENGE_MAX_LIVES) now else lastTimestamp + gained * CHALLENGE_LIFE_REFILL_MS
+            return newLives to newTimestamp
+        }
+
         fun currentWeekId(): String {
             val calendar = Calendar.getInstance()
             val week = calendar.get(Calendar.WEEK_OF_YEAR)

@@ -66,8 +66,12 @@ fun ModeSelectScreen(
     tokens: Int,
     endlessBestScore: Int,
     highestUnlockedLevel: Int,
+    // Faz 77: Pro Mode (eski "Challenge") artik oynanabilir — kart YAKINDA/
+    // kilitli degil, kendi ilerlemesini gosteriyor.
+    highestChallengeLevel: Int,
     onOpenLevels: () -> Unit,
     onOpenEndless: () -> Unit,
+    onOpenChallenge: () -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -197,15 +201,15 @@ fun ModeSelectScreen(
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         ModeCard(
-                            title = language.pick(tr = "CHALLENGE", en = "CHALLENGE", it = "CHALLENGE", fr = "DÉFI", es = "DESAFÍO"),
-                            statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
-                            statValue = "",
+                            title = language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO"),
+                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
+                            statValue = "$highestChallengeLevel",
                             icon = Icons.Default.LocalFireDepartment,
                             accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
                             palette = palette,
-                            onClick = {},
+                            onClick = onOpenChallenge,
                             testTag = "mode_select_challenge_button",
-                            locked = true,
+                            locked = false,
                             modifier = Modifier.weight(1f).aspectRatio(1f)
                         )
                         Spacer(modifier = Modifier.width(16.dp))

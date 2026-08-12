@@ -381,6 +381,10 @@ fun BlastTheBlocksGame(
     levelNumber: Int,
     targetScore: Int,
     shapePoolTier: Int = 3,
+    // Faz 77: Pro Mode "daha yuksek puan carpani" — 1f=degisiklik yok
+    // (Level/Sonsuz Mod), Pro Mode LevelDefinition.scoreMultiplier'i buraya
+    // gecirir.
+    scoreMultiplier: Float = 1f,
     currentTheme: String = "CLASSIC",
     language: AppLanguage = AppLanguage.TR,
     soundEnabled: Boolean = true,
@@ -993,7 +997,10 @@ fun BlastTheBlocksGame(
         // sadece 50 hucre doldurarak 500'luk bir hedefe ulasilabiliyordu, mantiksizdi).
         // Artik 1 hucre = 1 puan; asagidaki satir temizleme bonusu ve hedef puanlari
         // (bkz. LevelGenerator) bu YENİ 10x kucuk olceğe gore yeniden ayarlandi.
-        score += placedBlocks
+        // Faz 77: Pro Mode "daha yuksek puan carpani" — varsayilan 1f (Level/
+        // Sonsuz Mod degismez), Pro Mode'da >1f verilip TUM puan artislarina
+        // uygulanir.
+        score += (placedBlocks * scoreMultiplier).roundToInt()
 
         // Check full rows & columns
         val rowsToClear = mutableListOf<Int>()
@@ -1042,7 +1049,7 @@ fun BlastTheBlocksGame(
             // multiLineMultiplier var (1 satir icin carpan yok, her ekstra ESZAMANLI
             // satir +%50 ekliyor: 2 satir=1.5x, 3 satir=2x, 4 satir=2.5x).
             val multiLineMultiplier = 1f + (totalLinesCleared - 1) * 0.5f
-            val lineBonus = (totalLinesCleared * gridSize * comboCount * multiLineMultiplier).roundToInt()
+            val lineBonus = (totalLinesCleared * gridSize * comboCount * multiLineMultiplier * scoreMultiplier).roundToInt()
             score += lineBonus
             // Kombo yukseldikce ovgu kelimesi de yukseliyor (Block Blast!'daki
             // "Excellent!"/thumbs-up tarzi geri bildirime benzer, kullanici istegi).

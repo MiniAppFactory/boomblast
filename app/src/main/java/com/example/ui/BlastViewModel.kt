@@ -68,6 +68,24 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.resetLevelsSinceInterstitial() }
     }
 
+    // --- Pro Mode (Challenge) ---
+
+    fun recordChallengeLevelComplete(level: Int, score: Int, stars: Int) {
+        viewModelScope.launch {
+            repository.recordChallengeLevelResult(level, stars)
+            repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
+            repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
+        }
+    }
+
+    // Bir Pro Mode bolumune baslamadan once cagrilir — can yoksa false doner,
+    // cagiran taraf navigasyonu YAPMAMALI (can-bitti ekranini gostermeli).
+    suspend fun consumeChallengeLife(): Boolean = repository.consumeChallengeLife()
+
+    fun grantChallengeLife() {
+        viewModelScope.launch { repository.grantChallengeLife() }
+    }
+
     fun claimMission(missionId: String, tierIndex: Int) {
         viewModelScope.launch {
             val mission = weeklyMissions.value.missions.find { it.id == missionId } ?: return@launch

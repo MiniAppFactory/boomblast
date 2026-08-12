@@ -12,7 +12,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +30,7 @@ import com.example.data.AppLanguage
 import com.example.data.pick
 import com.example.game.LevelGenerator
 import com.example.ui.BlastViewModel
+import com.example.ui.challenge.NoLivesScreen
 import com.example.ui.consent.TermsAcceptScreen
 import com.example.ui.games.boomblocks.BlastTheBlocksGame
 import com.example.ui.levels.LevelMapScreen
@@ -48,8 +51,17 @@ object Routes {
     const val MISSIONS = "missions"
     const val SETTINGS = "settings"
 
+    // Faz 77: Pro Mode (eski "Challenge") — Seviyeli Mod'un AYNI harita/loadout/
+    // oyun akisini, kendi ilerlemesi + can sistemiyle kullanir.
+    const val CHALLENGE_MAP = "challenge_map"
+    const val CHALLENGE_LOADOUT = "challenge_loadout/{level}"
+    const val CHALLENGE_GAME = "challenge_game/{level}"
+    const val CHALLENGE_NO_LIVES = "challenge_no_lives"
+
     fun loadout(level: Int) = "loadout/$level"
     fun game(level: Int) = "game/$level"
+    fun challengeLoadout(level: Int) = "challenge_loadout/$level"
+    fun challengeGame(level: Int) = "challenge_game/$level"
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -107,8 +119,10 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                             tokens = progress.tokens,
                             endlessBestScore = progress.endlessHighScore,
                             highestUnlockedLevel = progress.highestUnlockedLevel,
+                            highestChallengeLevel = progress.challengeHighestUnlockedLevel,
                             onOpenLevels = { navController.navigate(Routes.LEVEL_MAP) },
                             onOpenEndless = { navController.navigate(Routes.ENDLESS_GAME) },
+                            onOpenChallenge = { navController.navigate(Routes.CHALLENGE_MAP) },
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                         )
@@ -142,6 +156,9 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                 Box(modifier = Modifier.weight(1f)) {
                     LevelMapScreen(
                         progress = progress,
+                        highestUnlockedLevel = progress.highestUnlockedLevel,
+                        levelStars = progress.levelStars,
+                        targetScoreForLevel = { level -> LevelGenerator.forLevel(level).targetScore },
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
@@ -278,6 +295,205 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                                 onDenied()
                             }
                         }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        // Faz 77: Pro Mode (Challenge) — Seviyeli Mod'un AYNI ekranlarini
+        // (LevelMapScreen/LoadoutScreen/BlastTheBlocksGame) kendi ilerleme +
+        // hedef egrisi + can sistemiyle kullanir. "BAŞLA" butonuna basinca
+        // (onStartLevel) can tuketilir — yeterli can yoksa CHALLENGE_NO_LIVES'a
+        // yonlendirilir, oyun BASLAMAZ.
+        composable(Routes.CHALLENGE_MAP) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LevelMapScreen(
+                        progress = progress,
+                        highestUnlockedLevel = progress.challengeHighestUnlockedLevel,
+                        levelStars = progress.challengeLevelStars,
+                        targetScoreForLevel = { level -> LevelGenerator.forChallengeLevel(level).targetScore },
+                        isChallengeMode = true,
+                        language = progress.language,
+                        darkMode = progress.darkMode,
+                        skin = skin,
+                        onSelectLevel = { level -> navController.navigate(Routes.challengeLoadout(level)) },
+                        onOpenMissions = { navController.navigate(Routes.MISSIONS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(
+            Routes.CHALLENGE_LOADOUT,
+            arguments = listOf(navArgument("level") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val level = backStackEntry.arguments?.getInt("level") ?: 1
+            val definition = LevelGenerator.forChallengeLevel(level)
+            var isWatchAdLoading by remember { mutableStateOf(false) }
+            val coroutineScope = rememberCoroutineScope()
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LoadoutScreen(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        progress = progress,
+                        language = progress.language,
+                        darkMode = progress.darkMode,
+                        skin = skin,
+                        onBuyBooster = { type -> viewModel.buyBooster(type) },
+                        isWatchAdLoading = isWatchAdLoading,
+                        onWatchAdForTokens = {
+                            val activity = context.findActivity()
+                            if (activity != null && !isWatchAdLoading) {
+                                isWatchAdLoading = true
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { viewModel.watchAdForTokens() },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) },
+                                    onAdClosed = { isWatchAdLoading = false }
+                                )
+                            }
+                        },
+                        onStartLevel = {
+                            coroutineScope.launch {
+                                if (viewModel.consumeChallengeLife()) {
+                                    navController.navigate(Routes.challengeGame(level))
+                                } else {
+                                    navController.navigate(Routes.CHALLENGE_NO_LIVES)
+                                }
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(
+            Routes.CHALLENGE_GAME,
+            arguments = listOf(navArgument("level") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val level = backStackEntry.arguments?.getInt("level") ?: 1
+            val definition = LevelGenerator.forChallengeLevel(level)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    BlastTheBlocksGame(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        shapePoolTier = definition.shapePoolTier,
+                        scoreMultiplier = definition.scoreMultiplier,
+                        currentTheme = progress.blockTheme,
+                        language = progress.language,
+                        soundEnabled = progress.soundEnabled,
+                        darkMode = progress.darkMode,
+                        initialBoosterCounts = progress.ownedBoosters,
+                        onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
+                        onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onMultiClear = { viewModel.recordMultiClear() },
+                        onBack = { navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false) },
+                        musicEnabled = progress.musicEnabled,
+                        soundVolume = progress.soundVolume,
+                        onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onSoundVolumeChange = { viewModel.setSoundVolume(it) },
+                        onToggleMusic = { viewModel.setMusicEnabled(it) },
+                        onToggleDarkMode = { viewModel.setDarkMode(it) },
+                        onSelectLanguage = { viewModel.setLanguage(it) },
+                        uiSkin = skin,
+                        onSelectSkin = onSelectSkin,
+                        notificationsEnabled = progress.notificationsEnabled,
+                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                        hasMadeFirstMove = progress.hasMadeFirstMove,
+                        onFirstMoveMade = { viewModel.markFirstMoveMade() },
+                        onLevelComplete = { score, stars -> viewModel.recordChallengeLevelComplete(level, score, stars) },
+                        onLevelCompleteContinue = {
+                            // Faz 77: basitlik icin Seviyeli Mod'daki AYNI
+                            // "levelsCompletedSinceInterstitial" sayacini
+                            // paylasiyor — iki modda birlesik "her bolum"
+                            // esigi, ayri bir sayac eklemeye gerek yok.
+                            val activity = context.findActivity()
+                            if (progress.levelsCompletedSinceInterstitial >= 1 && activity != null) {
+                                viewModel.resetLevelsSinceInterstitial()
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = {
+                                        navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
+                                    }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
+                            }
+                        },
+                        onLevelFailed = { /* can zaten bolume girerken tuketildi, ekstra kayip yok */ },
+                        onRequestContinueAd = { onGranted, onDenied ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                var handled = false
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { handled = true; onGranted() },
+                                    onFailure = { handled = true; showAdUnavailableToast(context, progress.language); onDenied() },
+                                    onAdClosed = { if (!handled) { handled = true; onDenied() } }
+                                )
+                            } else {
+                                onDenied()
+                            }
+                        }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(Routes.CHALLENGE_NO_LIVES) {
+            var isWatchAdLoading by remember { mutableStateOf(false) }
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    NoLivesScreen(
+                        language = progress.language,
+                        darkMode = progress.darkMode,
+                        skin = skin,
+                        lastLifeTimestamp = progress.challengeLastLifeTimestamp,
+                        isWatchAdLoading = isWatchAdLoading,
+                        onWatchAd = {
+                            val activity = context.findActivity()
+                            if (activity != null && !isWatchAdLoading) {
+                                isWatchAdLoading = true
+                                // Faz 77: onAdClosed reklam yuklenemese BILE (no-fill)
+                                // tetikleniyor (bkz. RewardedAdManager.onAdFailedToLoad)
+                                // — geri navigasyonu SADECE odul gercekten kazanildiysa
+                                // yapmak icin yerel bir bayrak kullaniliyor.
+                                var rewardEarned = false
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { rewardEarned = true; viewModel.grantChallengeLife() },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) },
+                                    onAdClosed = {
+                                        isWatchAdLoading = false
+                                        if (rewardEarned) navController.popBackStack()
+                                    }
+                                )
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {

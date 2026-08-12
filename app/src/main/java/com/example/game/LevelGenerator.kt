@@ -7,7 +7,11 @@ data class LevelDefinition(
     val targetScore: Int,
     // shapePoolTier, BlastTheBlocksGame.kt'deki generateNewTray()'in SHAPE_PATTERNS.take(n)
     // mantığıyla aynı kademelendirmeyi kullanır: 1=basit parçalar, 3=tüm parçalar.
-    val shapePoolTier: Int
+    val shapePoolTier: Int,
+    // Faz 77: Pro Mode (Challenge) icin — 1f=degisiklik yok (Level Modu),
+    // Pro Mode'da bu carpan BlastTheBlocksGame'in TUM puan artislarina
+    // uygulaniyor ("daha yuksek puan carpani").
+    val scoreMultiplier: Float = 1f
 )
 
 object LevelGenerator {
@@ -30,4 +34,18 @@ object LevelGenerator {
     // neredeyse ozdes, oyuncu skill/challenge yerine sadece "bir tane daha
     // gectim" tekrarindan motive oluyor.
     private fun targetScoreForLevel(n: Int): Int = 100 + (n - 1) * 5
+
+    // Faz 77: Pro Mode — kullanici "daha zor zorluk eğrisi, daha yüksek puan
+    // çarpanı" istedi (handover 6.1). forLevel'in BILEREK duz/kolay egrisinin
+    // (Faz 64) tam tersi: daha dik hedef artisi + 1.5x puan carpani, parca
+    // havuzu da daha erken zorlasiyor (Seviye 1'den itibaren tier 2).
+    fun forChallengeLevel(number: Int): LevelDefinition {
+        val safeNumber = number.coerceAtLeast(1)
+        val targetScore = 150 + (safeNumber - 1) * 20
+        val shapePoolTier = when {
+            safeNumber <= 2 -> 2
+            else -> 3
+        }
+        return LevelDefinition(safeNumber, targetScore, shapePoolTier, scoreMultiplier = 1.5f)
+    }
 }
