@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -54,12 +56,14 @@ fun MissionsScreen(
     language: AppLanguage,
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
-    onClaim: (String) -> Unit,
+    onClaim: (String, Int) -> Unit,
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
     val allClaimed = missionProgress.missions.isNotEmpty() &&
-        missionProgress.missions.all { it.id in missionProgress.claimed }
+        missionProgress.missions.all { mission ->
+            mission.tiers.indices.all { tierIndex -> "${mission.id}#$tierIndex" in missionProgress.claimed }
+        }
 
     Box(
         modifier = Modifier
@@ -146,10 +150,10 @@ fun MissionsScreen(
                     MissionCard(
                         mission = mission,
                         currentCount = missionProgress.progress[mission.id] ?: 0,
-                        isClaimed = mission.id in missionProgress.claimed,
+                        claimedTiers = mission.tiers.indices.filter { "${mission.id}#$it" in missionProgress.claimed }.toSet(),
                         language = language,
                         palette = palette,
-                        onClaim = { onClaim(mission.id) }
+                        onClaim = { tierIndex -> onClaim(mission.id, tierIndex) }
                     )
                 }
             }
@@ -161,15 +165,23 @@ fun MissionsScreen(
 private fun MissionCard(
     mission: WeeklyMissionDef,
     currentCount: Int,
-    isClaimed: Boolean,
+    claimedTiers: Set<Int>,
     language: AppLanguage,
     palette: BlastPalette,
-    onClaim: () -> Unit
+    onClaim: (tierIndex: Int) -> Unit
 ) {
-    val target = if (mission.target > 0) mission.target else 1
+    // Faz 73: her gorev artik 3 milestone'li bir merdiven — kart HER ZAMAN
+    // bir sonraki claim edilmemis tier'i "aktif" olarak gosterir (progress
+    // bar/hedef/odul o tier'e gore), ustte 3 kucuk nokta ile hangi tier'lerin
+    // claim edildigini/ulasildigini/henuz ulasilmadigini ozetler.
+    val activeTierIndex = mission.tiers.indices.firstOrNull { it !in claimedTiers }
+    val allTiersClaimed = activeTierIndex == null
+    val activeTier = activeTierIndex?.let { mission.tiers[it] } ?: mission.tiers.last()
+    val target = if (activeTier.target > 0) activeTier.target else 1
     val progressFraction = (currentCount.toFloat() / target.toFloat()).coerceIn(0f, 1f)
-    val isComplete = currentCount >= mission.target
-    val isClaimable = isComplete && !isClaimed
+    val isComplete = currentCount >= activeTier.target
+    val isClaimable = !allTiersClaimed && isComplete
+    val isClaimed = allTiersClaimed
 
     // Faz 70: kullanici "haftalik gorevler sayfasinin gorseli cirkin, kabartmali
     // gibi olsun" dedi. Duz Material3 Card yerine — CFO-Catch projesindeki
@@ -216,11 +228,28 @@ private fun MissionCard(
                     Text(text = "🪙", fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${mission.rewardTokens}",
+                        text = "${activeTier.rewardTokens}",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = NeonGold
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Faz 73: 3 milestone gostergesi — claim edilmis (altin tik),
+            // ulasilmis-ama-claim-edilmemis (yesil dolu), henuz ulasilmamis
+            // (soluk halka).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                mission.tiers.forEachIndexed { tierIndex, tier ->
+                    if (tierIndex > 0) Spacer(modifier = Modifier.width(6.dp))
+                    val tierState = when {
+                        tierIndex in claimedTiers -> TierDotState.CLAIMED
+                        currentCount >= tier.target -> TierDotState.READY
+                        else -> TierDotState.LOCKED
+                    }
+                    TierDot(state = tierState)
                 }
             }
 
@@ -239,7 +268,11 @@ private fun MissionCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "${currentCount.coerceAtMost(mission.target)} / ${mission.target}",
+                text = if (allTiersClaimed) {
+                    "${mission.tiers.last().target} / ${mission.tiers.last().target}"
+                } else {
+                    "${currentCount.coerceAtMost(activeTier.target)} / ${activeTier.target}"
+                },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = palette.textSecondary
@@ -281,7 +314,7 @@ private fun MissionCard(
 
                 isClaimable -> {
                     Button(
-                        onClick = onClaim,
+                        onClick = { activeTierIndex?.let(onClaim) },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
@@ -320,5 +353,39 @@ private fun MissionCard(
                 }
             }
         }
+    }
+}
+
+private enum class TierDotState { CLAIMED, READY, LOCKED }
+
+@Composable
+private fun TierDot(state: TierDotState) {
+    when (state) {
+        TierDotState.CLAIMED -> Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(NeonGold),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(10.dp)
+            )
+        }
+        TierDotState.READY -> Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(NeonGreen)
+        )
+        TierDotState.LOCKED -> Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+        )
     }
 }

@@ -222,6 +222,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onMultiClear = { viewModel.recordMultiClear() },
                         onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
@@ -301,6 +302,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onMultiClear = { viewModel.recordMultiClear() },
                         onBack = { navController.popBackStack() },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
@@ -357,7 +359,7 @@ fun AppNavigation(viewModel: BlastViewModel, adsConsentResolved: Boolean) {
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
-                        onClaim = { id -> viewModel.claimMission(id) },
+                        onClaim = { id, tierIndex -> viewModel.claimMission(id, tierIndex) },
                         onBack = { navController.popBackStack() }
                     )
                 }

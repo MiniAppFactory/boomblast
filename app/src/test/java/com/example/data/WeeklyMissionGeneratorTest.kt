@@ -7,9 +7,9 @@ import org.junit.Test
 class WeeklyMissionGeneratorTest {
 
     @Test
-    fun `always returns exactly 4 missions`() {
+    fun `always returns exactly 5 missions`() {
         val missions = WeeklyMissionGenerator.forWeek("2026-W32")
-        assertEquals(4, missions.size)
+        assertEquals(5, missions.size)
     }
 
     @Test
@@ -26,11 +26,22 @@ class WeeklyMissionGeneratorTest {
     }
 
     @Test
-    fun `every mission has a positive target and reward`() {
+    fun `every mission has exactly 3 tiers with increasing targets and positive rewards`() {
         val missions = WeeklyMissionGenerator.forWeek("2026-W40")
         missions.forEach { mission ->
-            assertTrue("target must be positive for ${mission.id}", mission.target > 0)
-            assertTrue("reward must be positive for ${mission.id}", mission.rewardTokens > 0)
+            assertEquals("mission ${mission.id} must have exactly 3 tiers", 3, mission.tiers.size)
+            mission.tiers.forEach { tier ->
+                assertTrue("target must be positive for ${mission.id}", tier.target > 0)
+                assertTrue("reward must be positive for ${mission.id}", tier.rewardTokens > 0)
+            }
+            val targets = mission.tiers.map { it.target }
+            assertEquals("tier targets must be strictly increasing for ${mission.id}", targets, targets.sorted().distinct())
         }
+    }
+
+    @Test
+    fun `all 5 mission types are represented`() {
+        val missions = WeeklyMissionGenerator.forWeek("2026-W40")
+        assertEquals(MissionType.entries.toSet(), missions.map { it.type }.toSet())
     }
 }

@@ -68,11 +68,16 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.resetLevelsSinceInterstitial() }
     }
 
-    fun claimMission(missionId: String) {
+    fun claimMission(missionId: String, tierIndex: Int) {
         viewModelScope.launch {
             val mission = weeklyMissions.value.missions.find { it.id == missionId } ?: return@launch
-            repository.claimMission(missionId, mission.rewardTokens)
+            val tier = mission.tiers.getOrNull(tierIndex) ?: return@launch
+            repository.claimMission(missionId, tierIndex, tier.rewardTokens)
         }
+    }
+
+    fun recordMultiClear() {
+        viewModelScope.launch { repository.incrementMissionProgress(MissionType.MULTI_CLEARS, 1) }
     }
 
     fun setSoundEnabled(enabled: Boolean) {

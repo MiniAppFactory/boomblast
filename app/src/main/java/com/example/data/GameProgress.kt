@@ -31,7 +31,13 @@ data class PlayerProgress(
     val levelsCompletedSinceInterstitial: Int = 0
 )
 
-enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS }
+enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS, MULTI_CLEARS }
+
+// Faz 73: her gorev artik TEK hedef/odul yerine kademeli 3 milestone'luk bir
+// merdiven — kullanici: "5 kullan = 20 jeton, 10 kullan = 30 jeton daha,
+// 15 kullan = 50 jeton daha" gibi. target'lar KUMULATIF (tier[1].target,
+// tier[0]'dan itibaren degil, bastan itibaren sayilir).
+data class MissionTier(val target: Int, val rewardTokens: Int)
 
 data class WeeklyMissionDef(
     val id: String,
@@ -40,8 +46,7 @@ data class WeeklyMissionDef(
     val titleIt: String,
     val titleFr: String,
     val titleEs: String,
-    val target: Int,
-    val rewardTokens: Int,
+    val tiers: List<MissionTier>,
     val type: MissionType
 ) {
     fun title(language: AppLanguage): String =
@@ -51,6 +56,8 @@ data class WeeklyMissionDef(
 data class WeeklyMissionProgress(
     val weekId: String,
     val missions: List<WeeklyMissionDef>,
+    // Ham kumulatif sayac (mission.id -> deger), en yuksek tier'in target'ina coerce edilir.
     val progress: Map<String, Int> = emptyMap(),
+    // "missionId#tierIndex" formatinda claim edilmis tier'ler.
     val claimed: Set<String> = emptySet()
 )

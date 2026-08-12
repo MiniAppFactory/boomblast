@@ -218,7 +218,7 @@ class GameStateRepository(private val context: Context) {
             }
             missions.filter { it.type == type }.forEach { mission ->
                 val current = progress[mission.id] ?: 0
-                progress[mission.id] = (current + amount).coerceAtMost(mission.target)
+                progress[mission.id] = (current + amount).coerceAtMost(mission.tiers.last().target)
             }
             prefs[Keys.MISSION_WEEK_ID] = weekId
             prefs[Keys.MISSION_PROGRESS] = encodeStringIntMap(progress)
@@ -228,10 +228,12 @@ class GameStateRepository(private val context: Context) {
         }
     }
 
-    suspend fun claimMission(missionId: String, rewardTokens: Int) {
+    // Faz 73: gorevler artik 3 milestone'li — claim artik mission basina degil,
+    // "$missionId#$tierIndex" anahtariyla tier basina.
+    suspend fun claimMission(missionId: String, tierIndex: Int, rewardTokens: Int) {
         context.gameDataStore.edit { prefs ->
             val claimed = decodeStringSet(prefs[Keys.MISSION_CLAIMED]).toMutableSet()
-            if (claimed.add(missionId)) {
+            if (claimed.add("$missionId#$tierIndex")) {
                 prefs[Keys.MISSION_CLAIMED] = claimed.joinToString(",")
                 val current = prefs[Keys.TOKENS] ?: 150
                 prefs[Keys.TOKENS] = current + rewardTokens

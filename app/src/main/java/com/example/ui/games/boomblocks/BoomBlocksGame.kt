@@ -391,6 +391,10 @@ fun BlastTheBlocksGame(
     onSelectTheme: (String) -> Unit = {},
     onUseBooster: (BoosterType) -> Unit = {},
     onLinesCleared: (count: Int) -> Unit = {},
+    // Faz 73: tek hamlede 2+ satir/sutun patlatinca ("Coklu Patlama" haftalik
+    // gorevi icin) tetiklenir — onLinesCleared'dan AYRI, cunku onLinesCleared
+    // 1 satir patlasa bile cagriliyor, bu ise sadece coklu patlamada.
+    onMultiClear: () -> Unit = {},
     onBack: () -> Unit,
     // Ayarlar navController.navigate() ile ayri bir hedefe gitmiyor — Navigation
     // Compose ekrandan ayrilinca bu composable'i komposizyondan atip geri donunce
@@ -1020,6 +1024,7 @@ fun BlastTheBlocksGame(
         val totalLinesCleared = rowsToClear.size + colsToClear.size
         if (totalLinesCleared > 0) {
             onLinesCleared(totalLinesCleared)
+            if (totalLinesCleared >= 2) onMultiClear()
             comboCount++
             // Faz 45: onceden sabit 100 puan/satir idi (yeni 1puan/hucre olcegine
             // gore orantisizca buyuktu). Artik satir basina bonus, o satirin gercek
