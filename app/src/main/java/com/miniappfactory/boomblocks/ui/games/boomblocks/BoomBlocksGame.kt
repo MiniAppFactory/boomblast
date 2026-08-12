@@ -2214,27 +2214,11 @@ fun BlastTheBlocksGame(
             }
         }
 
-        // Faz 22: ilk gercek hamleden once, tepsinin uzerinde kisa bir rehber ipucu —
-        // ilk basarili yerlestirmede kalici olarak (DataStore) kapatilir.
-        if (showFirstMoveHint) {
-            Surface(
-                color = palette.card,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, NeonCyan.copy(alpha = sharedPulse)),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 122.dp)
-                    .zIndex(25f)
-            ) {
-                Text(
-                    text = language.pick(tr = "⬇️ Bir parçayı ızgaraya sürükle", en = "⬇️ Drag a piece onto the grid", it = "⬇️ Trascina un pezzo sulla griglia", fr = "⬇️ Glissez une pièce sur la grille", es = "⬇️ Arrastra una pieza a la cuadrícula"),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonCyan,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                )
-            }
-        }
+        // Faz 95: kullanici ilk-hamle rehber ipucunu da (Faz 22) kalabalik
+        // bulup kaldirmamizi istedi — showFirstMoveHint state'i ve
+        // onFirstMoveMade() cagrisi (asagida, checkGameOver/placeShape akisinda)
+        // zararsizca kaliyor (DataStore'a "ilk hamle yapildi" yazmaya devam
+        // ediyor), sadece GORUNUR ipucu kaldirildi.
 
         activeDragShape()?.let { draggedShape ->
             val liftPx = with(density) { dragLiftDp.toPx() }
