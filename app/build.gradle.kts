@@ -21,8 +21,11 @@ android {
     applicationId = "com.miniappfactory.boomblocks"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    // Faz 88: closed testing release'i internal testing'in kullandigi
+    // versionCode=1 ile cakisti ("Version code 1 has already been used").
+    // Play Console tum track'lerde tekil/artan versionCode istiyor.
+    versionCode = 2
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
