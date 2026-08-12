@@ -2,6 +2,7 @@ package com.example.ui.missions
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -30,6 +33,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -179,6 +186,11 @@ private fun MissionCard(
     val allTiersClaimed = activeTierIndex == null
     val activeTier = activeTierIndex?.let { mission.tiers[it] } ?: mission.tiers.last()
     val isComplete = currentCount >= activeTier.target
+    // Faz 76: kullanici "milestone kriterleri hicbir yerde yazmiyor" dedi —
+    // karttaki baslik/ilerleme sadece AKTIF tier'i gosteriyordu, 3 tier'in
+    // tamamini gormenin bir yolu yoktu. Kucuk bir "i" ikonu tiklayinca
+    // 3 tier'in tamamini (hedef+odul) listeleyen kisa bir overlay aciliyor.
+    var showInfo by remember { mutableStateOf(false) }
     val isClaimable = !allTiersClaimed && isComplete
     val isClaimed = allTiersClaimed
 
@@ -213,13 +225,37 @@ private fun MissionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = mission.title(language, if (allTiersClaimed) mission.tiers.last().target else activeTier.target),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    color = palette.textPrimary,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = mission.title(language, if (allTiersClaimed) mission.tiers.last().target else activeTier.target),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                        color = palette.textPrimary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(palette.cardAlt)
+                            .clickable { showInfo = true }
+                            .testTag("mission_info_${mission.id}"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = language.pick(tr = "Görev detayı", en = "Mission details", it = "Dettagli missione", fr = "Détails de la mission", es = "Detalles de la misión"),
+                            tint = palette.textSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -338,6 +374,44 @@ private fun MissionCard(
                 }
             }
         }
+    }
+
+    if (showInfo) {
+        AlertDialog(
+            onDismissRequest = { showInfo = false },
+            confirmButton = {
+                Button(onClick = { showInfo = false }) {
+                    Text(text = language.pick(tr = "Tamam", en = "OK", it = "OK", fr = "OK", es = "OK"))
+                }
+            },
+            title = {
+                Text(
+                    text = language.pick(tr = "Görev Basamakları", en = "Mission Tiers", it = "Livelli Missione", fr = "Paliers de Mission", es = "Niveles de Misión"),
+                    fontWeight = FontWeight.Black
+                )
+            },
+            text = {
+                Column {
+                    mission.tiers.forEachIndexed { tierIndex, tier ->
+                        if (tierIndex > 0) Spacer(modifier = Modifier.height(8.dp))
+                        val tierStatus = when {
+                            tierIndex in claimedTiers -> language.pick(tr = "✅ Alındı", en = "✅ Claimed", it = "✅ Riscosso", fr = "✅ Réclamé", es = "✅ Reclamado")
+                            currentCount >= tier.target -> language.pick(tr = "🟢 Hazır", en = "🟢 Ready", it = "🟢 Pronto", fr = "🟢 Prêt", es = "🟢 Listo")
+                            else -> language.pick(tr = "🔒 Kilitli", en = "🔒 Locked", it = "🔒 Bloccato", fr = "🔒 Verrouillé", es = "🔒 Bloqueado")
+                        }
+                        Text(
+                            text = "${tierIndex + 1}. ${mission.title(language, tier.target)} — ${tier.rewardTokens} 🪙",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = tierStatus,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        )
     }
 }
 
