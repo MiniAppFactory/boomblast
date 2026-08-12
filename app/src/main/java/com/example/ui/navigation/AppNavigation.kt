@@ -34,6 +34,7 @@ import com.example.ui.games.retro.RetroGameScreen
 import com.example.ui.games.retro.RetroHighScoreScreen
 import com.example.ui.games.retro.RetroMenuScreen
 import com.example.ui.games.retro.RetroSettingsScreen
+import com.example.ui.help.HowToPlayScreen
 import com.example.ui.levels.LevelMapScreen
 import com.example.ui.missions.MissionsScreen
 import com.example.ui.modeselect.ModeSelectScreen
@@ -53,6 +54,8 @@ object Routes {
     const val ENDLESS_GAME = "endless_game"
     const val MISSIONS = "missions"
     const val SETTINGS = "settings"
+    // Faz 81: Ayarlar altina "Nasil Oynanir / Modlar" sayfasi (Gorev #21).
+    const val HOW_TO_PLAY = "how_to_play"
 
     // Faz 77: Pro Mode (eski "Challenge") — Seviyeli Mod'un AYNI harita/loadout/
     // oyun akisini, kendi ilerlemesi + can sistemiyle kullanir.
@@ -700,6 +703,23 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onSelectSkin = onSelectSkin,
                         notificationsEnabled = progress.notificationsEnabled,
                         onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                        onOpenHowToPlay = { navController.navigate(Routes.HOW_TO_PLAY) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(Routes.HOW_TO_PLAY) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    HowToPlayScreen(
+                        language = progress.language,
+                        darkMode = progress.darkMode,
+                        skin = skin,
                         onBack = { navController.popBackStack() }
                     )
                 }

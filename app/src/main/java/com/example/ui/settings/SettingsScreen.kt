@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
@@ -76,6 +77,7 @@ fun SettingsScreen(
     onSelectSkin: (BlastSkin) -> Unit = {},
     notificationsEnabled: Boolean = true,
     onToggleNotifications: (Boolean) -> Unit = {},
+    onOpenHowToPlay: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
@@ -188,6 +190,18 @@ fun SettingsScreen(
             checked = notificationsEnabled,
             onCheckedChange = onToggleNotifications,
             testTag = "settings_notifications_switch",
+            palette = palette
+        )
+
+        // Faz 81: Ayarlar altina "Nasil Oynanir / Modlar" sayfasi (Gorev #21).
+        // Toggle degil navigasyon oldugu icin SettingsSwitchRow yerine kendi
+        // clickable Card'i (ok/chevron ile) — ayni gorsel dile (palette.card,
+        // 12dp rounded) sadik kaliyor.
+        SettingsNavRow(
+            icon = "❓",
+            label = language.pick(tr = "Nasıl Oynanır / Modlar", en = "How to Play / Modes", it = "Come Giocare / Modalità", fr = "Comment Jouer / Modes", es = "Cómo Jugar / Modos"),
+            onClick = onOpenHowToPlay,
+            testTag = "settings_how_to_play_row",
             palette = palette
         )
 
@@ -353,6 +367,38 @@ private fun SkinOption(
             color = if (selected) palette.textPrimary else palette.textSecondary,
             maxLines = 1
         )
+    }
+}
+
+@Composable
+private fun SettingsNavRow(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+    testTag: String,
+    palette: BlastPalette
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = palette.card),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).testTag(testTag),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = icon, fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = palette.textPrimary)
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = palette.textSecondary
+            )
+        }
     }
 }
 
