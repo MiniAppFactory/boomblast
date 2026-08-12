@@ -6,7 +6,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  // Faz 82: ic Kotlin namespace de applicationId ile eslesecek sekilde
+  // com.example -> com.miniappfactory.boomblocks olarak yeniden adlandirildi
+  // (Gorev #27, uzun suredir ertelenmisti). applicationId zaten Faz 68'de
+  // bu degerdeydi, hicbir Play Store/uygulama-kimligi riski yok.
+  namespace = "com.miniappfactory.boomblocks"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {

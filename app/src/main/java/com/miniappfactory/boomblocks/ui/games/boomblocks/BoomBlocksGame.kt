@@ -1,0 +1,2919 @@
+package com.miniappfactory.boomblocks.ui.games.boomblocks
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import com.miniappfactory.boomblocks.ui.settings.SettingsScreen
+import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.BlockBlue
+import com.miniappfactory.boomblocks.ui.theme.BlockGreen
+import com.miniappfactory.boomblocks.ui.theme.BlockOrange
+import com.miniappfactory.boomblocks.ui.theme.BlockPink
+import com.miniappfactory.boomblocks.ui.theme.BlockPurple
+import com.miniappfactory.boomblocks.ui.theme.BlockYellow
+import com.miniappfactory.boomblocks.ui.theme.NeonCyan
+import com.miniappfactory.boomblocks.ui.theme.NeonGold
+import com.miniappfactory.boomblocks.ui.theme.NeonGreen
+import com.miniappfactory.boomblocks.ui.theme.NeonMagenta
+import com.miniappfactory.boomblocks.ui.theme.NeonPurple
+import com.miniappfactory.boomblocks.data.AppLanguage
+import com.miniappfactory.boomblocks.data.BoosterType
+import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.utils.SoundManager
+import com.miniappfactory.boomblocks.utils.TextToSpeechManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.random.Random
+
+data class BlockShape(
+    val id: Int,
+    val pattern: List<List<Boolean>>,
+    val colorIndex: Int
+)
+
+// Sonsuz Mod'da "reklamla devam et" icin — tahtayi ve skoru bir onceki
+// hamleye geri saracak sekilde saklanan anlik goruntu.
+data class GameSnapshot(
+    val board: List<Int>,
+    val score: Int
+)
+
+// Satır/kombo temizlenince fırlayan küçük parçacıklar icin — her biri sabit bir
+// baslangic hucresi + acı/mesafe ile, tek paylasilan bir Animatable ilerleme
+// degeriyle (0f->1f) animasyonlanir, ayrı ayrı Animatable acmaya gerek kalmaz.
+data class BlastParticle(
+    val row: Int,
+    val col: Int,
+    val angle: Float,
+    val distance: Float,
+    val color: Color
+)
+
+// Faz 50: patlama noktasinda yukari suzulup solan "+N" puan yazisi (Block
+// Blast referansindan — kullanici "kayittan izle" dedi, orada her patlamada
+// tam o hucrede kucuk bir sayi beliriyor, bizde SADECE merkezi tek bir
+// banner metni vardi).
+data class ScorePopup(
+    val row: Float,
+    val col: Float,
+    val text: String,
+    val color: Color
+)
+
+// Faz 22: seviye tamamlanma anina ozel, tam ekran konfeti — grid'e gore konumlanan
+// BlastParticle'dan farkli olarak ekran genisligine (0f..1f) gore konumlanir.
+data class ConfettiPiece(
+    val xFraction: Float,
+    val startDelay: Float,
+    val drift: Float,
+    val rotationSpeed: Float,
+    val color: Color
+)
+
+val BLOCK_COLORS = listOf(
+    BlockOrange,
+    BlockBlue,
+    BlockGreen,
+    BlockPink,
+    BlockYellow,
+    BlockPurple
+)
+
+val SHAPE_PATTERNS = listOf(
+    // 1x1 Single
+    listOf(listOf(true)),
+    // 2x1 Line
+    listOf(listOf(true, true)),
+    // 1x2 Line
+    listOf(listOf(true), listOf(true)),
+    // 3x1 Line
+    listOf(listOf(true, true, true)),
+    // 1x3 Line
+    listOf(listOf(true), listOf(true), listOf(true)),
+    // 2x2 Square
+    listOf(listOf(true, true), listOf(true, true)),
+    // L Shape 1
+    listOf(listOf(true, false), listOf(true, true)),
+    // L Shape 2
+    listOf(listOf(true, true), listOf(false, true)),
+    // T Shape
+    listOf(listOf(true, true, true), listOf(false, true, false)),
+    // Faz 61: 3x3 buyuk kare kullanici istegiyle TAMAMEN KALDIRILDI (tek
+    // hamlede tahtanin buyuk bir kismini kaplayip manevra alanini asiri
+    // daraltiyordu). SHAPE_PATTERNS/SHAPE_WEIGHTS/SHAPE_WEIGHTS_ENDLESS
+    // ucunden de kaldirildi, indeksler kaymadi cunku bu ucu de listenin AYNI
+    // sirasinda birlikte tutuluyor.
+    // Faz 46: kullanici "4'lü de olmali yoksa 4'lü kombo olmaz" dedi — en uzun
+    // duz parca onceden 3'tu, coklu-satir kombolarini kurmayi zorlastiriyordu.
+    // 4x1 Line
+    listOf(listOf(true, true, true, true)),
+    // 1x4 Line
+    listOf(listOf(true), listOf(true), listOf(true), listOf(true)),
+    // Faz 48: kullanici "büyük L de yok (3 yanyana + 2 tane altına devam),
+    // 2x3'lü küp de yok" dedi — L1/L2 zaten vardi ama sadece kucuk (2x2) kose
+    // parcalariydi, kullanicinin tarif ettigi BUYUK L (5 hucreli, Tetris-L
+    // benzeri) ve dikdortgen bloklar eksikti.
+    // Big L (5 cells): ustte 3 yanyana, sol sutunda 2 tane daha asagi
+    listOf(listOf(true, true, true), listOf(true, false, false), listOf(true, false, false)),
+    // 2x3 Rectangle
+    listOf(listOf(true, true, true), listOf(true, true, true)),
+    // 3x2 Rectangle
+    listOf(listOf(true, true), listOf(true, true), listOf(true, true)),
+    // Faz 48: kullanici "block blast ile mekanik olarak karsilastir" dedi —
+    // arastirma (Wikipedia Tetromino, tetris.wiki) standart 7 parcalik tetromino
+    // setini (I/O/T/L/J/S/Z) dogruladi. Bizde S/Z (capraz/skew) hic yoktu, L/J
+    // de sadece kucuk 2x2 kose parcasi olarak vardi — standart 4 hucreli
+    // (3-uzunlugunda + 1 dik) L/J eksikti. Hepsi eklendi.
+    // S-tetromino
+    listOf(listOf(false, true, true), listOf(true, true, false)),
+    // Z-tetromino
+    listOf(listOf(true, true, false), listOf(false, true, true)),
+    // Standart L-tetromino (4 hucre)
+    listOf(listOf(true, false), listOf(true, false), listOf(true, true)),
+    // Standart J-tetromino (4 hucre)
+    listOf(listOf(false, true), listOf(false, true), listOf(true, true))
+)
+
+// SHAPE_PATTERNS ile ayni sirada agirliklar — duz uniform-random secim, 1x1/2'li
+// parcalarin (listede ayri ayri 3 madde olarak sayildiklari icin) orantisiz sik
+// gelmesine yol aciyordu (kullanici geri bildirimi: "çok fazla tek ve ikili
+// geliyor, bu kolaylaştırıyor"). Kucuk parcalar hala cikabilir (stratejik bosluk
+// doldurma icin gerekli) ama artik daha seyrek, buyuk/karmasik sekiller daha sik.
+// Faz 55: kullanici "3x3'un ve tumunun acilmasi cok fena, bir anda manevra
+// alani kalmiyor" dedi — T-shape'ten itibaren (seviye 9+ havuzu) TUM parcalar
+// kucuk parcalarla (agirlik 1-3) ayni buyuklukte agirlik (2-3) tasiyordu.
+// Havuz 8'den 19'a cikinca (Faz 55'in kademeli-acilim duzeltmesiyle bile)
+// bu buyuk/karmasik parcalarin toplam cekilis payi >%50'ye firliyordu. Artik
+// tumu (T-shape dahil) agirlik 1 — hala cikabilirler ama NADIR, kucuk/kolay
+// parcalar oranı korunuyor, oyuncunun her zaman "manevra alani" kalıyor.
+val SHAPE_WEIGHTS = listOf(
+    1, // 1x1
+    2, // 2x1
+    2, // 1x2
+    3, // 3x1
+    3, // 1x3
+    3, // 2x2
+    3, // L1
+    3, // L2
+    1, // T
+    1, // 4x1 (Faz 46)
+    1, // 1x4 (Faz 46)
+    1, // Big L (Faz 48)
+    1, // 2x3 (Faz 48)
+    1, // 3x2 (Faz 48)
+    1, // S-tetromino (Faz 48)
+    1, // Z-tetromino (Faz 48)
+    1, // L-tetromino (Faz 48)
+    1  // J-tetromino (Faz 48)
+)
+
+// Faz 57: kullanici "sonsuz modda hic zorlasmiyor, hep en fazla 2x2 geliyor"
+// dedi. Kok neden: Sonsuz Mod, Seviyeli Mod ile AYNI SHAPE_WEIGHTS tablosunu
+// kullaniyordu — Faz 55'te buyuk parcalarin agirligi (T-shape dahil) bilerek
+// 1'e dusurulmustu (Seviyeli Mod'da "level 9 aniden zorlasiyor" sikayetini
+// cozmek icin), ama bu nadirlik yanlislikla Sonsuz Mod'u da etkiledi. Sonsuz
+// Mod hedefsiz/surekli oldugu icin (Seviyeli Mod'daki gibi sabit bir hedefe
+// yetismesi gerekmiyor) buyuk parcalarin daha sik gorunmesi sorun degil —
+// ayri bir tablo ile buyuk parcalarin agirligi 2'ye cikarildi (kucuk
+// parcalarla ayni degil, ama Seviyeli Mod'daki 1'in iki kati).
+val SHAPE_WEIGHTS_ENDLESS = listOf(
+    1, 2, 2, 3, 3, 3, 3, 3, // 1x1..L2, Seviyeli Mod ile ayni
+    2, // T
+    2, // 4x1
+    2, // 1x4
+    2, // Big L
+    2, // 2x3
+    2, // 3x2
+    2, // S-tetromino
+    2, // Z-tetromino
+    2, // L-tetromino
+    2  // J-tetromino
+)
+
+// Faz 79: Pro Mode — kullanici "puan degil parca zorlugu yuksek olmali,
+// 1x1 hic olmamali" dedi. 1x1'in agirligi 0 (matematiksel olarak asla
+// secilmez, availableCount kapsaminda olsa bile), buyuk/karmasik parcalar
+// Sonsuz Mod'dan da agir.
+val SHAPE_WEIGHTS_CHALLENGE = listOf(
+    0, // 1x1 — ASLA gelmez
+    1, // 2x1
+    1, // 1x2
+    2, // 3x1
+    2, // 1x3
+    2, // 2x2
+    2, // L1
+    2, // L2
+    3, // T
+    3, // 4x1
+    3, // 1x4
+    3, // Big L
+    3, // 2x3
+    3, // 3x2
+    3, // S-tetromino
+    3, // Z-tetromino
+    3, // L-tetromino
+    3  // J-tetromino
+)
+
+data class BlockThemeOption(
+    val id: String,
+    val titleTr: String,
+    val titleEn: String,
+    val titleIt: String,
+    val titleFr: String,
+    val titleEs: String,
+    val icon: String,
+    val descriptionTr: String,
+    val descriptionEn: String,
+    val descriptionIt: String,
+    val descriptionFr: String,
+    val descriptionEs: String
+) {
+    fun title(language: AppLanguage): String =
+        language.pick(tr = titleTr, en = titleEn, it = titleIt, fr = titleFr, es = titleEs)
+
+    fun description(language: AppLanguage): String =
+        language.pick(tr = descriptionTr, en = descriptionEn, it = descriptionIt, fr = descriptionFr, es = descriptionEs)
+}
+
+val BLOCK_THEMES = listOf(
+    BlockThemeOption(
+        id = "CLASSIC",
+        titleTr = "Klasik 3D Kabartma",
+        titleEn = "Classic 3D Bevel",
+        titleIt = "Rilievo 3D Classico",
+        titleFr = "Relief 3D Classique",
+        titleEs = "Relieve 3D Clásico",
+        icon = "🧊",
+        descriptionTr = "3D kabartmalı kristal bloklar",
+        descriptionEn = "3D embossed crystal blocks",
+        descriptionIt = "Blocchi di cristallo 3D in rilievo",
+        descriptionFr = "Blocs de cristal 3D en relief",
+        descriptionEs = "Bloques de cristal 3D en relieve"
+    ),
+    BlockThemeOption(
+        id = "FRUIT",
+        titleTr = "Meyve Küpleri",
+        titleEn = "Fruit Cubes",
+        titleIt = "Cubi di Frutta",
+        titleFr = "Cubes de Fruits",
+        titleEs = "Cubos de Fruta",
+        icon = "🍉",
+        descriptionTr = "Karpuz, peynir, çilek ve portakal",
+        descriptionEn = "Watermelon, cheese, strawberry, orange",
+        descriptionIt = "Anguria, formaggio, fragola e arancia",
+        descriptionFr = "Pastèque, fromage, fraise et orange",
+        descriptionEs = "Sandía, queso, fresa y naranja"
+    ),
+    BlockThemeOption(
+        id = "SWEETS",
+        titleTr = "Şekerleme & Tatlı",
+        titleEn = "Sweets & Donuts",
+        titleIt = "Dolci & Ciambelle",
+        titleFr = "Bonbons & Donuts",
+        titleEs = "Dulces y Donuts",
+        icon = "🍩",
+        descriptionTr = "Donut, çikolata, bisküvi ve şeker",
+        descriptionEn = "Donut, chocolate, cookie, candy",
+        descriptionIt = "Donut, cioccolato, biscotto e caramella",
+        descriptionFr = "Donut, chocolat, biscuit et bonbon",
+        descriptionEs = "Donut, chocolate, galleta y caramelo"
+    )
+    // Not: "MIXED" (zar) temasi kaldirildi — Unicode zar yuzu karakterleri
+    // (⚀-⚅) bazi cihazlarda/fontlarda hic render olmuyordu (kullanici geri
+    // bildirimi: "hiç gözükmüyor"). EmbossedBlockCell'deki "MIXED" case'i de
+    // kaldirildi, DataStore'da hala "MIXED" kayitli olan cihazlar guvenli
+    // sekilde duz/klasik renkli kupe (emoji'siz) dusuyor.
+)
+
+// Faz 34/35: kombo kademesi basina TEK sabit kelime yerine kucuk bir esanlamli
+// havuzdan rastgele secim yapmak icin — ayni kombo seviyesinde bile her
+// seferinde ayni kelime gelmesin diye. Faz 35'te 5 dile cikarildi.
+private fun praiseFrom(
+    language: AppLanguage,
+    trPool: List<String>,
+    enPool: List<String>,
+    itPool: List<String>,
+    frPool: List<String>,
+    esPool: List<String>
+): String = when (language) {
+    AppLanguage.TR -> trPool.random()
+    AppLanguage.EN -> enPool.random()
+    AppLanguage.IT -> itPool.random()
+    AppLanguage.FR -> frPool.random()
+    AppLanguage.ES -> esPool.random()
+}
+
+@Composable
+fun BlastTheBlocksGame(
+    levelNumber: Int,
+    targetScore: Int,
+    shapePoolTier: Int = 3,
+    // Faz 77: Pro Mode "daha yuksek puan carpani" — 1f=degisiklik yok
+    // (Level/Sonsuz Mod), Pro Mode LevelDefinition.scoreMultiplier'i buraya
+    // gecirir.
+    scoreMultiplier: Float = 1f,
+    // Faz 79: Pro Mode — parca havuzu farkli (daha zor, 1x1 yok) ve oyun-bitti
+    // modalinda ekstra bir "YENIDEN BASLA (-1 can)" secenegi var. Can artik
+    // seviyeye GIRERKEN degil, kaybedip yeniden baslamayi SECINCE harcaniyor
+    // (reklamla-devam-et alternatifine karsi bir bedel, Level Mod'daki AYNI
+    // 3-hamle-geri-al mekanizmasi hala UCRETSIZ kaliyor).
+    isChallengeMode: Boolean = false,
+    challengeLives: Int = 0,
+    onChallengeRestart: () -> Unit = {},
+    onChallengeWatchAdForLife: () -> Unit = {},
+    currentTheme: String = "CLASSIC",
+    language: AppLanguage = AppLanguage.TR,
+    soundEnabled: Boolean = true,
+    darkMode: Boolean = true,
+    isEndless: Boolean = false,
+    bestScore: Int = 0,
+    initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
+    onSelectTheme: (String) -> Unit = {},
+    onUseBooster: (BoosterType) -> Unit = {},
+    onLinesCleared: (count: Int) -> Unit = {},
+    // Faz 73: tek hamlede 2+ satir/sutun patlatinca ("Coklu Patlama" haftalik
+    // gorevi icin) tetiklenir — onLinesCleared'dan AYRI, cunku onLinesCleared
+    // 1 satir patlasa bile cagriliyor, bu ise sadece coklu patlamada.
+    onMultiClear: () -> Unit = {},
+    onBack: () -> Unit,
+    // Ayarlar navController.navigate() ile ayri bir hedefe gitmiyor — Navigation
+    // Compose ekrandan ayrilinca bu composable'i komposizyondan atip geri donunce
+    // yeniden olusturuyordu, bu da tum remember durumunu (tahta/skor/tepsi)
+    // sifirliyordu (kullanici geri bildirimi: "renk/dil degistirirsen oyun sifirlar").
+    // Ayarlar artik AYNI composable icinde bir overlay olarak gosteriliyor, oyun
+    // ekranindan hic ayrilinmiyor.
+    musicEnabled: Boolean = true,
+    soundVolume: Float = 0.5f,
+    onToggleSound: (Boolean) -> Unit = {},
+    onSoundVolumeChange: (Float) -> Unit = {},
+    onToggleMusic: (Boolean) -> Unit = {},
+    onToggleDarkMode: (Boolean) -> Unit = {},
+    onSelectLanguage: (AppLanguage) -> Unit = {},
+    uiSkin: BlastSkin = BlastSkin.DEFAULT,
+    onSelectSkin: (BlastSkin) -> Unit = {},
+    notificationsEnabled: Boolean = true,
+    onToggleNotifications: (Boolean) -> Unit = {},
+    onLevelComplete: (score: Int, stars: Int) -> Unit = { _, _ -> },
+    // Faz 39: "DEVAM ET" butonuna basinca cagrilir — geri tepe uc bardaki/fiziksel
+    // geri tusundaki onBack'ten AYRI tutuluyor ki AppNavigation araya (her 2
+    // bolumde bir) zorunlu interstitial reklami sokabilsin, oyun ici geri
+    // tusuna dokunmadan.
+    onLevelCompleteContinue: () -> Unit = onBack,
+    onLevelFailed: (score: Int) -> Unit = {},
+    onEndlessGameOver: (score: Int) -> Unit = {},
+    onRequestContinueAd: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit = { _, onDenied -> onDenied() },
+    // Faz 22: ilk gercek hamleden once bir kez gosterilen rehber ipucu — bu bayrak
+    // kalici (DataStore) oldugu icin varsayilan deger `true` (ipucu KAPALI), aksi
+    // halde onizleme/test cagrilarinda yanlislikla her zaman gosterilir.
+    hasMadeFirstMove: Boolean = true,
+    onFirstMoveMade: () -> Unit = {}
+) {
+    val palette = blastPalette(uiSkin, darkMode)
+    // Faz 22: skin/koyu-mod degisiminde renkler ONCEDEN tek karede sertce
+    // degisiyordu (Ayarlar overlay'inden secim yapinca aninda). En gorunur iki
+    // yuzeyde (kok zemin + ana kart) yumusak bir crossfade uygulanir.
+    val animatedBackground by animateColorAsState(palette.background, animationSpec = tween(400), label = "bgCrossfade")
+    val animatedCard by animateColorAsState(palette.card, animationSpec = tween(400), label = "cardCrossfade")
+    // Kullanici geri bildirimi: "oyun duz siyah ekranda, hic cezbedici degil" —
+    // kok zemin artik TEK DUZ RENK degil, mevcut skin'in accentGradient
+    // renklerine dogru cok hafif (yaklasik %12-%18) karisan yumusak bir dikey
+    // gradyan. lerp() DUZ RENK uretir (alfa/seffaflik yok), boylece hem koyu
+    // hem acik modda (BlastLightPalette/BlastDarkPalette) board/tray okunabilirligi
+    // bozulmadan zemine skin'in rengini hissettiren bir derinlik katilir.
+    val backgroundAccentTop = uiSkin.accentGradient[0]
+    val backgroundAccentBottom = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }
+    val animatedBackgroundBrush = Brush.verticalGradient(
+        colors = listOf(
+            lerp(animatedBackground, backgroundAccentTop, 0.16f),
+            animatedBackground,
+            lerp(animatedBackground, backgroundAccentBottom, 0.12f)
+        )
+    )
+    val gridSize = 8
+    val board = remember { mutableStateListOf<Int>().apply { repeat(gridSize * gridSize) { add(0) } } }
+    var score by remember { mutableIntStateOf(0) }
+    // Sonsuz Mod'da "reklamla devam et" icin son birkac hamlenin anlik goruntusu —
+    // en fazla MAX_MOVE_HISTORY kadar tutulur, "3 hamle geri al" bunu kullanir.
+    val moveHistory = remember { mutableStateListOf<GameSnapshot>() }
+    val MAX_MOVE_HISTORY = 5
+    var comboCount by remember { mutableIntStateOf(0) }
+    var isGameOver by remember { mutableStateOf(false) }
+    var isLevelComplete by remember { mutableStateOf(false) }
+    var lastClearedText by remember { mutableStateOf("") }
+    var lastClearWasCelebration by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    // Faz 38: kullanici "sonsuz oyunda geri tusuna basinca hemen ana menuye
+    // cikmasin, teyit alsin" dedi — Sonsuz Mod'da hem sistem geri tusu/jesti
+    // hem oyun ici geri oku artik dogrudan cikmiyor, once bu onay ekranini aciyor.
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+    var recentlyClearedCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val clearFlashAlpha = remember { Animatable(0f) }
+    // Faz 21: cizgi tamamlanir tamamlanmaz, hucreler HALA DOLUYKEN kisa bir
+    // "patlamaya kilitlendi" glow'u gosteriliyor (Block Blast referansi: neon
+    // renkli kenarlik + sparkle) — gercek temizleme bu glow'dan hemen sonra
+    // gerceklesiyor, boylece oyuncu "bu satirlar patlayacak" anini gorebiliyor.
+    var glowingClearCells by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // Faz 50: kullanicinin istegiyle (gercek Block Blast'in kaydini izleyip
+    // karsilastirdik) — onceden glow SADECE hucre-hucre uygulaniyordu, rakipte
+    // tum satir/sutunun etrafinda TEK bir parlak cerceve var. Ayrica
+    // rakipte her patlamada tam o noktada yuzen bir "+N" puan yazisi cikiyor,
+    // bizde skor bonusu sadece merkezi tek bir banner metniydi.
+    var glowingRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var glowingCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
+    val popupProgress = remember { Animatable(0f) }
+
+    // Faz 38: sistem geri tusu/jesti artik dogrudan menuye cikmiyor — once
+    // "cikmak istedigine emin misin" onay ekranini aciyor (kullanici geri
+    // bildirimi: yanlislikla cikip skoru kaybetme riski). Onceden SADECE
+    // Sonsuz Mod'da vardi (kullanicinin ilk istegi acikca "sonsuz oyunda"
+    // diyordu) — Faz 47'de kullanici "level modunda geri tuşu direkt atıyor,
+    // çıkmak istiyor musunuz diye sormuyor" dedi, Seviyeli Mod'a da acildi.
+    BackHandler(enabled = !isGameOver && !isLevelComplete) {
+        showExitConfirmDialog = true
+    }
+
+    val glowPulse = remember { Animatable(0f) }
+    val glowBrush = remember {
+        Brush.sweepGradient(listOf(NeonCyan, NeonGold, NeonPurple, NeonGreen, NeonCyan))
+    }
+    // Faz 22: skor degisince anlik ziplama yerine eski degerden yeniye SAYARAK
+    // artiyor + kisa bir "pop" (kullanicinin degerlendirmesi: rakip oyunlarda
+    // standart olan bu geri bildirim bizde yoktu).
+    val animatedScore by animateIntAsState(targetValue = score, animationSpec = tween(450), label = "scoreCountUp")
+    val scoreScale = remember { Animatable(1f) }
+    LaunchedEffect(score) {
+        scoreScale.snapTo(1.2f)
+        scoreScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    }
+
+    // Faz 22: paylasilan, TEK infiniteTransition kaynaklari — her hucreye/karta
+    // AYRI bir animasyon dongusu acmak (64 hucre + N kart) performans sorunu
+    // yaratir, bunun yerine birkac paylasilan faz degeri hesaplanip asagi aktarilir.
+    val sharedPulse by rememberInfiniteTransition(label = "sharedPulse").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "sharedPulseAnim"
+    )
+    val ambientPhase by rememberInfiniteTransition(label = "ambientPhase").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Restart),
+        label = "ambientPhaseAnim"
+    )
+    val shimmerPhase by rememberInfiniteTransition(label = "shimmerPhase").animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
+        label = "shimmerPhaseAnim"
+    )
+
+    // Faz 22: bir satir/sutunda TAM 1 hucre bos kalinca, o satirdaki dolu
+    // hucreler hafifce nabiz atarak "bir hamle kaldi" hissi verir (Woodoku/
+    // Blockudoku referansi).
+    val nearMissCells = remember(board.toList()) {
+        val cells = mutableSetOf<Int>()
+        for (r in 0 until gridSize) {
+            var filled = 0
+            for (c in 0 until gridSize) if (board[r * gridSize + c] != 0) filled++
+            if (filled == gridSize - 1) {
+                for (c in 0 until gridSize) if (board[r * gridSize + c] != 0) cells.add(r * gridSize + c)
+            }
+        }
+        for (c in 0 until gridSize) {
+            var filled = 0
+            for (r in 0 until gridSize) if (board[r * gridSize + c] != 0) filled++
+            if (filled == gridSize - 1) {
+                for (r in 0 until gridSize) if (board[r * gridSize + c] != 0) cells.add(r * gridSize + c)
+            }
+        }
+        cells
+    }
+
+    // Faz 22: oturum ici basari rozetleri — kalici degil (DataStore'a yazilmiyor),
+    // sadece bu oyun oturumu icinde bir kez gosterilir. Kalici bir basari sistemi
+    // (yeni DataStore alanlari + tum ekranlara akis) kapsam disi birakildi.
+    var sessionLinesCleared by remember { mutableIntStateOf(0) }
+    val unlockedSessionAchievements = remember { mutableStateListOf<String>() }
+    var activeAchievementText by remember { mutableStateOf<String?>(null) }
+    fun maybeUnlockAchievement(id: String, text: String) {
+        if (!unlockedSessionAchievements.contains(id)) {
+            unlockedSessionAchievements.add(id)
+            activeAchievementText = text
+        }
+    }
+
+    // Faz 22: ilk gercek hamleden once tepsinin altinda kisa bir rehber ipucu —
+    // ilk basarili yerlestirmede kalici olarak kapatilir (onFirstMoveMade).
+    var showFirstMoveHint by remember { mutableStateOf(!hasMadeFirstMove) }
+
+    var showContinueDialog by remember { mutableStateOf(false) }
+    var continueOffered by remember { mutableStateOf(false) }
+    var isRequestingContinueAd by remember { mutableStateOf(false) }
+    val shakeOffset = remember { Animatable(0f) }
+    val comboTextScale = remember { Animatable(1f) }
+    var particleBurst by remember { mutableStateOf<List<BlastParticle>>(emptyList()) }
+    val particleProgress = remember { Animatable(0f) }
+    // Faz 22: seviye tamamlanma kutlamasi — onceden bu an gorsel olarak sadece
+    // skor/yildiz sayilarindan ibaretti (tasarim onerisi: rakip oyunlarda en
+    // yuksek motivasyon aninin ozel bir gorseli olmaliydi).
+    var confettiPieces by remember { mutableStateOf<List<ConfettiPiece>>(emptyList()) }
+    val confettiProgress = remember { Animatable(0f) }
+    var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
+    val availableBoosterCounts = remember {
+        mutableStateMapOf<BoosterType, Int>().apply { putAll(initialBoosterCounts) }
+    }
+
+    val trayShapes = remember { mutableStateListOf<BlockShape?>() }
+
+    // Her yeni parcaya GERCEKTEN benzersiz bir id vermek icin sayac — sadece tepsi
+    // pozisyonunu (0/1/2) kullanmak KRITIK bir bug'a yol aciyordu: pointerInput(shape?.id)
+    // yalnizca id DEGISTIGINDE surukleme algilayicisini yeniden baslatir, ama id her
+    // zaman ayni slot pozisyonuna esitse (id=index), tepsi yenilenince ayni id tekrar
+    // kullanilir ve Compose bunu "degisiklik yok" sanip ESKI/BAYAT parca referansiyla
+    // calismaya devam eder — kullanici "3'lu koydum 9'lu ciktu" gibi somut, tekrarlanabilir
+    // hatalar bildirdi. Artik her BlockShape'e global, hic tekrar etmeyen bir id veriliyor.
+    var nextShapeId by remember { mutableIntStateOf(0) }
+
+    // Sürükle-bırak durumu: tepsideki hangi parça sürükleniyor, parmağın ekran üzerindeki
+    // mutlak konumu ve ızgaranın piksel koordinatları — hedef hücreyi hesaplamak için gerekli.
+    var draggedTrayIndex by remember { mutableIntStateOf(-1) }
+    val dragOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    var dragPointerStartGlobal by remember { mutableStateOf(Offset.Zero) }
+    var rootOriginPx by remember { mutableStateOf(Offset.Zero) }
+    var gridOriginPx by remember { mutableStateOf(Offset.Zero) }
+    var cellSizePx by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val dragCoroutineScope = rememberCoroutineScope()
+    // Parcayi parmagin biraz ustune kaldirir ki parmak parcayi tam kapatmasin —
+    // 90dp cok fazla hissettiriyordu (kullanici geri bildirimi), 45dp'ye dusuruldu.
+    val dragLiftDp = 45.dp
+
+    fun activeDragShape(): BlockShape? =
+        if (draggedTrayIndex in trayShapes.indices) trayShapes[draggedTrayIndex] else null
+
+    fun currentHoverCell(): Pair<Int, Int>? {
+        val cellSize = cellSizePx
+        val shape = activeDragShape() ?: return null
+        if (cellSize <= 0f) return null
+        val liftPx = with(density) { dragLiftDp.toPx() }
+        val pointerAbsolutePos = dragPointerStartGlobal + dragOffset.value
+        // Ghost onizleme parmagin MERKEZINE gore ciziliyor (bkz. asagidaki ghost Box'in
+        // "left/top = pointer - shapeSize/2" hesabi) — hover hucresi de ayni merkezleme
+        // ofsetini uygulamali, yoksa kullanicinin gordugu onizleme ile gercek yerlesim/
+        // temizleme mantiginin kullandigi hucre birbirini tutmaz (buyuk sekillerde parca
+        // gorunenden kaymis yere yerlesir, beklenmedik satir/sutun temizlenir).
+        val halfWidthCells = shape.pattern[0].size / 2f
+        val halfHeightCells = shape.pattern.size / 2f
+        val localX = pointerAbsolutePos.x - gridOriginPx.x
+        val localY = (pointerAbsolutePos.y - liftPx) - gridOriginPx.y
+        // Düz floor() her zaman AŞAĞI/SOLA yuvarlar, en yakın hücreye degil — bu da
+        // istatistiksel olarak yaklasik yarı zamanlarda tam bir hücre sola/yukarı
+        // sistematik kaymaya yol aciyordu (kullanici geri bildirimi: "tam bir kare
+        // kadar kayma var, sola ve yukarı"). +0.5f ekleyerek en yakın hücreye
+        // yuvarlaniyor (floor(x+0.5) == round(x)).
+        return floor((localY / cellSize) - halfHeightCells + 0.5f).toInt() to
+            floor((localX / cellSize) - halfWidthCells + 0.5f).toInt()
+    }
+
+    fun canPlaceShape(shape: BlockShape, startRow: Int, startCol: Int): Boolean {
+        for (r in shape.pattern.indices) {
+            for (c in shape.pattern[r].indices) {
+                if (shape.pattern[r][c]) {
+                    val targetR = startRow + r
+                    val targetC = startCol + c
+                    if (targetR !in 0 until gridSize || targetC !in 0 until gridSize) return false
+                    if (board[targetR * gridSize + targetC] != 0) return false
+                }
+            }
+        }
+        return true
+    }
+
+    fun isCurrentDropValid(): Boolean {
+        val shape = activeDragShape() ?: return false
+        val (r, c) = currentHoverCell() ?: return false
+        return canPlaceShape(shape, r, c)
+    }
+
+    // Faz 51: kullanici "sürüklerken, bırakınca 3'lü patlayacak olan blok
+    // önden glow oluyordu, Block Blast'ta böyleydi, bizimki öyle olmuyor"
+    // dedi. Su an surukleniyorsa ve gecerli bir konuma denk geliyorsa, o
+    // parca ORAYA birakilirsa hangi satir/sutunlarin tamamlanacagini
+    // ONCEDEN hesaplayip donduruyor — render tarafinda Faz 50'deki ayni
+    // satir/sutun cerceve katmaniyla (farkli renk/pulse ile) gosteriliyor.
+    fun previewClearedLines(): Pair<Set<Int>, Set<Int>> {
+        val shape = activeDragShape() ?: return emptySet<Int>() to emptySet()
+        val (r, c) = currentHoverCell() ?: return emptySet<Int>() to emptySet()
+        if (!canPlaceShape(shape, r, c)) return emptySet<Int>() to emptySet()
+        val simulated = board.toMutableList()
+        for (pr in shape.pattern.indices) {
+            for (pc in shape.pattern[pr].indices) {
+                if (shape.pattern[pr][pc]) {
+                    simulated[(r + pr) * gridSize + (c + pc)] = 1
+                }
+            }
+        }
+        val rows = (0 until gridSize).filterTo(mutableSetOf()) { row ->
+            (0 until gridSize).all { col -> simulated[row * gridSize + col] != 0 }
+        }
+        val cols = (0 until gridSize).filterTo(mutableSetOf()) { col ->
+            (0 until gridSize).all { row -> simulated[row * gridSize + col] != 0 }
+        }
+        return rows to cols
+    }
+
+    fun isCellInDragFootprint(row: Int, col: Int): Boolean {
+        val shape = activeDragShape() ?: return false
+        val (hr, hc) = currentHoverCell() ?: return false
+        val pr = row - hr
+        val pc = col - hc
+        return pr in shape.pattern.indices && pc in shape.pattern[pr].indices && shape.pattern[pr][pc]
+    }
+
+    val levelProgress = (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f)
+
+    fun computeStars(finalScore: Int, target: Int): Int = when {
+        finalScore >= target * 2 -> 3
+        finalScore >= (target * 1.5f).toInt() -> 2
+        else -> 1
+    }
+
+    fun generateNewTray() {
+        trayShapes.clear()
+        // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
+        // level modda gercek seviye numarasi kullanilir.
+        // Faz 45: puanlama 10x kucultuldugu icin (bkz. placeShape) bu esik de
+        // orantili kuculdu (300->30), aksi halde Sonsuz Mod'da zorluk artik
+        // ONCEKINE gore 10 kat daha YAVAS yukselirdi.
+        //
+        // Faz 55: kullanici "seviye 9'da bir anda cok zorlasiyor" dedi — eskiden
+        // tier2 (8 parca) -> tier3 (TUM 19 parca, SHAPE_PATTERNS.size) gecisi
+        // TEK seviyede oluyordu, 11 yeni (ve bircogu buyuk/karmasik) parca
+        // birden havuza giriyordu. Artik seviye 9'dan itibaren havuz her
+        // seviyede +2 parca ile KADEMELI genisliyor (9'da 10 parca, ~14'te tam
+        // 19'a ulasiyor) — ayni parcalar sonunda geliyor ama sok etkisi yok.
+        // Faz 57: Sonsuz Mod'da esik boluci /30 -> /15 (buyuk parcalar iki kati
+        // hizla aciliyor, ortalama bir sonsuz oturumda gorulme sansi artiyor).
+        // Faz 64: Seviyeli Mod'da ise TERS yonde — kullanici "çok bölüm geçsin,
+        // challenge değil başarma isteğiyle oynatalım" dedi, hedef puanlar da
+        // (bkz. LevelGenerator) duz +5/seviyeye indirildi. Parca zorlugu ayni
+        // hizda artmaya devam etseydi, oyuncu hedefe kolay ulassa bile tahtada
+        // yer kalmama riski (gercek "basarisizlik" kaynagi) degismezdi. Gercek
+        // seviye numarasi yerine YARISI kullanilarak (levelNumber/2+1) tier
+        // esikleri 2 KATINA cikariliyor — tier3 artik seviye 9 yerine 17'de
+        // baslıyor, oyuncu cok daha uzun sure sadece kolay/basit parcalarla
+        // oynuyor. Sonsuz Mod'a DOKUNULMADI.
+        // Faz 79: Pro Mode kendi egrisi — kullanici "zorluk puandan degil
+        // parca havuzundan gelsin" dedi. Seviyeli Mod'un YARISI hizi (levelNumber/2+1)
+        // YERINE TAM levelNumber kullanilir, kolay-6'lik tier (1x1 dahil) baastan
+        // ATLANIR (8'den, yani L sekilleri dahil, baslar), tam havuza (19 parca)
+        // sadece birkac seviyede ulasilir. 1x1'in kendisi zaten SHAPE_WEIGHTS_CHALLENGE'da
+        // agirlik 0 oldugu icin (asagida) availableCount kapsaminda olsa bile hic gelmez.
+        val progressLevel = when {
+            isEndless -> (score / 15) + 1
+            isChallengeMode -> levelNumber
+            else -> (levelNumber / 2) + 1
+        }
+        val availableCount = if (isChallengeMode) {
+            when {
+                progressLevel <= 1 -> 8 // L sekilleri dahil, kolay-6 tier YOK
+                progressLevel <= 4 -> (8 + (progressLevel - 1) * 3).coerceAtMost(SHAPE_PATTERNS.size)
+                else -> SHAPE_PATTERNS.size
+            }
+        } else {
+            when {
+                progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
+                progressLevel <= 8 -> 8 // + L shapes
+                else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+            }
+        }
+        val weights = when {
+            isChallengeMode -> SHAPE_WEIGHTS_CHALLENGE
+            isEndless -> SHAPE_WEIGHTS_ENDLESS
+            else -> SHAPE_WEIGHTS
+        }
+        val totalWeight = (0 until availableCount).sumOf { weights[it] }
+        repeat(3) {
+            // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
+            var roll = Random.nextInt(totalWeight)
+            var chosenIndex = availableCount - 1
+            for (idx in 0 until availableCount) {
+                val w = weights[idx]
+                if (roll < w) {
+                    chosenIndex = idx
+                    break
+                }
+                roll -= w
+            }
+            val randomColor = Random.nextInt(1, BLOCK_COLORS.size + 1)
+            trayShapes.add(BlockShape(id = nextShapeId++, pattern = SHAPE_PATTERNS[chosenIndex], colorIndex = randomColor))
+        }
+    }
+
+    fun canPlaceAnywhere(shape: BlockShape): Boolean {
+        for (r in 0 until gridSize) {
+            for (c in 0 until gridSize) {
+                if (canPlaceShape(shape, r, c)) return true
+            }
+        }
+        return false
+    }
+
+    fun checkGameOver() {
+        val remainingShapes = trayShapes.filterNotNull()
+        if (remainingShapes.isNotEmpty()) {
+            val valid = remainingShapes.any { canPlaceAnywhere(it) }
+            if (!valid) {
+                if (isEndless && !continueOffered) {
+                    showContinueDialog = true
+                } else {
+                    isGameOver = true
+                    if (isEndless) {
+                        onEndlessGameOver(score)
+                    } else {
+                        onLevelFailed(score)
+                    }
+                }
+            }
+        }
+    }
+
+    // Sonsuz modda oturum basina bir kez: son 3 hamleyi geri alip devam etme sansi.
+    // Onceden alt 2 satiri korusuzca temizliyorduk, ama bu MEVCUT tepsideki
+    // parcalar icin yer acmayabiliyordu — kullanici "izlese de sifirda basliyor"
+    // diye bildirdi (fiilen oynanamaz kaliyordu). Gercek bir gecmis hamleye
+    // (tahta + skor) donup USTUNE yeni bir tepsi vermek cok daha guvenilir:
+    // o an tahta zaten oynanabilirdi (oyun devam ediyordu), yeni tepsi de
+    // eski tikanmayi tekrarlama ihtimalini dusurur.
+    fun undoMovesForContinue(count: Int) {
+        val targetIndex = (moveHistory.size - count).coerceAtLeast(0)
+        val snapshot = moveHistory.getOrNull(targetIndex) ?: return
+        for (i in board.indices) board[i] = snapshot.board[i]
+        score = snapshot.score
+        while (moveHistory.size > targetIndex) moveHistory.removeAt(moveHistory.size - 1)
+        // Faz 59: kullanici "reklam izledim ama 3 hamleyi geri almadi, direkt
+        // game over'a dustu" dedi. Kok neden: geri alinan tahta gercekten
+        // oynanabilir bir gecmis durumdu, AMA generateNewTray() tamamen
+        // RASTGELE yeni 3 parca uretiyordu — bu yeni parcalarin o tahtaya
+        // sigacaginin hicbir garantisi yoktu. Artik en az yeterli sayida
+        // parcanin sigdigi bir tepsi bulunana kadar (en fazla 12 deneme,
+        // pratikte 1-2 denemede bulunur) yeniden uretiliyor.
+        // Faz 69: kullanici cihazda test edip "sadece 1 tanesi sigiyor,
+        // yerlestirince patlama bile olmuyor, reklam izlemek anlamsiz kaliyor"
+        // dedi — SADECE 1 parcanin sigmasi garantisi yetersizdi, oyuncu
+        // yerlestirir yerlestirmez tekrar sikisip "reklam bosa gitti" hissi
+        // yasiyordu. Esik 1'den 2'ye cikarildi: en az 2 parca sigana kadar
+        // yeniden uretiliyor — reklam sonrasi gercekten birkac hamlelik bir
+        // nefes alani kaliyor, tek hamlelik sahte bir "devam" olmuyor.
+        var attempts = 0
+        do {
+            generateNewTray()
+            attempts++
+        } while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && attempts < 12)
+    }
+
+    fun handleContinueWithAd() {
+        if (isRequestingContinueAd) return
+        isRequestingContinueAd = true
+        onRequestContinueAd(
+            {
+                isRequestingContinueAd = false
+                showContinueDialog = false
+                continueOffered = true
+                undoMovesForContinue(3)
+                checkGameOver()
+            },
+            {
+                isRequestingContinueAd = false
+                showContinueDialog = false
+                continueOffered = true
+                isGameOver = true
+                onEndlessGameOver(score)
+            }
+        )
+    }
+
+    fun handleEndSession() {
+        showContinueDialog = false
+        continueOffered = true
+        isGameOver = true
+        onEndlessGameOver(score)
+    }
+
+
+    fun applyBoosterAt(row: Int, col: Int) {
+        val type = armedBooster ?: return
+        val owned = availableBoosterCounts[type] ?: 0
+        if (owned <= 0) {
+            armedBooster = null
+            return
+        }
+        when (type) {
+            BoosterType.BOMB -> {
+                for (dr in -1..1) {
+                    for (dc in -1..1) {
+                        val tr = row + dr
+                        val tc = col + dc
+                        if (tr in 0 until gridSize && tc in 0 until gridSize) {
+                            board[tr * gridSize + tc] = 0
+                        }
+                    }
+                }
+            }
+            BoosterType.LINE_CLEAR -> {
+                for (c2 in 0 until gridSize) {
+                    board[row * gridSize + c2] = 0
+                }
+                onLinesCleared(1)
+            }
+        }
+        SoundManager.playSuccess(soundEnabled)
+        availableBoosterCounts[type] = owned - 1
+        onUseBooster(type)
+        armedBooster = null
+        checkGameOver()
+    }
+
+    fun resetGame() {
+        board.clear()
+        repeat(gridSize * gridSize) { board.add(0) }
+        score = 0
+        moveHistory.clear()
+        comboCount = 0
+        draggedTrayIndex = -1
+        armedBooster = null
+        isGameOver = false
+        isLevelComplete = false
+        showContinueDialog = false
+        continueOffered = false
+        lastClearedText = ""
+        generateNewTray()
+    }
+
+    // Faz 55: kullanici "level bitti retry deyince reklam izlemesi gerekmez
+    // mi" dedi — onceden Seviyeli Mod'da TEKRAR DENE tamamen ucretsiz/aninda
+    // idi. Artik Sonsuz Mod'daki "reklamla devam et" ile AYNI generic
+    // onRequestContinueAd kancasi kullanilarak zorunlu hale getirildi.
+    // Faz 61: kullanici iki konu bildirdi — (1) reklam izleyince Sonsuz
+    // Mod'daki GIBI 3 hamle geri alip devam etsin istedi (tam seviye
+    // sifirlama YERINE), bomba hediyesi istemedi (kendi onerisini geri
+    // cekti); (2) bu buton "hala reklam cagiramiyor" dedi — kok neden
+    // bulundu: `AppNavigation.kt`'deki Routes.GAME (Seviyeli Mod) rotasi
+    // `onRequestContinueAd`'i HIC BAGLAMAMISTI, sadece Routes.ENDLESS_GAME
+    // bagliyordu — varsayilan deger aninda onDenied() cagiriyordu, yani
+    // Seviyeli Mod'da GERCEK bir reklam hicbir zaman yuklenmiyordu (ayri
+    // duzeltildi, bkz. AppNavigation.kt). Artik `continueOffered` ile ayni
+    // seviye denemesinde SADECE BIR KEZ reklamli devam sunuluyor (Endless'le
+    // birebir ayni kural); ikinci basarisizlikta buton duz "TEKRAR DENE"ye
+    // (reklamsiz, tam sifirlama) donuyor.
+    fun handleRetryWithAd() {
+        if (isRequestingContinueAd) return
+        if (continueOffered) {
+            resetGame()
+            return
+        }
+        isRequestingContinueAd = true
+        onRequestContinueAd(
+            {
+                isRequestingContinueAd = false
+                continueOffered = true
+                isGameOver = false
+                undoMovesForContinue(3)
+                checkGameOver()
+            },
+            {
+                isRequestingContinueAd = false
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        if (trayShapes.isEmpty()) {
+            generateNewTray()
+        }
+    }
+
+    // Basari rozeti kisa bir sure gosterilip kendiliginden kapanir.
+    LaunchedEffect(activeAchievementText) {
+        if (activeAchievementText != null) {
+            delay(2200)
+            activeAchievementText = null
+        }
+    }
+
+    // Seviye tamamlaninca bir kerelik konfeti patlamasi.
+    LaunchedEffect(isLevelComplete) {
+        if (isLevelComplete) {
+            confettiPieces = List(36) {
+                ConfettiPiece(
+                    xFraction = Random.nextFloat(),
+                    startDelay = Random.nextFloat() * 0.3f,
+                    drift = (Random.nextFloat() - 0.5f) * 60f,
+                    rotationSpeed = Random.nextFloat() * 6f + 2f,
+                    color = BLOCK_COLORS[Random.nextInt(BLOCK_COLORS.size)]
+                )
+            }
+            confettiProgress.snapTo(0f)
+            confettiProgress.animateTo(1f, animationSpec = tween(1600, easing = FastOutSlowInEasing))
+        }
+    }
+
+    fun placeShape(shapeIndex: Int, shape: BlockShape, startRow: Int, startCol: Int) {
+        if (!canPlaceShape(shape, startRow, startCol)) return
+
+        if (showFirstMoveHint) {
+            showFirstMoveHint = false
+            onFirstMoveMade()
+        }
+
+        // Faz 61: onceden SADECE Sonsuz Mod'da tutuluyordu. Seviyeli Mod'daki
+        // "reklam izle, devam et" de artik ayni geri-alma mekanizmasini
+        // kullandigi icin (bkz. handleRetryWithAd) her iki modda da kayit
+        // tutuluyor.
+        moveHistory.add(GameSnapshot(board = board.toList(), score = score))
+        while (moveHistory.size > MAX_MOVE_HISTORY) moveHistory.removeAt(0)
+
+        SoundManager.playLock(soundEnabled)
+
+        var placedBlocks = 0
+        for (r in shape.pattern.indices) {
+            for (c in shape.pattern[r].indices) {
+                if (shape.pattern[r][c]) {
+                    val targetR = startRow + r
+                    val targetC = startCol + c
+                    board[targetR * gridSize + targetC] = shape.colorIndex
+                    placedBlocks++
+                }
+            }
+        }
+
+        // Faz 45: onceden hucre basina 10 puan verilirdi — kullanici "puanlar kare
+        // sayısı kadar olmalı" dedi (hakli: eski sistemde HİÇ satir/sutun temizlemeden
+        // sadece 50 hucre doldurarak 500'luk bir hedefe ulasilabiliyordu, mantiksizdi).
+        // Artik 1 hucre = 1 puan; asagidaki satir temizleme bonusu ve hedef puanlari
+        // (bkz. LevelGenerator) bu YENİ 10x kucuk olceğe gore yeniden ayarlandi.
+        // Faz 77: Pro Mode "daha yuksek puan carpani" — varsayilan 1f (Level/
+        // Sonsuz Mod degismez), Pro Mode'da >1f verilip TUM puan artislarina
+        // uygulanir.
+        score += (placedBlocks * scoreMultiplier).roundToInt()
+
+        // Check full rows & columns
+        val rowsToClear = mutableListOf<Int>()
+        val colsToClear = mutableListOf<Int>()
+
+        for (r in 0 until gridSize) {
+            var fullRow = true
+            for (c in 0 until gridSize) {
+                if (board[r * gridSize + c] == 0) {
+                    fullRow = false
+                    break
+                }
+            }
+            if (fullRow) rowsToClear.add(r)
+        }
+
+        for (c in 0 until gridSize) {
+            var fullCol = true
+            for (r in 0 until gridSize) {
+                if (board[r * gridSize + c] == 0) {
+                    fullCol = false
+                    break
+                }
+            }
+            if (fullCol) colsToClear.add(c)
+        }
+
+        val totalLinesCleared = rowsToClear.size + colsToClear.size
+        if (totalLinesCleared > 0) {
+            onLinesCleared(totalLinesCleared)
+            if (totalLinesCleared >= 2) onMultiClear()
+            comboCount++
+            // Faz 45: onceden sabit 100 puan/satir idi (yeni 1puan/hucre olcegine
+            // gore orantisizca buyuktu). Artik satir basina bonus, o satirin gercek
+            // uzunluguna (gridSize hucre) esit — "bir satiri temizlemek, o satiri
+            // YENIDEN doldurmaya esdeger" gibi mantikli/orantili bir taban.
+            //
+            // Faz 46: kullanici "block blast'ın ödüllendirme mekaniğine bak" dedi —
+            // arastirma (blockblast.free/wiki/scoring-and-combos) iki ayri kavrami
+            // netlestirdi: "Streak" (ART ARDA hamlelerde patlatma — bizim comboCount,
+            // zaten dogrusal carpandi, degismedi) ve "Combo" (TEK hamlede BIRDEN
+            // FAZLA satir/sutun patlatma — bizim totalLinesCleared). Referansta 2.
+            // kavram DOGRUSAL DEGIL: "3 satiri BIRDEN patlatmak, 3 satiri AYRI AYRI
+            // patlatmaktan 3-4 kat daha degerli." Onceden totalLinesCleared sadece
+            // dogrusal carpiyordu (2 satir = tam 2 kat, fazlasi yoktu) — artik ek bir
+            // multiLineMultiplier var (1 satir icin carpan yok, her ekstra ESZAMANLI
+            // satir +%50 ekliyor: 2 satir=1.5x, 3 satir=2x, 4 satir=2.5x).
+            val multiLineMultiplier = 1f + (totalLinesCleared - 1) * 0.5f
+            val lineBonus = (totalLinesCleared * gridSize * comboCount * multiLineMultiplier * scoreMultiplier).roundToInt()
+            score += lineBonus
+            // Kombo yukseldikce ovgu kelimesi de yukseliyor (Block Blast!'daki
+            // "Excellent!"/thumbs-up tarzi geri bildirime benzer, kullanici istegi).
+            // Coklu satir/sutun temizleme HER ZAMAN iyi bir sey — ilk kombo adiminda
+            // bile ("ÇOKLU PATLAMA!") kirmizimsi renkle gosterilmesi "kotu bir sey oldu"
+            // hissi veriyordu (kullanici geri bildirimi) — artik daha cosku dolu.
+            //
+            // Faz 34 duzeltmesi: sadece comboCount'a (art arda AYRI hamlelerde
+            // temizleme) bakmak kelime cesitliligini neredeyse yok ediyordu —
+            // comboCount>=2'ye ulasmak nadir, ama TEK hamlede 2-3-4 satir birden
+            // temizlemek (totalLinesCleared>1) cok daha sik. Sonuc: kullanici
+            // pratikte HEP "SÜPER!" duyuyordu, ust kademe kelimeler neredeyse
+            // hic tetiklenmiyordu. Artik ikisi birlesik bir "cosku puani" ile
+            // olculuyor, boylece buyuk TEK hamlelik patlamalar da hak ettigi
+            // ust kademe kelimeyi tetikliyor.
+            val excitement = (comboCount - 1) + (totalLinesCleared - 1)
+            // Faz 34: kullanici "hep aynısı geliyor" dedi — her kademede TEK
+            // sabit kelime yerine kucuk bir esanlamli havuzdan rastgele seciliyor,
+            // boylece ayni kombo seviyesinde bile degisken tepki alınıyor.
+            // Faz 34c: kullanici "yazi secili dilde kalsin ama SES her zaman
+            // Ingilizce olsun, Turkce TTS sesleri pek güzel değil" dedi — bu
+            // yuzden ekranda gosterilen kelime (language'a gore) ile TTS'e
+            // gonderilen kelime artik BAGIMSIZ: ikisi de ayni kademenin
+            // havuzundan geliyor ama SES her zaman enPool'dan seciliyor.
+            // Faz 35: 5 dile cikarildi.
+            data class PraisePools(val tr: List<String>, val en: List<String>, val it: List<String>, val fr: List<String>, val es: List<String>)
+            val pools = when {
+                excitement >= 5 -> PraisePools(
+                    listOf("İNANILMAZ!", "EFSANE!", "DURDURULAMAZ!"),
+                    listOf("AMAZING!", "LEGENDARY!", "UNSTOPPABLE!"),
+                    listOf("INCREDIBILE!", "LEGGENDARIO!", "INARRESTABILE!"),
+                    listOf("INCROYABLE!", "LÉGENDAIRE!", "IMPARABLE!"),
+                    listOf("INCREÍBLE!", "LEGENDARIO!", "IMPARABLE!")
+                )
+                excitement == 4 -> PraisePools(
+                    listOf("MÜKEMMEL!", "MUHTEŞEM!", "OLAĞANÜSTÜ!"),
+                    listOf("EXCELLENT!", "FANTASTIC!", "INCREDIBLE!"),
+                    listOf("ECCELLENTE!", "FANTASTICO!", "STRAORDINARIO!"),
+                    listOf("EXCELLENT!", "FANTASTIQUE!", "EXTRAORDINAIRE!"),
+                    listOf("EXCELENTE!", "FANTÁSTICO!", "EXTRAORDINARIO!")
+                )
+                excitement == 3 -> PraisePools(
+                    listOf("HARİKA!", "ÇOK İYİ!", "BAŞARILI!"),
+                    listOf("GREAT!", "AWESOME!", "SMOOTH!"),
+                    listOf("FANTASTICO!", "GRANDIOSO!", "PERFETTO!"),
+                    listOf("GÉNIAL!", "IMPRESSIONNANT!", "PARFAIT!"),
+                    listOf("GENIAL!", "IMPRESIONANTE!", "PERFECTO!")
+                )
+                excitement == 2 -> PraisePools(
+                    listOf("GÜZEL!", "İYİ İŞ!", "AFERİN!"),
+                    listOf("NICE!", "GOOD!", "SWEET!"),
+                    listOf("BELLO!", "BRAVO!", "OTTIMO!"),
+                    listOf("BIEN!", "BRAVO!", "SUPER!"),
+                    listOf("BIEN!", "BUEN TRABAJO!", "GENIAL!")
+                )
+                excitement == 1 -> PraisePools(
+                    listOf("SÜPER!", "GÜZEL!", "İYİ!"),
+                    listOf("SUPER!", "NICE!", "GOOD!"),
+                    listOf("SUPER!", "BELLO!", "BENE!"),
+                    listOf("SUPER!", "BIEN!", "JOLI!"),
+                    listOf("SÚPER!", "BIEN!", "BUENO!")
+                )
+                else -> PraisePools(
+                    listOf("PATLAMA!", "GÜZEL!"),
+                    listOf("BLAST!", "NICE!"),
+                    listOf("BOTTO!", "BELLO!"),
+                    listOf("BOUM!", "BIEN!"),
+                    listOf("BUM!", "BIEN!")
+                )
+            }
+            val praiseWord = praiseFrom(language, pools.tr, pools.en, pools.it, pools.fr, pools.es)
+            val speechWord = pools.en.random()
+            val praiseEmoji = when {
+                excitement >= 5 -> " 🔥"
+                excitement >= 2 -> " 👍"
+                excitement == 1 -> " 🎉"
+                else -> ""
+            }
+            lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
+            lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
+
+            // Faz 34: orijinal oyunda ovgu kelimeleri sesle de soyleniyordu
+            // (kullanici gozlemi) — sadece gercek bir kutlama aninda (kucuk
+            // her tekli patlamada degil) TTS ile praiseWord seslendiriliyor.
+            // Kullanici ilk denemede "hep SÜPER diyor, robot gibi" dedi — kok
+            // neden yukaridaki ayni excitement hesabiydi (pitch/hiz hep dusuk
+            // kaliyordu). Artik excitement'a gore olculeniyor, aralik da
+            // genisletildi + hafif rastgele jitter eklendi (bkz.
+            // TextToSpeechManager.speakPraise) boylece ayni kelime bile her
+            // seferinde birebir ayni "robotik" tonlamayla cikmiyor.
+            if (lastClearWasCelebration && soundEnabled) {
+                TextToSpeechManager.speakPraise(
+                    text = speechWord,
+                    isTr = false,
+                    excitementLevel = excitement
+                )
+            }
+
+            sessionLinesCleared += totalLinesCleared
+            when {
+                comboCount == 3 -> maybeUnlockAchievement("combo_3", language.pick(tr = "🔥 3x Kombo!", en = "🔥 3x Combo!", it = "🔥 3x Combo!", fr = "🔥 3x Combo!", es = "🔥 3x Combo!"))
+                comboCount == 5 -> maybeUnlockAchievement("combo_5", language.pick(tr = "🔥 5x Kombo — İnanılmaz!", en = "🔥 5x Combo — Amazing!", it = "🔥 5x Combo — Incredibile!", fr = "🔥 5x Combo — Incroyable!", es = "🔥 5x Combo — Increíble!"))
+            }
+            when {
+                sessionLinesCleared >= 10 && sessionLinesCleared - totalLinesCleared < 10 ->
+                    maybeUnlockAchievement("lines_10", language.pick(tr = "🏅 10 satır temizledin!", en = "🏅 10 lines cleared!", it = "🏅 10 linee eliminate!", fr = "🏅 10 lignes effacées!", es = "🏅 ¡10 líneas eliminadas!"))
+                sessionLinesCleared >= 25 && sessionLinesCleared - totalLinesCleared < 25 ->
+                    maybeUnlockAchievement("lines_25", language.pick(tr = "🏅 25 satır temizledin!", en = "🏅 25 lines cleared!", it = "🏅 25 linee eliminate!", fr = "🏅 25 lignes effacées!", es = "🏅 ¡25 líneas eliminadas!"))
+                sessionLinesCleared >= 50 && sessionLinesCleared - totalLinesCleared < 50 ->
+                    maybeUnlockAchievement("lines_50", language.pick(tr = "🏅 50 satır — harikasın!", en = "🏅 50 lines — you're on fire!", it = "🏅 50 linee — sei in fiamme!", fr = "🏅 50 lignes — tu es en feu!", es = "🏅 50 líneas — ¡estás que ardes!"))
+            }
+
+            val clearedIndices = mutableSetOf<Int>()
+            rowsToClear.forEach { r -> for (c in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
+            colsToClear.forEach { c -> for (r in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
+
+            // Once hucreler HALA DOLUYKEN kisa bir neon glow gosterilir ("patlamaya
+            // kilitlendi" hissi, Block Blast referansi — kullanici geri bildirimi:
+            // "3'lü patlamak üzereyken glow efekti falan ekliyor"). Gercek temizleme
+            // (board sifirlama + parcacik patlamasi + ses) bu glow'dan HEMEN SONRA olur.
+            glowingClearCells = clearedIndices
+            // Faz 50: hucre-hucre glow'a ek olarak tum satir/sutunun etrafinda
+            // TEK bir cerceve (rakip oyun referansi) — render tarafinda ayri
+            // bir Canvas katmaninda cizilecek.
+            glowingRows = rowsToClear.toSet()
+            glowingCols = colsToClear.toSet()
+            dragCoroutineScope.launch {
+                glowPulse.snapTo(0f)
+                glowPulse.animateTo(1f, animationSpec = tween(160, easing = FastOutSlowInEasing))
+                delay(90)
+
+                // Faz 33: ayni anda 2+ satir/sutun temizlenince (gercek kombo)
+                // tekli patlama yerine daha uzun/coskulu "kombo patlamasi" calar.
+                if (totalLinesCleared >= 2) {
+                    SoundManager.playComboBlast(soundEnabled, comboCount)
+                } else {
+                    SoundManager.playBlast(soundEnabled)
+                }
+                glowingClearCells = emptySet()
+                glowingRows = emptySet()
+                glowingCols = emptySet()
+                recentlyClearedCells = clearedIndices
+                dragCoroutineScope.launch {
+                    clearFlashAlpha.snapTo(1f)
+                    clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
+                }
+
+                // Faz 50: patlama noktasinda yuzen "+N" puan yazisi — her temizlenen
+                // satir/sutunun kendi orta noktasinda, kombo/coklu-satir carpanindan
+                // BAGIMSIZ olarak esit paylastirilmis (sadece gorsel, gercek toplam
+                // zaten `score`'a tam olarak eklendi).
+                val lineCount = (rowsToClear.size + colsToClear.size).coerceAtLeast(1)
+                val perLineScore = lineBonus / lineCount
+                val popupColor = if (totalLinesCleared >= 2) NeonGold else NeonGreen
+                val rowPopups = rowsToClear.map { r ->
+                    ScorePopup(row = r + 0.5f, col = gridSize / 2f, text = "+$perLineScore", color = popupColor)
+                }
+                val colPopups = colsToClear.map { c ->
+                    ScorePopup(row = gridSize / 2f, col = c + 0.5f, text = "+$perLineScore", color = popupColor)
+                }
+                scorePopups = rowPopups + colPopups
+                dragCoroutineScope.launch {
+                    popupProgress.snapTo(0f)
+                    popupProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
+                    scorePopups = emptyList()
+                }
+
+                // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
+                // rastgele acı/mesafeyle disari firlat — renkler board SIFIRLANMADAN
+                // ONCE okunuyor, aksi halde tum parcaciklar ayni "bos hucre" rengine duser.
+                // Faz 50: buyuk anlarda (kombo/coklu-satir) parcacik sayisi da artiyor —
+                // rakip oyunun kayittaki "Perfect!" anindaki yogun konfeti referansi.
+                // clearedIndices'ten BUYUK sayida parcacik istenebiliyor (kucuk bir
+                // tekli satir sadece 8 hucre saglar) — yerine koyarak (with replacement)
+                // ornekleme yapiliyor ki yogunluk gercekten combo/coklu-satir ile artsin.
+                val clearedList = clearedIndices.toList()
+                val particleCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10).coerceIn(20, 80)
+                particleBurst = List(particleCount) { clearedList[Random.nextInt(clearedList.size)] }.map { index ->
+                    val r = index / gridSize
+                    val c = index % gridSize
+                    val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
+                    BlastParticle(
+                        row = r,
+                        col = c,
+                        angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
+                        distance = 28f + Random.nextFloat() * 36f,
+                        color = cellColor
+                    )
+                }
+
+                // Clear cells
+                rowsToClear.forEach { r ->
+                    for (c in 0 until gridSize) {
+                        board[r * gridSize + c] = 0
+                    }
+                }
+                colsToClear.forEach { c ->
+                    for (r in 0 until gridSize) {
+                        board[r * gridSize + c] = 0
+                    }
+                }
+
+                // Faz 41: checkGameOver() ONCEDEN placeShape'in sonunda, SENKRON
+                // cagriliyordu — ama satir/sutun temizligi (yukaridaki board sifirlama)
+                // bu async coroutine icinde ~250ms GECIKMEYLE gerceklesiyor (glow efekti
+                // icin). Sonuc: buyuk bir parca o an tahtada yer bulamiyor olsa bile,
+                // ayni hamlede baska bir parca satir/sutun temizleyip o parcaya yer
+                // acacak olsa DAHI, checkGameOver() henuz TEMIZLENMEMIS eski tahtaya
+                // bakip yanlislikla "oyun bitti" diyordu (kullanici geri bildirimi:
+                // "büyük parçaya yer açılacak olmasına rağmen oyun bitti diyor").
+                // Artik temizleme SATIRLARI GERCEKTEN calistiktan SONRA, guncel tahtaya
+                // gore kontrol ediliyor (asagidaki totalLinesCleared==0 dalindaki
+                // senkron cagri artik SADECE temizlenen satir/sutun olmadigi durumda calisiyor).
+                // isLevelComplete/isGameOver korumasi: bu coroutine placeShape'in geri
+                // donusunden (ve olasi erken "return"unden) BAGIMSIZ calisir — seviye zaten
+                // TAMAMLANMIS veya oyun zaten BITMISSE tekrar bir "oyun bitti" tetiklemesin.
+                if (!isLevelComplete && !isGameOver) checkGameOver()
+
+                dragCoroutineScope.launch {
+                    particleProgress.snapTo(0f)
+                    particleProgress.animateTo(1f, animationSpec = tween(500))
+                }
+
+                // Kombo metni: her patlamada kisa bir "pop" ile buyuyup normale donuyor
+                dragCoroutineScope.launch {
+                    comboTextScale.snapTo(1.5f)
+                    comboTextScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                }
+
+                // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
+                if (totalLinesCleared > 1 || comboCount >= 3) {
+                    dragCoroutineScope.launch {
+                        // 10f (raw piksel) neredeyse fark edilmiyordu (kullanici geri
+                        // bildirimi: "ekranda titreme falan olmadı") — 24f'ye yukseltildi.
+                        val amplitude = 24f
+                        shakeOffset.snapTo(0f)
+                        shakeOffset.animateTo(amplitude, animationSpec = tween(40))
+                        shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
+                        shakeOffset.animateTo(amplitude * 0.6f, animationSpec = tween(60))
+                        shakeOffset.animateTo(-amplitude * 0.6f, animationSpec = tween(60))
+                        shakeOffset.animateTo(0f, animationSpec = tween(60))
+                    }
+                }
+            }
+        } else {
+            comboCount = 0
+            lastClearedText = ""
+        }
+
+        // Remove used shape from tray
+        trayShapes[shapeIndex] = null
+
+        // Faz 72: sadece hedef puani gecmek yetmiyor artik — kullanici geri
+        // bildirimi: "98 puandayken 1x2 koydun ama patlama yoksa devam etmeli."
+        // totalLinesCleared>0 sarti eklendi: hedef, SADECE bu hamlede en az bir
+        // satir/sutun gercekten patladiysa tamamlaniyor (hedefi onceki, patlamasiz
+        // bir hamleyle gecmis olmak tek basina yetmiyor, bir sonraki patlamaya kadar
+        // oyun devam ediyor).
+        if (!isEndless && !isLevelComplete && score >= targetScore && totalLinesCleared > 0) {
+            isLevelComplete = true
+            SoundManager.playSuccess(soundEnabled)
+            onLevelComplete(score, computeStars(score, targetScore))
+            return
+        }
+
+        // If all 3 shapes used, spawn 3 new
+        if (trayShapes.all { it == null }) {
+            generateNewTray()
+        }
+
+        // Faz 41: satir/sutun temizlendiginde checkGameOver() artik yukarida
+        // (temizleme coroutine'inin SONUNDA, gercek tahta durumuna gore) cagriliyor.
+        // Burada SADECE temizlenen bir satir/sutun YOKSA (async gecikme de yok)
+        // senkron kontrol yapiliyor.
+        if (totalLinesCleared == 0) {
+            checkGameOver()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(animatedBackgroundBrush)
+            .onGloballyPositioned { rootOriginPx = it.positionInRoot() }
+            .padding(16.dp)
+    ) {
+        // Faz 22: kok zemin onceden tamamen duz/statik renkti (tasarim onerisi:
+        // "hafif atmosferik arka plan hareketi"). Cok yavas kayan, dusuk kontrastli
+        // iki blob — pil/performans dostu olmasi icin tek paylasilan ambientPhase'e bagli.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val twoPi = (2.0 * Math.PI).toFloat()
+            val cx1 = size.width * (0.3f + 0.2f * sin(ambientPhase * twoPi))
+            val cy1 = size.height * (0.2f + 0.15f * cos(ambientPhase * twoPi * 0.7f))
+            drawCircle(
+                color = uiSkin.accentGradient[0].copy(alpha = 0.09f),
+                radius = size.minDimension * 0.55f,
+                center = Offset(cx1, cy1)
+            )
+            val cx2 = size.width * (0.7f - 0.2f * cos(ambientPhase * twoPi * 0.6f))
+            val cy2 = size.height * (0.8f - 0.15f * sin(ambientPhase * twoPi * 0.9f))
+            drawCircle(
+                color = uiSkin.accentGradient.getOrElse(1) { uiSkin.accentGradient[0] }.copy(alpha = 0.08f),
+                radius = size.minDimension * 0.5f,
+                center = Offset(cx2, cy2)
+            )
+        }
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Bar Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (!isGameOver && !isLevelComplete) {
+                            showExitConfirmDialog = true
+                        } else {
+                            onBack()
+                        }
+                    },
+                    modifier = Modifier.testTag("block_blast_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = palette.textPrimary
+                    )
+                }
+
+                // Faz 25: geri butonu + baslik + tema/ayarlar/sifirla grubu sabit
+                // genislik varsayan bir SpaceBetween Row'daydi — Level Map'te ayni
+                // desen dar ekranlarda cakismaya yol acmisti (kullanici geri
+                // bildirimi). Baslik artik kalan alani paylasiyor ve gerekirse
+                // ellipsis ile kisaliyor, sag gruptan asla alan calmiyor.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp)
+                ) {
+                    Text(
+                        text = if (isEndless) {
+                            // Faz 40: "SONSUZ MOD"/"ENDLESS MODE" TEMA piliyle cakisiyordu
+                            // bazi cihazlarda (kullanici geri bildirimi + ekran goruntusu).
+                            // Tek kelimeye kisaltildi, cakisma riski buyuk olcude azaliyor.
+                            language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO")
+                        } else {
+                            language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber")
+                        },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        color = NeonCyan,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+
+                // Faz 28: kullanici acikca "isim tam gozuksun, kisaltilmasin" ve
+                // "butonlar birbirine yaklassin" dedi — bir onceki gecisimde sadece
+                // TEK bir Spacer'i kucultmustum (iki Spacer'dan biri, comment satirlari
+                // araya girdigi icin diger replace_all eslesmemisti). Bu sefer HER UC
+                // eleman da (TEMA pili + iki IconButton) belirgin sekilde daraltildi:
+                // IconButton'lar varsayilan 48dp dokunma alani yerine 36dp, TEMA pilinin
+                // ic padding'i azaltildi, aralardaki Spacer'lar 0dp'ye indirildi. Boylece
+                // basliga gercekten daha fazla alan kaliyor ve "..." tetiklenmiyor.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Theme Choice Button
+                    Surface(
+                        color = NeonPurple.copy(alpha = 0.25f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showThemeDialog = true }
+                            .testTag("block_blast_theme_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val activeTheme = BLOCK_THEMES.find { it.id == currentTheme } ?: BLOCK_THEMES.first()
+                            Text(text = activeTheme.icon, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = language.pick(tr = "TEMA", en = "THEME", it = "TEMA", fr = "THÈME", es = "TEMA"),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonPurple
+                            )
+                        }
+                    }
+
+                    // Oyun icindeyken ayarlara (ses/tema/dil) hic erisim yoktu — kullanici
+                    // ses kapatmak/ayar degistirmek icin geri cikmak zorunda kaliyordu, bu da
+                    // Sonsuz Mod'daki mevcut oturumu tamamen sifirliyordu (kullanici geri
+                    // bildirimi). Artik oyun ekranindan dogrudan Ayarlar'a gidilebiliyor.
+                    IconButton(
+                        onClick = { showSettingsDialog = true },
+                        modifier = Modifier.size(36.dp).testTag("block_blast_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
+                            tint = palette.textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { resetGame() },
+                        modifier = Modifier.size(36.dp).testTag("block_blast_restart_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Reset Game",
+                            tint = NeonGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Score & Level Banner
+            // Faz 40: dikey padding 4dp->2dp ve kart ic padding'i (yukarida) 8dp->6dp —
+            // reklam banner'i alani sikistirinca grid'e biraz daha pay birakmak icin
+            // (kullanici: "score combo best kutuları da çok geniş, daralabilir").
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "🎯 SKOR", en = "🎯 SCORE", it = "🎯 PUNTEGGIO", fr = "🎯 SCORE", es = "🎯 PUNTUACIÓN"),
+                            fontSize = 10.sp,
+                            color = palette.textSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "$animatedScore",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = palette.textPrimary,
+                            modifier = Modifier.scale(scoreScale.value)
+                        )
+                    }
+                }
+
+                // Faz 22: seri (streak) 3+ oldugunda kart alevleniyor — mevcut kombo
+                // metni gecici bir banner, bu ise KALICI bir gorsel gosterge (kullanici
+                // geri bildirimi: "kombo kartı seri arttıkça alevlensin").
+                val isOnStreak = isEndless && comboCount >= 3
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isOnStreak) Color(0xFFFF6B35).copy(alpha = 0.16f) else palette.card
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .padding(horizontal = 2.dp)
+                        .then(
+                            if (isOnStreak) {
+                                Modifier.border(
+                                    width = 1.5.dp,
+                                    brush = Brush.linearGradient(
+                                        listOf(Color(0xFFFF6B35).copy(alpha = sharedPulse), NeonGold.copy(alpha = sharedPulse))
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (isEndless) {
+                            // Sonsuz Mod'da sabit bir hedef olmadigi icin ilerleme cubugunun
+                            // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
+                            Text(
+                                text = language.pick(tr = "🔥 KOMBO", en = "🔥 COMBO", it = "🔥 COMBO", fr = "🔥 COMBO", es = "🔥 COMBO"),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = if (comboCount >= 2) NeonGold else NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (comboCount > 0) "${comboCount}x" else "—",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (comboCount >= 2) NeonGold else palette.textPrimary
+                            )
+                        } else {
+                            Text(
+                                text = language.pick(tr = "📈 İLERLEME", en = "📈 PROGRESS", it = "📈 PROGRESSO", fr = "📈 PROGRÈS", es = "📈 PROGRESO"),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonCyan
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { levelProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = NeonCyan,
+                                trackColor = palette.cardAlt
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            // Cubuk tek basina sayisal bir okuma sunmuyordu (UI/UX
+                            // karsilastirma bulgusu) — artik altinda kesir gosteriliyor.
+                            Text(
+                                text = "$score/$targetScore",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = palette.textSecondary
+                            )
+                        }
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).padding(start = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isEndless) {
+                                language.pick(tr = "🏆 EN YÜKSEK", en = "🏆 BEST", it = "🏆 MIGLIORE", fr = "🏆 MEILLEUR", es = "🏆 MEJOR")
+                            } else {
+                                language.pick(tr = "🏁 HEDEF", en = "🏁 TARGET", it = "🏁 OBIETTIVO", fr = "🏁 OBJECTIF", es = "🏁 OBJETIVO")
+                            },
+                            fontSize = 10.sp,
+                            color = palette.textSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isEndless) "${maxOf(score, bestScore)}" else "$targetScore",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = NeonGold
+                        )
+                    }
+                }
+            }
+
+            // Booster Row
+            if (availableBoosterCounts.values.any { it > 0 }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BoosterType.entries.forEach { type ->
+                        val owned = availableBoosterCounts[type] ?: 0
+                        if (owned > 0) {
+                            val isArmed = armedBooster == type
+                            val emoji = when (type) {
+                                BoosterType.BOMB -> "💣"
+                                BoosterType.LINE_CLEAR -> "⚡"
+                            }
+                            Surface(
+                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(
+                                        width = if (isArmed) 2.dp else 1.dp,
+                                        color = if (isArmed) NeonGreen else palette.cardBorder,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        armedBooster = if (isArmed) null else type
+                                    }
+                                    .testTag("booster_button_${type.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = emoji, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                                }
+                            }
+                        }
+                    }
+                    if (armedBooster != null) {
+                        Text(
+                            text = language.pick(tr = "Hedef bir hücreye dokun", en = "Tap a target cell", it = "Tocca una cella bersaglio", fr = "Touchez une case cible", es = "Toca una celda objetivo"),
+                            fontSize = 11.sp,
+                            color = NeonGreen,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
+                    }
+                }
+            }
+
+            // Faz 66: "SUPER! +16 / 2x KOMBO" yazisi burada (Column'un normal akisinda)
+            // duruyordu — gorununce yer kapliyor, grid `weight(1f)` ile kalan alani
+            // kullandigi icin metin her belirdiginde grid GORUNUR SEKILDE kucaliyor/
+            // sicriyordu (kullanici ekran goruntusuyle bildirdi). Metin artik asagida,
+            // grid'in KENDI BoxWithConstraints'i icinde bir overlay katmani olarak
+            // (mevcut "+N" puan yazilari/parcacik efektleriyle AYNI desen) TopCenter'a
+            // hizalanmis sekilde ciziliyor — grid'in olcumunu hic etkilemiyor, gorunse
+            // de gorunmese de grid boyutu SABIT kaliyor.
+
+            // 8x8 Main Grid
+            // Faz 40: onceden .fillMaxWidth().aspectRatio(1f) ile SADECE genislige gore
+            // kare boyutlaniyordu — banner reklam altta yer kaplayinca Column'un toplam
+            // yuksekligi asiliyor, en sonda kalan tepsi (sonraki 3 parca) ekran disina
+            // tasip goze neredeyse gorunmez ince seritler halinde kaliyordu (kullanici
+            // geri bildirimi: "sıradaki bloklar gözükmüyor reklam çıkınca"). Artik grid
+            // Column icinde weight(1f) ile SADECE kalan (header/skor/tepsi cikarilmis)
+            // dikey alani aliyor, BoxWithConstraints ile o alanin hem genislik hem
+            // yukseklik siniri arasindaki KUCUK olan kare kenari olarak kullaniliyor —
+            // boylece reklam yer actikca daralan tek eleman grid oluyor, tepsi sabit
+            // boyutunu (110dp) hep koruyor.
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+            val gridSide = minOf(maxWidth, maxHeight)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = animatedCard),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .size(gridSide)
+                    .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
+                    .border(2.dp, Brush.linearGradient(uiSkin.accentGradient), RoundedCornerShape(16.dp))
+                    .padding(6.dp)
+            ) {
+              Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coords ->
+                            gridOriginPx = coords.positionInRoot()
+                            cellSizePx = coords.size.width / gridSize.toFloat()
+                        }
+                    // Not: verticalArrangement = SpaceEvenly idi — grid tam kare
+                    // olmadiginda satirlar arasina/oncesine bosluk ekliyordu, bu da
+                    // gridOriginPx'e gore olculen parmak-hucre eslesmesini kaydiriyordu
+                    // (kullanici geri bildirimi: "tam bir kare kadar kayma var").
+                    // Hucreler zaten weight(1f) ile tam genisligi dolduruyor, arrangement
+                    // gereksiz — kaldirildi, hucreler artik ust-sol kosede sikica diziliyor.
+                ) {
+                    for (r in 0 until gridSize) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            for (c in 0 until gridSize) {
+                                val cellVal = board[r * gridSize + c]
+                                val inDragFootprint = isCellInDragFootprint(r, c)
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(1.5.dp)
+                                        .background(
+                                            if (cellVal == 0 && !inDragFootprint) palette.emptyCell else Color.Transparent,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .border(
+                                            width = 0.5.dp,
+                                            // Dolu hucreler arasinda ONCEDEN sinir tamamen
+                                            // saydamdi — aynı renkteki iki AYRI parca yan yana
+                                            // gelince tek buyuk blok gibi gorunuyor, kullanici
+                                            // bunu "parca farkli sekle donustu" sanip yanlis
+                                            // yorumluyordu. Artik dolu hucrelerde de hafif bir
+                                            // koyu sinir var, her parca gorsel olarak ayirt edilebiliyor.
+                                            color = if (cellVal > 0) palette.background.copy(alpha = 0.35f) else palette.cardBorder,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .then(
+                                            if (armedBooster != null) {
+                                                Modifier.clickable { applyBoosterAt(r, c) }
+                                            } else {
+                                                Modifier
+                                            }
+                                        )
+                                        .testTag("block_cell_${r}_${c}")
+                                ) {
+                                    if (cellVal > 0) {
+                                        EmbossedBlockCell(
+                                            colorIndex = cellVal,
+                                            theme = currentTheme,
+                                            modifier = Modifier.fillMaxSize(),
+                                            shimmerPhase = shimmerPhase + (r + c) * 0.4f
+                                        )
+                                    }
+                                    // Faz 22: satir/sutun tam 1 hucre eksikken dolu hucreler
+                                    // hafifce nabiz atar ("bir hamle kaldi" ipucu).
+                                    if (cellVal > 0 &&
+                                        (r * gridSize + c) in nearMissCells &&
+                                        (r * gridSize + c) !in glowingClearCells
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .border(1.5.dp, NeonGold.copy(alpha = sharedPulse), RoundedCornerShape(6.dp))
+                                        )
+                                    }
+                                    if ((r * gridSize + c) in glowingClearCells) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color.White.copy(alpha = glowPulse.value * 0.4f))
+                                                .border(2.dp, glowBrush, RoundedCornerShape(6.dp))
+                                        )
+                                        if ((r + c) % 3 == 0) {
+                                            Text(
+                                                text = "✨",
+                                                fontSize = 12.sp,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .alpha(glowPulse.value)
+                                            )
+                                        }
+                                    }
+                                    if (inDragFootprint) {
+                                        val dropValid = isCurrentDropValid()
+                                        val tint = if (dropValid) NeonGreen else Color(0xFFF87171)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(tint.copy(alpha = 0.55f))
+                                                .border(1.dp, tint, RoundedCornerShape(6.dp))
+                                        )
+                                    }
+                                    if ((r * gridSize + c) in recentlyClearedCells && clearFlashAlpha.value > 0f) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(NeonGold.copy(alpha = clearFlashAlpha.value * 0.85f))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Faz 50: tum satir/sutunun etrafinda TEK bir parlak cerceve — rakip
+                // oyun kaydinda gorulen, hucre-hucre glow'dan farkli/ek bir katman.
+                if (glowingRows.isNotEmpty() || glowingCols.isNotEmpty()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cell = size.width / gridSize
+                        val strokeWidth = 3.dp.toPx()
+                        val glowColor = NeonGold.copy(alpha = glowPulse.value)
+                        glowingRows.forEach { r ->
+                            drawRoundRect(
+                                color = glowColor,
+                                topLeft = Offset(strokeWidth / 2, r * cell + strokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, cell - strokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                style = Stroke(width = strokeWidth)
+                            )
+                        }
+                        glowingCols.forEach { c ->
+                            drawRoundRect(
+                                color = glowColor,
+                                topLeft = Offset(c * cell + strokeWidth / 2, strokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(cell - strokeWidth, size.height - strokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                style = Stroke(width = strokeWidth)
+                            )
+                        }
+                    }
+                }
+
+                // Faz 51: surukleme ONIZLEMESI — parca su an gecerli bir hucreye
+                // hover ediyorsa ve birakilirsa hangi satir/sutunlar tamamlanacaksa,
+                // onlarin etrafinda (Faz 50'deki gercek-patlama cercevesinden farkli
+                // renk/pulse ile) bir on-izleme cercevesi gosteriliyor.
+                if (draggedTrayIndex != -1) {
+                    val (previewRows, previewCols) = previewClearedLines()
+                    if (previewRows.isNotEmpty() || previewCols.isNotEmpty()) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val cell = size.width / gridSize
+                            val strokeWidth = 3.dp.toPx()
+                            val previewColor = NeonGreen.copy(alpha = sharedPulse)
+                            previewRows.forEach { r ->
+                                drawRoundRect(
+                                    color = previewColor,
+                                    topLeft = Offset(strokeWidth / 2, r * cell + strokeWidth / 2),
+                                    size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, cell - strokeWidth),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                    style = Stroke(width = strokeWidth)
+                                )
+                            }
+                            previewCols.forEach { c ->
+                                drawRoundRect(
+                                    color = previewColor,
+                                    topLeft = Offset(c * cell + strokeWidth / 2, strokeWidth / 2),
+                                    size = androidx.compose.ui.geometry.Size(cell - strokeWidth, size.height - strokeWidth),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                                    style = Stroke(width = strokeWidth)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Faz 50: patlama noktasinda yuzen "+N" puan yazisi.
+                if (scorePopups.isNotEmpty()) {
+                    val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+                    val riseFraction = popupProgress.value
+                    val popupAlpha = (1f - riseFraction).coerceIn(0f, 1f)
+                    scorePopups.forEach { popup ->
+                        Text(
+                            text = popup.text,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = popup.color.copy(alpha = popupAlpha),
+                            style = TextStyle(
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
+                            ),
+                            modifier = Modifier.offset(
+                                x = cellDp * popup.col - 14.dp,
+                                y = cellDp * popup.row - 10.dp - (16.dp * riseFraction)
+                            )
+                        )
+                    }
+                }
+
+                // Parcacik patlamasi overlay — grid'in tamamini kaplayan, tikanmayan (izin vermeyen) bir Canvas
+                if (particleBurst.isNotEmpty() && particleProgress.value < 1f) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val progress = particleProgress.value
+                        val alpha = (1f - progress).coerceIn(0f, 1f)
+                        val cellSizeCanvas = size.width / gridSize
+                        particleBurst.forEach { particle ->
+                            val originX = (particle.col + 0.5f) * cellSizeCanvas
+                            val originY = (particle.row + 0.5f) * cellSizeCanvas
+                            val dx = cos(particle.angle) * particle.distance * progress
+                            val dy = sin(particle.angle) * particle.distance * progress
+                            drawCircle(
+                                color = particle.color.copy(alpha = alpha),
+                                radius = 4f + 3f * (1f - progress),
+                                center = Offset(originX + dx, originY + dy)
+                            )
+                        }
+                    }
+                }
+
+                // Faz 66: Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor.
+                // Grid'in olcumunu etkilememesi icin (bkz. yukaridaki not) burada, grid'in
+                // KENDI Box'i icinde bir overlay olarak, TopCenter'a hizalanmis sekilde
+                // ciziliyor — hicbir zaman grid'i sikistirmiyor/kaydirmiyor.
+                if (lastClearedText.isNotEmpty()) {
+                    // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
+                    // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
+                    // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
+                    // gorunuyordu). Taban renk artik yesil, kombo yukseldikce turuncu/altina donuyor.
+                    val comboColor = when {
+                        comboCount >= 4 -> NeonGold
+                        comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
+                        else -> NeonGreen
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 10.dp)
+                            .scale(comboTextScale.value)
+                    ) {
+                        // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
+                        // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
+                        // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
+                        Text(
+                            text = lastClearedText,
+                            fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = comboColor,
+                            style = TextStyle(
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    offset = Offset(2f, 3f),
+                                    blurRadius = 4f
+                                )
+                            )
+                        )
+                        // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
+                        // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
+                        if (comboCount >= 2) {
+                            Text(
+                                text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonGold
+                            )
+                        }
+                    }
+                }
+              }
+            }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = language.pick(tr = "Bir bloğu sürükleyip ızgaraya bırakın", en = "Drag a block onto the grid", it = "Trascina un blocco sulla griglia", fr = "Faites glisser un bloc sur la grille", es = "Arrastra un bloque a la cuadrícula"),
+                fontSize = 12.sp,
+                color = palette.textSecondary,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Bottom Tray with 3 Shapes
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                for (i in 0 until 3) {
+                    val shape = trayShapes.getOrNull(i)
+                    val isBeingDragged = draggedTrayIndex == i
+                    var itemCoords by remember(i) { mutableStateOf<LayoutCoordinates?>(null) }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(100.dp)
+                            .padding(4.dp)
+                            .onGloballyPositioned { itemCoords = it }
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isBeingDragged) palette.cardAlt else palette.card)
+                            .border(
+                                width = 1.dp,
+                                color = palette.cardBorder,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .pointerInput(shape?.id) {
+                                if (shape == null) return@pointerInput
+                                detectDragGestures(
+                                    onDragStart = { startOffset ->
+                                        val coords = itemCoords ?: return@detectDragGestures
+                                        draggedTrayIndex = i
+                                        dragPointerStartGlobal = coords.positionInRoot() + startOffset
+                                        dragCoroutineScope.launch { dragOffset.snapTo(Offset.Zero) }
+                                        SoundManager.playPickup(soundEnabled)
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragCoroutineScope.launch { dragOffset.snapTo(dragOffset.value + amount) }
+                                    },
+                                    onDragEnd = {
+                                        val hover = currentHoverCell()
+                                        if (isCurrentDropValid() && hover != null) {
+                                            placeShape(i, shape, hover.first, hover.second)
+                                            draggedTrayIndex = -1
+                                        } else {
+                                            dragCoroutineScope.launch {
+                                                dragOffset.animateTo(Offset.Zero, animationSpec = spring())
+                                                draggedTrayIndex = -1
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        dragCoroutineScope.launch {
+                                            dragOffset.animateTo(Offset.Zero, animationSpec = spring())
+                                            draggedTrayIndex = -1
+                                        }
+                                    }
+                                )
+                            }
+                            .testTag("tray_shape_$i"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (shape != null && !isBeingDragged) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                for (r in shape.pattern.indices) {
+                                    Row(horizontalArrangement = Arrangement.Center) {
+                                        for (c in shape.pattern[r].indices) {
+                                            val active = shape.pattern[r][c]
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(16.dp)
+                                                    .padding(0.5.dp)
+                                            ) {
+                                                if (active) {
+                                                    EmbossedBlockCell(
+                                                        colorIndex = shape.colorIndex,
+                                                        theme = currentTheme,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (shape == null) {
+                            // Onceden tamamen bos/karanlik bir kart kaliyordu, "kirik/eksik"
+                            // gibi goruntyordu (tasarim onerisi). Noktali cerceve + soluk "+"
+                            // ile "burada yeni parca gelecek" hissi verilir.
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, palette.cardBorder.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("+", fontSize = 14.sp, color = palette.textSecondary.copy(alpha = 0.5f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sürüklenen parçanın parmağı takip eden önizlemesi (tam şekil, geçerliyse yeşil/geçersizse kırmızı)
+        // Faz 22: oturum ici basari rozeti — kisa sureli, ekranin ustunde beliren bir toast.
+        AnimatedVisibility(
+            visible = activeAchievementText != null,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 70.dp)
+                .zIndex(25f)
+        ) {
+            Surface(
+                color = NeonGold,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(
+                    text = activeAchievementText ?: "",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+
+        // Faz 22: ilk gercek hamleden once, tepsinin uzerinde kisa bir rehber ipucu —
+        // ilk basarili yerlestirmede kalici olarak (DataStore) kapatilir.
+        if (showFirstMoveHint) {
+            Surface(
+                color = palette.card,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, NeonCyan.copy(alpha = sharedPulse)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 122.dp)
+                    .zIndex(25f)
+            ) {
+                Text(
+                    text = language.pick(tr = "⬇️ Bir parçayı ızgaraya sürükle", en = "⬇️ Drag a piece onto the grid", it = "⬇️ Trascina un pezzo sulla griglia", fr = "⬇️ Glissez une pièce sur la grille", es = "⬇️ Arrastra una pieza a la cuadrícula"),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonCyan,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+
+        activeDragShape()?.let { draggedShape ->
+            val liftPx = with(density) { dragLiftDp.toPx() }
+            // Ghost'un kendi hucre boyutu, gercek grid hucre boyutuyla (cellSizePx) ayni olmali —
+            // aksi halde onizleme, gercekte yerlesecegi alandan farkli buyuklukte gorunur.
+            val ghostCellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+            val ghostCellPx = with(density) { ghostCellDp.toPx() }
+            val shapeWidthPx = draggedShape.pattern[0].size * ghostCellPx
+            val shapeHeightPx = draggedShape.pattern.size * ghostCellPx
+            val pointerAbs = dragPointerStartGlobal + dragOffset.value
+            val left = pointerAbs.x - rootOriginPx.x - shapeWidthPx / 2f
+            val top = (pointerAbs.y - liftPx) - rootOriginPx.y - shapeHeightPx / 2f
+            val dropValid = isCurrentDropValid()
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+                    .zIndex(10f)
+            ) {
+                Column {
+                    draggedShape.pattern.forEach { rowPattern ->
+                        Row {
+                            rowPattern.forEach { active ->
+                                Box(modifier = Modifier.size(ghostCellDp).padding(1.dp)) {
+                                    if (active) {
+                                        if (dropValid) {
+                                            EmbossedBlockCell(
+                                                colorIndex = draggedShape.colorIndex,
+                                                theme = currentTheme,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFFF87171).copy(alpha = 0.85f))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Theme Selection Dialog
+        if (showThemeDialog) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .clickable { showThemeDialog = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonPurple, RoundedCornerShape(20.dp))
+                        .clickable(enabled = false) {} // Prevent dismiss on card click
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(imageVector = Icons.Default.Palette, contentDescription = "Theme", tint = NeonPurple)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = language.pick(tr = "BLOK TEMASI SEÇİN", en = "SELECT BLOCK THEME", it = "SELEZIONA TEMA BLOCCHI", fr = "CHOISIR LE THÈME DES BLOCS", es = "SELECCIONA TEMA DE BLOQUES"),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonPurple
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            BLOCK_THEMES.forEach { theme ->
+                                val isSelected = currentTheme == theme.id
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) NeonPurple.copy(alpha = 0.25f) else palette.background
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) NeonPurple else palette.cardBorder,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            SoundManager.playBeep(soundEnabled)
+                                            onSelectTheme(theme.id)
+                                            showThemeDialog = false
+                                        }
+                                        .testTag("select_block_theme_${theme.id}")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = theme.icon, fontSize = 28.sp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = theme.title(language),
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = palette.textPrimary
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = theme.description(language),
+                                                fontSize = 11.sp,
+                                                color = palette.textSecondary
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Surface(
+                                                color = NeonGreen.copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = language.pick(tr = "SEÇİLİ", en = "ACTIVE", it = "ATTIVO", fr = "ACTIF", es = "ACTIVO"),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = NeonGreen,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { showThemeDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(language.pick(tr = "KAPAT", en = "CLOSE", it = "CHIUDI", fr = "FERMER", es = "CERRAR"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ayarlar overlay — ayri bir navigasyon hedefi degil, ayni composable
+        // icinde tam ekran bir katman (bkz. yukaridaki parametre yorumu).
+        if (showSettingsDialog) {
+            Box(modifier = Modifier.fillMaxSize().zIndex(30f)) {
+                SettingsScreen(
+                    soundEnabled = soundEnabled,
+                    soundVolume = soundVolume,
+                    musicEnabled = musicEnabled,
+                    darkMode = darkMode,
+                    language = language,
+                    skin = uiSkin,
+                    onToggleSound = onToggleSound,
+                    onSoundVolumeChange = onSoundVolumeChange,
+                    onToggleMusic = onToggleMusic,
+                    onToggleDarkMode = onToggleDarkMode,
+                    onSelectLanguage = onSelectLanguage,
+                    onSelectSkin = onSelectSkin,
+                    notificationsEnabled = notificationsEnabled,
+                    onToggleNotifications = onToggleNotifications,
+                    onBack = { showSettingsDialog = false }
+                )
+            }
+        }
+
+        // Sonsuz Mod — "Devam Et?" diyalogu (oturum basina bir kez)
+        AnimatedVisibility(
+            visible = showContinueDialog,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonGreen, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "DEVAM ETMEK İSTER MİSİN?", en = "WANT TO CONTINUE?", it = "VUOI CONTINUARE?", fr = "VOULEZ-VOUS CONTINUER?", es = "¿QUIERES CONTINUAR?"),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonGreen,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = language.pick(tr = "Reklam izleyip son 3 hamleni geri alarak devam edebilirsin", en = "Watch an ad to undo your last 3 moves and keep playing", it = "Guarda un annuncio per annullare le ultime 3 mosse e continuare", fr = "Regardez une pub pour annuler vos 3 derniers coups et continuer", es = "Mira un anuncio para deshacer tus últimos 3 movimientos y seguir jugando"),
+                            fontSize = 13.sp,
+                            color = palette.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = { handleContinueWithAd() },
+                            enabled = !isRequestingContinueAd,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("continue_watch_ad_button")
+                        ) {
+                            // Faz 48: reklam yuklemesi (3-8sn) hicbir gorsel geri bildirim
+                            // vermiyordu — sadece Button'un varsayilan "disabled" soluklugu
+                            // pek fark edilmiyordu (ayni Loadout'taki WATCH sorunuyla ayni
+                            // kok neden). Artik acikca donen bir gosterge var.
+                            if (isRequestingContinueAd) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR"),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { handleEndSession() },
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("continue_end_session_button")
+                        ) {
+                            Text(language.pick(tr = "BİTİR", en = "END", it = "FINE", fr = "FIN", es = "FIN"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Faz 38: Sonsuz Mod'da "cikmak istedigine emin misin" onay ekrani —
+        // hem sistem geri tusu/jesti (BackHandler) hem oyun ici geri oku
+        // buraya yonleniyor, kullanicinin yanlislikla mevcut skoru/serisini
+        // kaybetmesini onlemek icin.
+        AnimatedVisibility(
+            visible = showExitConfirmDialog,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "ÇIKMAK İSTEDİĞİNE EMİN MİSİN?", en = "ARE YOU SURE YOU WANT TO EXIT?", it = "SEI SICURO DI VOLER USCIRE?", fr = "ÊTES-VOUS SÛR DE VOULOIR QUITTER ?", es = "¿SEGURO QUE QUIERES SALIR?"),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonMagenta,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = if (isEndless) {
+                                language.pick(tr = "Mevcut skorun ve serin kaybolacak", en = "Your current score and streak will be lost", it = "Il tuo punteggio e la tua serie attuali andranno persi", fr = "Votre score et votre série actuels seront perdus", es = "Se perderán tu puntuación y racha actuales")
+                            } else {
+                                language.pick(tr = "Bu seviyedeki ilerlemen kaybolacak", en = "Your progress in this level will be lost", it = "I tuoi progressi in questo livello andranno persi", fr = "Votre progression dans ce niveau sera perdue", es = "Se perderá tu progreso en este nivel")
+                            },
+                            fontSize = 13.sp,
+                            color = palette.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = { showExitConfirmDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("exit_confirm_cancel_button")
+                        ) {
+                            Text(
+                                text = language.pick(tr = "OYUNA DEVAM ET", en = "KEEP PLAYING", it = "CONTINUA A GIOCARE", fr = "CONTINUER À JOUER", es = "SEGUIR JUGANDO"),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                showExitConfirmDialog = false
+                                onBack()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("exit_confirm_exit_button")
+                        ) {
+                            Text(
+                                text = language.pick(tr = "ÇIK", en = "EXIT", it = "ESCI", fr = "QUITTER", es = "SALIR"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = palette.textPrimary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Game Over Modal
+        AnimatedVisibility(
+            visible = isGameOver,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isEndless) {
+                                language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "GIOCO FINITO", fr = "PARTIE TERMINÉE", es = "JUEGO TERMINADO")
+                            } else {
+                                language.pick(tr = "SEVİYE BAŞARISIZ", en = "LEVEL FAILED", it = "LIVELLO FALLITO", fr = "NIVEAU ÉCHOUÉ", es = "NIVEL FALLIDO")
+                            },
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonMagenta
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
+                        Text(
+                            text = if (isEndless) "$score" else "$score / $targetScore",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = palette.textPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { if (isEndless) resetGame() else handleRetryWithAd() },
+                            enabled = !isRequestingContinueAd,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("block_blast_restart_confirm")
+                        ) {
+                            if (isRequestingContinueAd) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = if (isEndless || continueOffered) {
+                                        // Faz 61: Seviyeli Mod'da bu denemede reklamli devam
+                                        // hakki zaten kullanildiysa (continueOffered=true),
+                                        // buton duz/reklamsiz "TEKRAR DENE"ye (tam sifirlama)
+                                        // donuyor — oyuncuya yanlislikla tekrar reklam vaat
+                                        // etmiyoruz.
+                                        language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
+                                    } else {
+                                        // Faz 61: kullanici istegiyle metin "reklam izle,
+                                        // devam et"e cevrildi — artik gercekten tam sifirlama
+                                        // degil, 3 hamle geri alip DEVAM ediyor (Endless'teki
+                                        // gibi), metin bunu dogru yansitmali.
+                                        language.pick(tr = "REKLAM İZLE, DEVAM ET", en = "WATCH AD, CONTINUE", it = "GUARDA ANNUNCIO, CONTINUA", fr = "REGARDER PUB, CONTINUER", es = "VER ANUNCIO, CONTINUAR")
+                                    },
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
+                        }
+
+                        // Faz 79: Pro Mode'a ozel — "REKLAM IZLE, DEVAM ET"in
+                        // ALTINDA, can harcayarak leveli TAM sifirlayan bir
+                        // ikinci secenek. Can varsa tuketip resetGame() cagirir,
+                        // yoksa reklamla +1 can akisini tetikler.
+                        if (isChallengeMode) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    if (challengeLives > 0) {
+                                        onChallengeRestart()
+                                        resetGame()
+                                    } else {
+                                        onChallengeWatchAdForLife()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                            ) {
+                                Text(
+                                    text = if (challengeLives > 0) {
+                                        language.pick(
+                                            tr = "YENİDEN BAŞLA (-1 ❤ · Kalan: $challengeLives)",
+                                            en = "RESTART (-1 ❤ · Left: $challengeLives)",
+                                            it = "RICOMINCIA (-1 ❤ · Rimasti: $challengeLives)",
+                                            fr = "RECOMMENCER (-1 ❤ · Restants : $challengeLives)",
+                                            es = "REINICIAR (-1 ❤ · Quedan: $challengeLives)"
+                                        )
+                                    } else {
+                                        language.pick(tr = "REKLAM İZLE: +1 CAN", en = "WATCH AD: +1 LIFE", it = "GUARDA PUBBLICITÀ: +1 VITA", fr = "REGARDER PUB : +1 VIE", es = "VER ANUNCIO: +1 VIDA")
+                                    },
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = onBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text(language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Level Complete Modal
+        AnimatedVisibility(
+            visible = isLevelComplete,
+            enter = scaleIn(),
+            exit = scaleOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (confettiPieces.isNotEmpty() && confettiProgress.value < 1f) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val progress = confettiProgress.value
+                        confettiPieces.forEach { piece ->
+                            val local = ((progress - piece.startDelay) / (1f - piece.startDelay)).coerceIn(0f, 1f)
+                            if (local <= 0f) return@forEach
+                            val y = size.height * local
+                            val x = size.width * piece.xFraction + sin(local * piece.rotationSpeed) * piece.drift
+                            val alpha = (1f - local).coerceIn(0f, 1f)
+                            drawCircle(
+                                color = piece.color.copy(alpha = alpha),
+                                radius = 6f,
+                                center = Offset(x, y)
+                            )
+                        }
+                    }
+                }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = palette.card),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .padding(16.dp)
+                        .border(2.dp, NeonGreen, RoundedCornerShape(20.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "SEVİYE TAMAMLANDI!", en = "LEVEL COMPLETE!", it = "LIVELLO COMPLETATO!", fr = "NIVEAU TERMINÉ!", es = "¡NIVEL COMPLETADO!"),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = NeonGreen
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Faz 45: kullanici "yıldız mantığı yok, hedef başarma mantığı
+                        // var" dedi — bu modal zaten SADECE hedefe ulasilinca aciliyor
+                        // (yani her zaman "basari"), dereceli bir yildiz puanlamasi
+                        // anlamsizdi. 3 yildizlik satir yerine tek bir kupa gosteriliyor.
+                        Text(text = "🏆", fontSize = 48.sp)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
+                        Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = onLevelCompleteContinue,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("level_complete_continue_button")
+                        ) {
+                            Text(language.pick(tr = "DEVAM ET", en = "CONTINUE", it = "CONTINUA", fr = "CONTINUER", es = "CONTINUAR"), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmbossedBlockCell(
+    colorIndex: Int,
+    theme: String,
+    modifier: Modifier = Modifier,
+    isHover: Boolean = false,
+    // Faz 22: bloklar yerlesince tamamen donuk kaliyordu (kullanici geri bildirimi
+    // kaynakli tasarim onerisi: "ince bir canlilik"). Paylasilan TEK bir faz degeri
+    // (ustteki BlastTheBlocksGame'de hesaplanan) her hucreye row/col'a gore kaydirilmis
+    // olarak gecirilir, boylece 64 ayri animasyon dongusu acilmadan hafif bir parlaklik
+    // dalgasi elde edilir.
+    shimmerPhase: Float = 0f
+) {
+    val baseColor = if (isHover) {
+        NeonCyan.copy(alpha = 0.35f)
+    } else {
+        BLOCK_COLORS.getOrElse((colorIndex - 1).coerceAtLeast(0)) { NeonCyan }
+    }
+
+    val emoji = if (isHover) "" else when (theme.uppercase()) {
+        "FRUIT" -> when (colorIndex % 6) {
+            1 -> "🍉"
+            2 -> "🍊"
+            3 -> "🥝"
+            4 -> "🍓"
+            5 -> "🧀"
+            0 -> "🍇"
+            else -> ""
+        }
+        "SWEETS" -> when (colorIndex % 6) {
+            1 -> "🍩"
+            2 -> "🍫"
+            3 -> "🍪"
+            4 -> "🧁"
+            5 -> "🍬"
+            0 -> "🧇"
+            else -> ""
+        }
+        else -> ""
+    }
+
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(6.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val b = w * 0.16f
+
+            drawRect(color = baseColor)
+
+            if (!isHover) {
+                // Top Bevel (Bright Highlight)
+                val topPath = Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(w, 0f)
+                    lineTo(w - b, b)
+                    lineTo(b, b)
+                    close()
+                }
+                drawPath(topPath, color = Color.White.copy(alpha = 0.45f))
+
+                // Left Bevel (Mid Highlight)
+                val leftPath = Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(b, b)
+                    lineTo(b, h - b)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(leftPath, color = Color.White.copy(alpha = 0.25f))
+
+                // Right Bevel (Mid Shadow)
+                val rightPath = Path().apply {
+                    moveTo(w, 0f)
+                    lineTo(w, h)
+                    lineTo(w - b, h - b)
+                    lineTo(w - b, b)
+                    close()
+                }
+                drawPath(rightPath, color = Color.Black.copy(alpha = 0.25f))
+
+                // Bottom Bevel (Dark Shadow)
+                val bottomPath = Path().apply {
+                    moveTo(0f, h)
+                    lineTo(b, h - b)
+                    lineTo(w - b, h - b)
+                    lineTo(w, h)
+                    close()
+                }
+                drawPath(bottomPath, color = Color.Black.copy(alpha = 0.45f))
+
+                // Inner Face Rect
+                drawRect(
+                    color = baseColor,
+                    topLeft = Offset(b, b),
+                    size = Size((w - 2 * b).coerceAtLeast(0f), (h - 2 * b).coerceAtLeast(0f))
+                )
+
+                // Inner Face Top Shine — shimmerPhase ile alpha yavasca dalgalanir,
+                // bloklara donuk degil hafif "canli" bir his verir.
+                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhase)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
+                    ),
+                    topLeft = Offset(b, b),
+                    size = Size((w - 2 * b).coerceAtLeast(0f), ((h - 2 * b) * 0.45f).coerceAtLeast(0f))
+                )
+            }
+
+            // Tema emojisi burada, ayni Canvas icinde, gercek piksel boyutuna gore
+            // ciziliyor — ayri bir Compose Text kullanmiyoruz çünkü Dp/Sp donusumu
+            // ic ice yerlesik tepsi onizlemesi gibi bazi baglamlarda kutunun disina
+            // tasan/kaybolan sonuçlar veriyordu (kullanici geri bildirimi). Canvas'in
+            // kendi `size` piksel degeri her baglamda dogru oldugu icin bu yontem
+            // ana ızgara hucresinde hem de tepsi onizlemesinde tutarli calisir.
+            if (emoji.isNotEmpty() && !isHover) {
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = size.minDimension * 0.6f
+                }
+                val fm = paint.fontMetrics
+                val textY = h / 2f - (fm.ascent + fm.descent) / 2f
+                drawContext.canvas.nativeCanvas.drawText(emoji, w / 2f, textY, paint)
+            }
+        }
+    }
+}
