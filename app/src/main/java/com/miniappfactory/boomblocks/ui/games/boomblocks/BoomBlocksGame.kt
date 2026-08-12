@@ -658,8 +658,11 @@ fun BlastTheBlocksGame(
     val density = LocalDensity.current
     val dragCoroutineScope = rememberCoroutineScope()
     // Parcayi parmagin biraz ustune kaldirir ki parmak parcayi tam kapatmasin —
-    // 90dp cok fazla hissettiriyordu (kullanici geri bildirimi), 45dp'ye dusuruldu.
-    val dragLiftDp = 45.dp
+    // 90dp cok fazla hissettiriyordu (Faz 15, kullanici geri bildirimi), 45dp'ye
+    // dusuruldu. Faz 95: kullanici "parmaktan parca gozukmuyor" dedi — 45dp
+    // yetersiz kaliyordu, 70dp'ye cikarildi (eski 90'dan az, ama parcanin alt
+    // kenari parmaktan yeterince uzakta kalsin diye).
+    val dragLiftDp = 70.dp
 
     fun activeDragShape(): BlockShape? =
         if (draggedTrayIndex in trayShapes.indices) trayShapes[draggedTrayIndex] else null
@@ -2072,16 +2075,11 @@ fun BlastTheBlocksGame(
             }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = language.pick(tr = "Bir bloğu sürükleyip ızgaraya bırakın", en = "Drag a block onto the grid", it = "Trascina un blocco sulla griglia", fr = "Faites glisser un bloc sur la grille", es = "Arrastra un bloque a la cuadrícula"),
-                fontSize = 12.sp,
-                color = palette.textSecondary,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
+            // Faz 95: kullanici "bir bloğu sürükleyip ızgaraya bırakın" ipucu
+            // metninin gereksiz/kalabalik oldugunu, sabit durup hicbir sey
+            // katmadigini bildirdi — tum modlardan (Level/Endless/Pro paylasilan
+            // bu tek nokta) kaldirildi.
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Bottom Tray with 3 Shapes
             Row(
