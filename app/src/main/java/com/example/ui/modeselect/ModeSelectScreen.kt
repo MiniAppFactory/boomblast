@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -140,10 +144,13 @@ fun ModeSelectScreen(
                 modifier = Modifier.padding(start = 50.dp, top = 2.dp)
             )
 
-            // Onceden basliktan sonraki tum icerik ekranin ustune sabitti ve
-            // alt yarida buyuk bos alan kaliyordu (kullanici geri bildirimi:
-            // "oyun tum ekrani kaplamıyor"). Kalan dikey alanda ortalanarak
-            // ekranin tamamini kullaniyor.
+            // Faz 71: kullanici "oyun tipi secimi 2x2 olsun, asagi dogru
+            // (kaydirma) olmasin" dedi — 4 moda (Sonsuz/Seviyeli/Challenge/
+            // Retro) hazirlik olarak dikey tek-sutunluk liste yerine 2x2 grid.
+            // Butun modlar kaydirmadan tek bakista goruluyor. Challenge ve
+            // Retro henuz oynanabilir olmadigi icin "YAKINDA" kilitli
+            // tasarim olarak eklendi — grid'in tamamlanmis gorunmesi ve
+            // gelecek modlarin onizlemesi icin.
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -151,33 +158,61 @@ fun ModeSelectScreen(
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                ModeCard(
-                    title = language.pick(tr = "SONSUZ MOD", en = "ENDLESS MODE", it = "MODALITÀ INFINITA", fr = "MODE INFINI", es = "MODO INFINITO"),
-                    subtitle = language.pick(tr = "Hedefsiz oyna, yüksek skor kovala", en = "Play freely, chase a high score", it = "Gioca liberamente, punta al record", fr = "Jouez librement, visez le meilleur score", es = "Juega libremente, persigue una puntuación alta"),
-                    statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
-                    statValue = "$endlessBestScore",
-                    icon = Icons.Default.AllInclusive,
-                    accent = NeonGreen,
-                    palette = palette,
-                    onClick = onOpenEndless,
-                    testTag = "mode_select_endless_button",
-                    modifier = Modifier.weight(1f)
-                )
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    ModeCard(
+                        title = language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO"),
+                        statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
+                        statValue = "$endlessBestScore",
+                        icon = Icons.Default.AllInclusive,
+                        accent = NeonGreen,
+                        palette = palette,
+                        onClick = onOpenEndless,
+                        testTag = "mode_select_endless_button",
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    ModeCard(
+                        title = language.pick(tr = "SEVİYELİ", en = "LEVEL", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
+                        statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
+                        statValue = "$highestUnlockedLevel",
+                        icon = Icons.Default.Extension,
+                        accent = NeonCyan,
+                        palette = palette,
+                        onClick = onOpenLevels,
+                        testTag = "mode_select_levels_button",
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                ModeCard(
-                    title = language.pick(tr = "SEVİYELİ MOD", en = "LEVEL MODE", it = "MODALITÀ LIVELLI", fr = "MODE NIVEAUX", es = "MODO NIVELES"),
-                    subtitle = language.pick(tr = "Seviye seviye ilerle, hedefleri tamamla", en = "Progress level by level, hit each target", it = "Avanza livello dopo livello, raggiungi l'obiettivo", fr = "Progressez niveau par niveau, atteignez l'objectif", es = "Avanza nivel a nivel, alcanza cada objetivo"),
-                    statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
-                    statValue = "$highestUnlockedLevel",
-                    icon = Icons.Default.Extension,
-                    accent = NeonCyan,
-                    palette = palette,
-                    onClick = onOpenLevels,
-                    testTag = "mode_select_levels_button",
-                    modifier = Modifier.weight(1f)
-                )
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    ModeCard(
+                        title = language.pick(tr = "CHALLENGE", en = "CHALLENGE", it = "CHALLENGE", fr = "DÉFI", es = "DESAFÍO"),
+                        statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
+                        statValue = "",
+                        icon = Icons.Default.LocalFireDepartment,
+                        accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
+                        palette = palette,
+                        onClick = {},
+                        testTag = "mode_select_challenge_button",
+                        locked = true,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    ModeCard(
+                        title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
+                        statLabel = language.pick(tr = "YAKINDA", en = "COMING SOON", it = "PROSSIMAMENTE", fr = "BIENTÔT", es = "PRÓXIMAMENTE"),
+                        statValue = "",
+                        icon = Icons.Default.ViewModule,
+                        accent = NeonPurple,
+                        palette = palette,
+                        onClick = {},
+                        testTag = "mode_select_retro_button",
+                        locked = true,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
             }
         }
     }
@@ -244,10 +279,16 @@ private fun ModeSelectHeaderActions(
     }
 }
 
+// Faz 71: 2x2 grid'e gecince kart artik genis/yatay degil, kareye yakin bir
+// tile — eski yatay Row (ikon+baslik+alt yazi solda, istatistik sagda) dar
+// tile'da sikisip taniz duruyordu. Ikon ortada ustte, baslik altinda, istatistik
+// en altta — dikey, ortalanmis bir duzen. `subtitle` kaldirildi (dar tile'da
+// yer yok, zaten baslik + ikon modu yeterince anlatiyor). `locked` (Faz 71,
+// Challenge/Retro icin) true oldugunda kart soluk gorunuyor, kucuk bir kilit
+// rozeti + "YAKINDA" etiketi gosteriyor, tiklama hicbir sey yapmiyor.
 @Composable
 private fun ModeCard(
     title: String,
-    subtitle: String,
     statLabel: String,
     statValue: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -255,88 +296,80 @@ private fun ModeCard(
     palette: BlastPalette,
     onClick: () -> Unit,
     testTag: String,
-    // Faz 23: kart sabit 176dp yukseklikteydi, dikey ortalama (Faz 21) bosluğu
-    // yeniden dağıtsa da TOPLAM bos alani azaltmiyordu — kullanici hala "ekranı
-    // kaplamıyor" dedi. Artik cagiran taraf Modifier.weight(1f) verip karti kalan
-    // TUM dikey alani doldurmaya zorluyor, bosluk gercekten ortadan kalkiyor.
-    modifier: Modifier = Modifier.height(176.dp)
+    locked: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
+    val effectiveAccent = if (locked) palette.textSecondary else accent
     Card(
         colors = CardDefaults.cardColors(containerColor = palette.card),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
             .then(modifier)
-            .border(2.dp, Brush.linearGradient(listOf(accent, NeonGold)), RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
+            .border(
+                2.dp,
+                if (locked) {
+                    androidx.compose.ui.graphics.SolidColor(palette.cardBorder)
+                } else {
+                    Brush.linearGradient(listOf(accent, NeonGold))
+                },
+                RoundedCornerShape(20.dp)
+            )
+            .clickable(enabled = !locked, onClick = onClick)
             .testTag(testTag)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f, fill = false),
-                verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
-                        .background(accent.copy(alpha = 0.18f)),
+                        .background(effectiveAccent.copy(alpha = if (locked) 0.10f else 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = icon,
+                        imageVector = if (locked) Icons.Default.Lock else icon,
                         contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(28.dp)
+                        tint = effectiveAccent,
+                        modifier = Modifier.size(if (locked) 22.dp else 26.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Column {
-                    Text(
-                        text = title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        color = palette.textPrimary,
-                        maxLines = 2
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = subtitle,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = palette.textSecondary,
-                        maxLines = 2,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                }
-            }
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (locked) palette.textSecondary else palette.textPrimary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
 
-            Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = statLabel,
                     fontSize = 9.sp,
                     color = palette.textSecondary,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Visible
-                )
-                Text(
-                    text = statValue,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = NeonGold,
                     maxLines = 1
                 )
+                if (statValue.isNotEmpty()) {
+                    Text(
+                        text = statValue,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = NeonGold,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
