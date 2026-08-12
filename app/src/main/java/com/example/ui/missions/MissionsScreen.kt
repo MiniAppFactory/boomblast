@@ -215,7 +215,7 @@ private fun MissionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = mission.title(language),
+                    text = mission.title(language, if (allTiersClaimed) mission.tiers.last().target else activeTier.target),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
                     color = palette.textPrimary,

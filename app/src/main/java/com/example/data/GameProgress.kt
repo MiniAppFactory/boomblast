@@ -49,8 +49,12 @@ data class WeeklyMissionDef(
     val tiers: List<MissionTier>,
     val type: MissionType
 ) {
-    fun title(language: AppLanguage): String =
+    // Faz 73 duzeltmesi: kullanici "güçlendirici kullan ama kaç tane belli
+    // olmuyor" dedi — baslik artik aktif tier'in hedefini {count} yerine
+    // koyarak somutlastiriyor (ornek: "5 Güçlendirici Kullan").
+    fun title(language: AppLanguage, count: Int): String =
         language.pick(tr = titleTr, en = titleEn, it = titleIt, fr = titleFr, es = titleEs)
+            .replace("{count}", "$count")
 }
 
 data class WeeklyMissionProgress(
