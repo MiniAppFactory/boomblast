@@ -125,7 +125,7 @@ fun ModeSelectScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Boom Blocks",
+                        text = "Kaboom Blocks",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Black,
                         color = palette.textPrimary,
