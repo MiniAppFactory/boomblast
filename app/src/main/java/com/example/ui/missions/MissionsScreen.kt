@@ -4,12 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,7 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -177,8 +178,6 @@ private fun MissionCard(
     val activeTierIndex = mission.tiers.indices.firstOrNull { it !in claimedTiers }
     val allTiersClaimed = activeTierIndex == null
     val activeTier = activeTierIndex?.let { mission.tiers[it] } ?: mission.tiers.last()
-    val target = if (activeTier.target > 0) activeTier.target else 1
-    val progressFraction = (currentCount.toFloat() / target.toFloat()).coerceIn(0f, 1f)
     val isComplete = currentCount >= activeTier.target
     val isClaimable = !allTiersClaimed && isComplete
     val isClaimed = allTiersClaimed
@@ -236,33 +235,19 @@ private fun MissionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Faz 73: 3 milestone gostergesi — claim edilmis (altin tik),
-            // ulasilmis-ama-claim-edilmemis (yesil dolu), henuz ulasilmamis
-            // (soluk halka).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                mission.tiers.forEachIndexed { tierIndex, tier ->
-                    if (tierIndex > 0) Spacer(modifier = Modifier.width(6.dp))
-                    val tierState = when {
-                        tierIndex in claimedTiers -> TierDotState.CLAIMED
-                        currentCount >= tier.target -> TierDotState.READY
-                        else -> TierDotState.LOCKED
-                    }
-                    TierDot(state = tierState)
-                }
-            }
-
             Spacer(modifier = Modifier.height(10.dp))
 
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = if (isComplete) NeonGreen else NeonCyan,
-                trackColor = palette.cardAlt
+            // Faz 75: kullanici "3 ayri yuvarlak + ayri bir ilerleme cubugu
+            // yerine, TEK bir cubuk olsun, milestone'lar o cubugun UZERINDE
+            // duran noktalar olsun" dedi (elle cizilmis bir referans gonderdi:
+            // tek çizgi + üzerinde 2 nokta). Tek TieredProgressBar: tum gorevin
+            // 0..sonTier.target araligini kaplayan bir cubuk, 2 ara-tier
+            // sinirinda (3 tier = 2 sinir) ustune binen yuvarlak isaretlerle.
+            TieredProgressBar(
+                mission = mission,
+                currentCount = currentCount,
+                claimedTiers = claimedTiers,
+                palette = palette
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -358,16 +343,77 @@ private fun MissionCard(
 
 private enum class TierDotState { CLAIMED, READY, LOCKED }
 
+// Faz 75: kullanici elle cizilmis bir referans gonderdi — TEK bir cubuk,
+// uzerinde ara-tier sinirlarini isaretleyen yuvarlaklar (3 dot + ayri
+// progress bar yerine). Cubugun 0..son-tier.target araligi doluyor,
+// ara-tier sinirlarinda (3 tier = 2 sinir) TierDot'lar cubugun UZERINE
+// biniyor.
 @Composable
-private fun TierDot(state: TierDotState) {
-    when (state) {
-        TierDotState.CLAIMED -> Box(
+private fun TieredProgressBar(
+    mission: WeeklyMissionDef,
+    currentCount: Int,
+    claimedTiers: Set<Int>,
+    palette: BlastPalette
+) {
+    val maxTarget = mission.tiers.last().target.coerceAtLeast(1)
+    val fillFraction = (currentCount.toFloat() / maxTarget.toFloat()).coerceIn(0f, 1f)
+    val barColor = if (currentCount >= maxTarget) NeonGreen else NeonCyan
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(16.dp)
+    ) {
+        Box(
             modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(NeonGold),
-            contentAlignment = Alignment.Center
-        ) {
+                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(palette.cardAlt)
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth(fillFraction)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(barColor)
+        )
+        mission.tiers.dropLast(1).forEachIndexed { tierIndex, tier ->
+            val markerFraction = (tier.target.toFloat() / maxTarget.toFloat()).coerceIn(0f, 1f)
+            val dotState = when {
+                tierIndex in claimedTiers -> TierDotState.CLAIMED
+                currentCount >= tier.target -> TierDotState.READY
+                else -> TierDotState.LOCKED
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = maxWidth * markerFraction - 8.dp)
+            ) {
+                TierDot(state = dotState, palette = palette)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TierDot(state: TierDotState, palette: BlastPalette) {
+    val fill = when (state) {
+        TierDotState.CLAIMED -> NeonGold
+        TierDotState.READY -> NeonGreen
+        TierDotState.LOCKED -> palette.cardAlt
+    }
+    Box(
+        modifier = Modifier
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(fill)
+            .border(2.dp, palette.card, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (state == TierDotState.CLAIMED) {
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
@@ -375,17 +421,5 @@ private fun TierDot(state: TierDotState) {
                 modifier = Modifier.size(10.dp)
             )
         }
-        TierDotState.READY -> Box(
-            modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(NeonGreen)
-        )
-        TierDotState.LOCKED -> Box(
-            modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
-        )
     }
 }
