@@ -213,7 +213,8 @@ fun ModeSelectScreen(
                             onClick = onOpenChallenge,
                             testTag = "mode_select_challenge_button",
                             locked = false,
-                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                            modifier = Modifier.weight(1f).aspectRatio(1f),
+                            emoji = "🔥"
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         ModeCard(
@@ -226,7 +227,8 @@ fun ModeSelectScreen(
                             onClick = onOpenRetro,
                             testTag = "mode_select_retro_button",
                             locked = false,
-                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                            modifier = Modifier.weight(1f).aspectRatio(1f),
+                            emoji = "🕹️"
                         )
                     }
                 }
@@ -314,7 +316,12 @@ private fun ModeCard(
     onClick: () -> Unit,
     testTag: String,
     locked: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Faz 89: kullanici Pro Mod/Retro icin "renkli" ikon istedi — Icon()
+    // composable'i her zaman tek renkte (Color.White) tint ediyor, emoji ise
+    // kendi dogal cok-renkli goruntusunu koruyor. Verilirse Icon yerine bu
+    // emoji metni gosteriliyor (kilitliyken hala Icons.Default.Lock kullanilir).
+    emoji: String? = null
 ) {
     val effectiveAccent = if (locked) palette.textSecondary else accent
     // Faz 72: kullanici "transparan cerceve uzerinde durmasinlar, canli
@@ -362,12 +369,16 @@ private fun ModeCard(
                         .background(if (locked) effectiveAccent.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.22f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (locked) Icons.Default.Lock else icon,
-                        contentDescription = null,
-                        tint = if (locked) effectiveAccent else Color.White,
-                        modifier = Modifier.size(if (locked) 22.dp else 26.dp)
-                    )
+                    if (!locked && emoji != null) {
+                        Text(text = emoji, fontSize = 26.sp)
+                    } else {
+                        Icon(
+                            imageVector = if (locked) Icons.Default.Lock else icon,
+                            contentDescription = null,
+                            tint = if (locked) effectiveAccent else Color.White,
+                            modifier = Modifier.size(if (locked) 22.dp else 26.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
