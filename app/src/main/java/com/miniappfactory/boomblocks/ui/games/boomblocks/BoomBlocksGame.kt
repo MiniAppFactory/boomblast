@@ -659,10 +659,9 @@ fun BlastTheBlocksGame(
     val dragCoroutineScope = rememberCoroutineScope()
     // Parcayi parmagin biraz ustune kaldirir ki parmak parcayi tam kapatmasin —
     // 90dp cok fazla hissettiriyordu (Faz 15, kullanici geri bildirimi), 45dp'ye
-    // dusuruldu. Faz 95: kullanici "parmaktan parca gozukmuyor" dedi — 45dp
-    // yetersiz kaliyordu, 70dp'ye cikarildi (eski 90'dan az, ama parcanin alt
-    // kenari parmaktan yeterince uzakta kalsin diye).
-    val dragLiftDp = 70.dp
+    // dusuruldu. Faz 95: 45dp yetersiz kaliyordu, 70dp'ye cikarildi — kullanici
+    // cihazda deneyip bunun da yetersiz kaldigini bildirdi, 85dp'ye cikarildi.
+    val dragLiftDp = 85.dp
 
     fun activeDragShape(): BlockShape? =
         if (draggedTrayIndex in trayShapes.indices) trayShapes[draggedTrayIndex] else null
@@ -673,13 +672,15 @@ fun BlastTheBlocksGame(
         if (cellSize <= 0f) return null
         val liftPx = with(density) { dragLiftDp.toPx() }
         val pointerAbsolutePos = dragPointerStartGlobal + dragOffset.value
-        // Ghost onizleme parmagin MERKEZINE gore ciziliyor (bkz. asagidaki ghost Box'in
-        // "left/top = pointer - shapeSize/2" hesabi) — hover hucresi de ayni merkezleme
-        // ofsetini uygulamali, yoksa kullanicinin gordugu onizleme ile gercek yerlesim/
-        // temizleme mantiginin kullandigi hucre birbirini tutmaz (buyuk sekillerde parca
-        // gorunenden kaymis yere yerlesir, beklenmedik satir/sutun temizlenir).
+        // Ghost onizleme X'te (yatay) parmagin MERKEZINE, Y'de (dikey) ise parmaktan
+        // sabit liftPx mesafede duran ALT KENARINA gore ciziliyor (bkz. asagidaki
+        // ghost Box'in "left = pointer - width/2", "top = pointer - lift - height"
+        // hesabi, Faz 95c) — hover hucresi de AYNI ofseti uygulamali, yoksa
+        // kullanicinin gordugu onizleme ile gercek yerlesim/temizleme mantiginin
+        // kullandigi hucre birbirini tutmaz (buyuk sekillerde parca gorunenden
+        // kaymis yere yerlesir, beklenmedik satir/sutun temizlenir).
         val halfWidthCells = shape.pattern[0].size / 2f
-        val halfHeightCells = shape.pattern.size / 2f
+        val heightCells = shape.pattern.size
         val localX = pointerAbsolutePos.x - gridOriginPx.x
         val localY = (pointerAbsolutePos.y - liftPx) - gridOriginPx.y
         // Düz floor() her zaman AŞAĞI/SOLA yuvarlar, en yakın hücreye degil — bu da
@@ -687,7 +688,7 @@ fun BlastTheBlocksGame(
         // sistematik kaymaya yol aciyordu (kullanici geri bildirimi: "tam bir kare
         // kadar kayma var, sola ve yukarı"). +0.5f ekleyerek en yakın hücreye
         // yuvarlaniyor (floor(x+0.5) == round(x)).
-        return floor((localY / cellSize) - halfHeightCells + 0.5f).toInt() to
+        return floor((localY / cellSize) - heightCells + 0.5f).toInt() to
             floor((localX / cellSize) - halfWidthCells + 0.5f).toInt()
     }
 
@@ -895,25 +896,22 @@ fun BlastTheBlocksGame(
         } while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && attempts < 12)
     }
 
+    // Faz 95c: kullanici "reklam izle devam et dediginde reklam yoksa oyunu
+    // dogrudan bitiriyordu, reklam gelmediyse de butona basinca devam etsin"
+    // dedi — onDenied (reklam basarisiz/reddedildi) artik onGranted ile AYNI
+    // sekilde davraniyor (3 hamle geri al + devam), sadece "devam" hakkinin
+    // (endlessContinuesUsed, 4 hak siniri) tuketilmesi korunuyor.
     fun handleContinueWithAd() {
         if (isRequestingContinueAd) return
         isRequestingContinueAd = true
-        onRequestContinueAd(
-            {
-                isRequestingContinueAd = false
-                showContinueDialog = false
-                endlessContinuesUsed++
-                undoMovesForContinue(3)
-                checkGameOver()
-            },
-            {
-                isRequestingContinueAd = false
-                showContinueDialog = false
-                endlessContinuesUsed++
-                isGameOver = true
-                onEndlessGameOver(score)
-            }
-        )
+        val proceedWithContinue = {
+            isRequestingContinueAd = false
+            showContinueDialog = false
+            endlessContinuesUsed++
+            undoMovesForContinue(3)
+            checkGameOver()
+        }
+        onRequestContinueAd(proceedWithContinue, proceedWithContinue)
     }
 
     fun handleEndSession() {
@@ -1430,10 +1428,12 @@ fun BlastTheBlocksGame(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top Bar Header
+            // Faz 95c: kullanici "üst nav bar çok geniş, alttaki oyun alanını
+            // daraltıyor" dedi — dikey padding daha da sikilastirildi.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1548,10 +1548,12 @@ fun BlastTheBlocksGame(
             // Faz 40: dikey padding 4dp->2dp ve kart ic padding'i (yukarida) 8dp->6dp —
             // reklam banner'i alani sikistirinca grid'e biraz daha pay birakmak icin
             // (kullanici: "score combo best kutuları da çok geniş, daralabilir").
+            // Faz 95c: kullanici tekrar "üst nav bar çok geniş, tüm modlarda daralsın"
+            // dedi — kart ic padding'i 6dp->4dp, baslik/deger fontlari kucultuldu.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                    .padding(horizontal = 4.dp, vertical = 0.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Card(
@@ -1560,18 +1562,18 @@ fun BlastTheBlocksGame(
                     modifier = Modifier.weight(1f).padding(end = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(6.dp),
+                        modifier = Modifier.padding(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = language.pick(tr = "🎯 SKOR", en = "🎯 SCORE", it = "🎯 PUNTEGGIO", fr = "🎯 SCORE", es = "🎯 PUNTUACIÓN"),
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             color = palette.textSecondary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             "$animatedScore",
-                            fontSize = 18.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = palette.textPrimary,
                             modifier = Modifier.scale(scoreScale.value)
@@ -1606,7 +1608,7 @@ fun BlastTheBlocksGame(
                         )
                 ) {
                     Column(
-                        modifier = Modifier.padding(6.dp),
+                        modifier = Modifier.padding(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         if (isEndless) {
@@ -1614,25 +1616,25 @@ fun BlastTheBlocksGame(
                             // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
                             Text(
                                 text = language.pick(tr = "🔥 KOMBO", en = "🔥 COMBO", it = "🔥 COMBO", fr = "🔥 COMBO", es = "🔥 COMBO"),
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                                 color = if (comboCount >= 2) NeonGold else NeonCyan
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (comboCount > 0) "${comboCount}x" else "—",
-                                fontSize = 18.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (comboCount >= 2) NeonGold else palette.textPrimary
                             )
                         } else {
                             Text(
                                 text = language.pick(tr = "📈 İLERLEME", en = "📈 PROGRESS", it = "📈 PROGRESSO", fr = "📈 PROGRÈS", es = "📈 PROGRESO"),
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonCyan
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             LinearProgressIndicator(
                                 progress = { levelProgress },
                                 modifier = Modifier
@@ -1642,7 +1644,7 @@ fun BlastTheBlocksGame(
                                 color = NeonCyan,
                                 trackColor = palette.cardAlt
                             )
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             // Cubuk tek basina sayisal bir okuma sunmuyordu (UI/UX
                             // karsilastirma bulgusu) — artik altinda kesir gosteriliyor.
                             Text(
@@ -1661,7 +1663,7 @@ fun BlastTheBlocksGame(
                     modifier = Modifier.weight(1f).padding(start = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(6.dp),
+                        modifier = Modifier.padding(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -1670,13 +1672,13 @@ fun BlastTheBlocksGame(
                             } else {
                                 language.pick(tr = "🏁 HEDEF", en = "🏁 TARGET", it = "🏁 OBIETTIVO", fr = "🏁 OBJECTIF", es = "🏁 OBJETIVO")
                             },
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             color = palette.textSecondary,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = if (isEndless) "${maxOf(score, bestScore)}" else "$targetScore",
-                            fontSize = 18.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = NeonGold
                         )
@@ -1752,7 +1754,9 @@ fun BlastTheBlocksGame(
                                 ) {
                                     Text(text = emoji, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "📺+1", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
+                                    // Faz 95c: kullanici "televizyon ikonu kimse anlamaz,
+                                    // play tusu global olarak izle mesaji verir" dedi.
+                                    Text(text = "▶️+1", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
                                 }
                             }
                         }
@@ -2230,7 +2234,16 @@ fun BlastTheBlocksGame(
             val shapeHeightPx = draggedShape.pattern.size * ghostCellPx
             val pointerAbs = dragPointerStartGlobal + dragOffset.value
             val left = pointerAbs.x - rootOriginPx.x - shapeWidthPx / 2f
-            val top = (pointerAbs.y - liftPx) - rootOriginPx.y - shapeHeightPx / 2f
+            // Faz 95c: kullanici "yatay parçalar için yetiyor ama dikeyler için
+            // yetmiyor" dedi — kok neden bulundu: asagidaki eski formul
+            // (- shapeHeightPx/2f) parcanin MERKEZINI parmaktan sabit liftPx
+            // mesafede tutuyordu, ALT KENARINI degil. Uzun/dikey parcalarda
+            // (buyuk shapeHeightPx) bu, alt kenarin parmaga DAHA YAKIN kalmasina
+            // yol aciyordu (merkez sabit -> parca ne kadar uzunsa alt kenar o
+            // kadar asagida/parmaga yakin). Simdi TAM shapeHeightPx cikariliyor,
+            // boylece alt kenar HER ZAMAN (parca boyutundan bagimsiz) parmaktan
+            // tam liftPx mesafede kaliyor.
+            val top = (pointerAbs.y - liftPx) - rootOriginPx.y - shapeHeightPx
             val dropValid = isCurrentDropValid()
 
             Box(
