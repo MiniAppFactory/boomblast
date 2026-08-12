@@ -75,6 +75,12 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
             repository.recordChallengeLevelResult(level, stars)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
+            // recordLevelComplete'teki ile ayni sayaci artiriyor — AppNavigation'daki
+            // CHALLENGE_GAME'in onLevelCompleteContinue'su bu sayaci okuyordu ama
+            // hicbir yerde artirmiyordu, yani Pro Mode'da bolum sonrasi reklam
+            // ASLA tetiklenmiyordu (kullanici bildirdi: "pro modda da her bölüm
+            // sonrası reklam olacak").
+            repository.incrementLevelsSinceInterstitial()
         }
     }
 

@@ -521,6 +521,8 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
             val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
             val retroPalette = getThemePalette(retroSettings.theme)
+            // Faz 90'da denendi, kullanici geri aldi: banner Retro'nun kompakt
+            // tahta+kontrol duzenini bozuyor. Banner sadece RETRO_MENU'de kalir.
             Box(modifier = Modifier.fillMaxSize()) {
                 RetroGameScreen(
                     gameEngine = retroViewModel.gameEngine,

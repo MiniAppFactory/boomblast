@@ -610,6 +610,13 @@ fun BlastTheBlocksGame(
     var showContinueDialog by remember { mutableStateOf(false) }
     var continueOffered by remember { mutableStateOf(false) }
     var isRequestingContinueAd by remember { mutableStateOf(false) }
+    // Faz 90: kullanici Sonsuz Mod'da "reklam izle devam et" hakkinin oturum
+    // basina SADECE 1 degil 4 kez sunulmasini istedi. `continueOffered`
+    // (yukarida) Seviyeli Mod'un TEKRAR DENE akisiyla PAYLASILIYOR (bkz.
+    // handleRetryWithAd) — onu degistirmeden, sadece Sonsuz Mod'a ozel ayri
+    // bir sayac eklendi.
+    var endlessContinuesUsed by remember { mutableStateOf(0) }
+    val maxEndlessContinues = 4
     val shakeOffset = remember { Animatable(0f) }
     val comboTextScale = remember { Animatable(1f) }
     var particleBurst by remember { mutableStateOf<List<BlastParticle>>(emptyList()) }
@@ -825,7 +832,7 @@ fun BlastTheBlocksGame(
         if (remainingShapes.isNotEmpty()) {
             val valid = remainingShapes.any { canPlaceAnywhere(it) }
             if (!valid) {
-                if (isEndless && !continueOffered) {
+                if (isEndless && endlessContinuesUsed < maxEndlessContinues) {
                     showContinueDialog = true
                 } else {
                     isGameOver = true
@@ -880,14 +887,14 @@ fun BlastTheBlocksGame(
             {
                 isRequestingContinueAd = false
                 showContinueDialog = false
-                continueOffered = true
+                endlessContinuesUsed++
                 undoMovesForContinue(3)
                 checkGameOver()
             },
             {
                 isRequestingContinueAd = false
                 showContinueDialog = false
-                continueOffered = true
+                endlessContinuesUsed++
                 isGameOver = true
                 onEndlessGameOver(score)
             }
@@ -896,7 +903,6 @@ fun BlastTheBlocksGame(
 
     fun handleEndSession() {
         showContinueDialog = false
-        continueOffered = true
         isGameOver = true
         onEndlessGameOver(score)
     }
@@ -947,6 +953,7 @@ fun BlastTheBlocksGame(
         isLevelComplete = false
         showContinueDialog = false
         continueOffered = false
+        endlessContinuesUsed = 0
         lastClearedText = ""
         generateNewTray()
     }
@@ -2420,6 +2427,25 @@ fun BlastTheBlocksGame(
                             text = language.pick(tr = "Reklam izleyip son 3 hamleni geri alarak devam edebilirsin", en = "Watch an ad to undo your last 3 moves and keep playing", it = "Guarda un annuncio per annullare le ultime 3 mosse e continuare", fr = "Regardez une pub pour annuler vos 3 derniers coups et continuer", es = "Mira un anuncio para deshacer tus últimos 3 movimientos y seguir jugando"),
                             fontSize = 13.sp,
                             color = palette.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Faz 90: kullanici oturum basina 4 hakka kadar izin
+                        // verilmesini istedi — Pro Mod'daki "Kalan: N" deseniyle
+                        // tutarli bir gosterge.
+                        Text(
+                            text = language.pick(
+                                tr = "Kalan hak: ${maxEndlessContinues - endlessContinuesUsed}",
+                                en = "Remaining: ${maxEndlessContinues - endlessContinuesUsed}",
+                                it = "Rimanenti: ${maxEndlessContinues - endlessContinuesUsed}",
+                                fr = "Restant : ${maxEndlessContinues - endlessContinuesUsed}",
+                                es = "Restante: ${maxEndlessContinues - endlessContinuesUsed}"
+                            ),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonGreen,
                             textAlign = TextAlign.Center
                         )
 
