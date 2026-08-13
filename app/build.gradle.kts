@@ -28,8 +28,11 @@ android {
     // duzeltmesi, UI sikilastirma vb.) test kullanicilarina ulastirmak icin.
     // Faz 97: Faz 96-97 (can sistemi kaldirildi, reklam mekanizmasi yeniden
     // duzenlendi) degisikliklerini Play Console'a yuklemek icin.
-    versionCode = 4
-    versionName = "1.0.3"
+    // Faz 100: Faz 98-99 (reklam no-fill'de oyuncu kilitleniyordu, bedava
+    // sifirla butonu kaldirildi) testcilere hic ulasmamisti + S8 gelistirici
+    // test cihazi listesinden cikarildi (artik gercek testci cihazi).
+    versionCode = 5
+    versionName = "1.0.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

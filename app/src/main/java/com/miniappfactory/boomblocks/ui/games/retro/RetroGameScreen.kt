@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -177,18 +179,41 @@ fun RetroGameScreen(
                 }
 
                 // Center Tetris Board
-                TetrisBoard(
-                    gameState = gameState,
-                    palette = palette,
-                    ghostEnabled = settings.ghostPieceEnabled,
-                    controlStyle = settings.controlStyle,
-                    onMoveLeft = { gameEngine.moveLeft() },
-                    onMoveRight = { gameEngine.moveRight() },
-                    onRotate = { gameEngine.rotateClockwise() },
-                    onSoftDrop = { gameEngine.softDrop() },
-                    onHardDrop = { gameEngine.hardDrop() },
-                    modifier = Modifier.weight(1f)
-                )
+                // Faz 101: kullanici "tablette dik konuma koyunca grid otofit
+                // yapmiyor, taban gozukmuyor" dedi. Kok neden: tahtaya SADECE
+                // Modifier.weight(1f) veriliyordu — bu bir Row icinde GENISLIK
+                // payi demek, TetrisBoard'daki .aspectRatio(0.5f) ise yuksekligi
+                // genislikten turetiyor (yukseklik = genislik x 2). Telefonda
+                // genislik dar oldugu icin sonuc ekrana sigiyordu; tablette
+                // dikey konumda genislik cok buyudugunden tahta satirdaki
+                // yuksekligin cok uzerini talep edip TASIYOR ve alt tarafi
+                // kirpiliyordu. Yukseklik hicbir zaman sinirlayici degildi.
+                //
+                // Cozum: iki boyuta da sigdir ("contain"). Kullanilabilir
+                // genislik ile "mevcut yukseklige sigacak genislik"ten KUCUK
+                // olani secilir; boylece dar telefonda genislik, genis tablette
+                // yukseklik sinirlayici olur. aspectRatio(0.5f) korunur, oran
+                // hicbir cihazda bozulmaz.
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val boardWidth = minOf(maxWidth, maxHeight * 0.5f)
+                    TetrisBoard(
+                        gameState = gameState,
+                        palette = palette,
+                        ghostEnabled = settings.ghostPieceEnabled,
+                        controlStyle = settings.controlStyle,
+                        onMoveLeft = { gameEngine.moveLeft() },
+                        onMoveRight = { gameEngine.moveRight() },
+                        onRotate = { gameEngine.rotateClockwise() },
+                        onSoftDrop = { gameEngine.softDrop() },
+                        onHardDrop = { gameEngine.hardDrop() },
+                        modifier = Modifier.width(boardWidth)
+                    )
+                }
 
                 // Right Panel: Next Piece Queue
                 Column(

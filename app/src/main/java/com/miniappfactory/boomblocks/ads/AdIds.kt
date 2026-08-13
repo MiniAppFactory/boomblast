@@ -33,10 +33,14 @@ object AdIds {
     // ID'si, o cihazda ilk reklam istegi yapildiginda logcat'te "Ads" etiketiyle
     // otomatik yazdirilir (ornek: "Use RequestConfiguration.Builder()
     // .setTestDeviceIds(Arrays.asList(\"XXXX\")) to get test ads on this device.").
-    val developerTestDeviceIds = listOf(
-        "4EC2D32786F16937AF9963145EA0E233" // Samsung Galaxy S8 (proje test cihazi)
-        // S22 Ultra (kullanicinin kendi telefonu) buraya eklenecek — ID'si
-        // henuz alinamadi (cihaz USB baglantisi kesildi), tekrar baglaninca
-        // logcat'ten okunup eklenmeli.
-    )
+    // Faz 100: liste BOSALTILDI. Galaxy S8 artik bir gelistirici cihazi degil —
+    // gercek bir testcinin kendi hesabiyla closed testing'e katilacagi normal
+    // bir cihaz. ID'si listede kaldigi surece o cihaza release build'de bile
+    // her zaman test reklami gosterilirdi; testci gercek reklam akisini
+    // goremezdi. Mekanizma yerinde biraktildi: yeni bir gelistirici cihazi
+    // eklenecekse ID'si buraya yazilir (o cihazda ilk reklam istegi yapildiginda
+    // logcat'te "Ads" etiketiyle otomatik yazdirilir, ornek: "Use
+    // RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList(\"XXXX\"))
+    // to get test ads on this device.").
+    val developerTestDeviceIds = emptyList<String>()
 }

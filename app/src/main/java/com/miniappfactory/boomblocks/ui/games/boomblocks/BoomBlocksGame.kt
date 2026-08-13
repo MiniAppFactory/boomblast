@@ -501,6 +501,14 @@ fun BlastTheBlocksGame(
     // en fazla MAX_MOVE_HISTORY kadar tutulur, "3 hamle geri al" bunu kullanir.
     val moveHistory = remember { mutableStateListOf<GameSnapshot>() }
     val MAX_MOVE_HISTORY = 5
+    // Faz 101: Sonsuz Mod'da parca havuzunun genisligi skordan turetiliyor
+    // (bkz. generateNewTray). "Reklam izle, devam et" 3 hamle geri alirken
+    // skoru da geri aliyor (undoMovesForContinue) — oyuncu 100'luk bandin
+    // altina duserse havuz GERCEKTEN 2 parca daraliyordu, yani reklam
+    // izlemenin cezasi oyunun basitlesmesi oluyordu. Bu deger oturumda
+    // ULASILAN EN YUKSEK skoru tutar ve asla azalmaz; havuz genisligi
+    // bundan hesaplanir, boylece geri alma havuzu kucultmez.
+    var peakScore by remember { mutableIntStateOf(0) }
     var comboCount by remember { mutableIntStateOf(0) }
     var isGameOver by remember { mutableStateOf(false) }
     var isLevelComplete by remember { mutableStateOf(false) }
@@ -808,7 +816,12 @@ fun BlastTheBlocksGame(
             // alma ekliyoruz, o yuzden havuz sabit 100'er puan bantlarinda
             // duz artsin" karariyla basitlestirdi. Her 100 puanda +2 parca,
             // 6 parcadan (0-99) baslar, 600+ puanda TAM havuza (18) ulasir.
-            (6 + (score / 100) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+            // Faz 101: duz `score` yerine `maxOf(score, peakScore)` — "reklam
+            // izle devam et" skoru geri aldiginda havuz daralmasin diye.
+            // Normal oyunda peakScore bayat/0 olabilir ama score her zaman
+            // ondan buyuk oldugu icin sonuc degismez; SADECE geri alma
+            // sonrasinda peakScore devreye girer (bkz. undoMovesForContinue).
+            (6 + (maxOf(score, peakScore) / 100) * 2).coerceAtMost(SHAPE_PATTERNS.size)
         } else {
             when {
                 progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
@@ -867,6 +880,26 @@ fun BlastTheBlocksGame(
         }
     }
 
+    // Faz 101: tahtada en dolu (ama tamamen dolu olmayan sartsiz) satiri
+    // bosaltir. "Reklamla devam" sonrasi yer acmak icin — normal bir satir
+    // temizleme DEGIL: puan vermez, kombo saymaz, patlama animasyonu
+    // tetiklemez; sadece yer acar. Bosaltilacak dolu satir kalmadiysa
+    // false doner (sonsuz donguye karsi guvence).
+    fun clearDensestRowForContinue(): Boolean {
+        var bestRow = -1
+        var bestFilled = 0
+        for (r in 0 until gridSize) {
+            val filled = (0 until gridSize).count { c -> board[r * gridSize + c] != 0 }
+            if (filled > bestFilled) {
+                bestFilled = filled
+                bestRow = r
+            }
+        }
+        if (bestRow < 0) return false
+        for (c in 0 until gridSize) board[bestRow * gridSize + c] = 0
+        return true
+    }
+
     // Sonsuz modda oturum basina bir kez: son 3 hamleyi geri alip devam etme sansi.
     // Onceden alt 2 satiri korusuzca temizliyorduk, ama bu MEVCUT tepsideki
     // parcalar icin yer acmayabiliyordu — kullanici "izlese de sifirda basliyor"
@@ -877,6 +910,9 @@ fun BlastTheBlocksGame(
     fun undoMovesForContinue(count: Int) {
         val targetIndex = (moveHistory.size - count).coerceAtLeast(0)
         val snapshot = moveHistory.getOrNull(targetIndex) ?: return
+        // Faz 101: skor birazdan geri alinacak — havuz genisligi hesabinin
+        // (generateNewTray) daralmamasi icin ulasilan tepe deger saklanir.
+        peakScore = maxOf(peakScore, score)
         for (i in board.indices) board[i] = snapshot.board[i]
         score = snapshot.score
         while (moveHistory.size > targetIndex) moveHistory.removeAt(moveHistory.size - 1)
@@ -894,11 +930,30 @@ fun BlastTheBlocksGame(
         // yasiyordu. Esik 1'den 2'ye cikarildi: en az 2 parca sigana kadar
         // yeniden uretiliyor — reklam sonrasi gercekten birkac hamlelik bir
         // nefes alani kaliyor, tek hamlelik sahte bir "devam" olmuyor.
-        var attempts = 0
-        do {
-            generateNewTray()
-            attempts++
-        } while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && attempts < 12)
+        //
+        // Faz 101: kullanici "reklam izle devam et deyince parca havuzu
+        // sifirlaniyormus gibi cok basit parcalar geliyor" dedi. Kok neden
+        // BULUNDU ve bu bir "havuz sifirlanmasi" degil, YUKARIDAKI dongunun
+        // istatistiksel yan etkisiydi: tepsi, "en az 2 parca sigana kadar"
+        // 12 kez BASTAN uretiliyordu. Geri alinan tahta hala dolu oldugu icin
+        // dolu tahtada yalnizca KUCUK parcalar sigar — dolayisiyla buyuk/
+        // karmasik parca iceren her tepsi reddedilip 1x1/2x1/1x2 agirlikli
+        // tepsiler kabul ediliyordu (rejection sampling bias). Parca dagilimi
+        // fiilen bozuluyordu.
+        //
+        // Cozum yon degistirdi: tepsiyi tahtaya UYDURMAK yerine tahtayi
+        // tepsiye uyduruyoruz. Tepsi TEK SEFER, gercek agirlik tablosuyla
+        // uretilir (dagilim hic bozulmaz), sonra o tepsiden en az 2 parca
+        // sigana kadar tahtadan satir bosaltilir. Bu hem yanliligi tamamen
+        // ortadan kaldirir hem de reklamin odulunu somutlastirir: oyuncu
+        // sahte bir "kolay parca" yerine gercek bir nefes alani gorur.
+        // Dongu sonlanmasi garantili — tahta bosaldiginda her parca sigar.
+        generateNewTray()
+        var guard = 0
+        while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && guard < gridSize) {
+            if (!clearDensestRowForContinue()) break
+            guard++
+        }
     }
 
     // Faz 95c: kullanici "reklam izle devam et dediginde reklam yoksa oyunu
@@ -963,6 +1018,7 @@ fun BlastTheBlocksGame(
         board.clear()
         repeat(gridSize * gridSize) { board.add(0) }
         score = 0
+        peakScore = 0 // Faz 101: yeni oturum, havuz genisligi bastan hesaplansin
         moveHistory.clear()
         comboCount = 0
         draggedTrayIndex = -1
