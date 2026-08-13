@@ -31,7 +31,10 @@ android {
     // Faz 100: Faz 98-99 (reklam no-fill'de oyuncu kilitleniyordu, bedava
     // sifirla butonu kaldirildi) testcilere hic ulasmamisti + S8 gelistirici
     // test cihazi listesinden cikarildi (artik gercek testci cihazi).
-    versionCode = 5
+    // Faz 102: kullanici "garanti olsun" diye 5'i atlayip 6'yi sectti (Play'de
+    // yayindaki release hala 4/1.0.3; 5 uretildi ama hic yuklenmedi).
+    // versionName 1.0.4 kaliyor — o da hic yayinlanmadi.
+    versionCode = 6
     versionName = "1.0.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

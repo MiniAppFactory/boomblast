@@ -5,6 +5,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,7 +43,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import com.miniappfactory.boomblocks.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -322,7 +326,35 @@ private fun LanguagePickerStep(
     onSelectLanguage: (AppLanguage) -> Unit,
     onConfirm: () -> Unit
 ) {
-    Text(text = "🌐", fontSize = 40.sp)
+    // Faz 102: kullanici "ilk acilistaki hos geldin ekraninda ikon yerine bizim
+    // logomuz olsun" dedi. Onceden burada duz bir 🌐 emojisi vardi — hem marka
+    // tasimiyordu hem de Faz 31'de tutorial adimlarindaki emojiler icin
+    // verilen ayni geri bildirime ("emek harcanmamis duruyor") aciktı. Artik
+    // uygulamanin kendi ikonu (docs/play_store_assets/icon_512.png ->
+    // drawable-nodpi/logo_kaboom.png) gosteriliyor: kullanicinin uygulamayi
+    // Play'de ve ana ekranda gordugu gorselle birebir ayni, yani ilk acilis
+    // aninda marka tanınırlığı kuruluyor.
+    Box(
+        modifier = Modifier.size(104.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // ModeCard/rozet dilini takip eden yumusak dis parlama.
+        Box(
+            modifier = Modifier
+                .size(104.dp)
+                .clip(CircleShape)
+                .background(NeonCyan.copy(alpha = 0.16f))
+        )
+        Image(
+            painter = painterResource(R.drawable.logo_kaboom),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .size(84.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.5.dp, NeonCyan.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
+        )
+    }
     Spacer(modifier = Modifier.height(12.dp))
     Text(
         text = "Dil Seç / Choose Language",

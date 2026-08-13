@@ -33,14 +33,37 @@ object AdIds {
     // ID'si, o cihazda ilk reklam istegi yapildiginda logcat'te "Ads" etiketiyle
     // otomatik yazdirilir (ornek: "Use RequestConfiguration.Builder()
     // .setTestDeviceIds(Arrays.asList(\"XXXX\")) to get test ads on this device.").
-    // Faz 100: liste BOSALTILDI. Galaxy S8 artik bir gelistirici cihazi degil —
-    // gercek bir testcinin kendi hesabiyla closed testing'e katilacagi normal
-    // bir cihaz. ID'si listede kaldigi surece o cihaza release build'de bile
-    // her zaman test reklami gosterilirdi; testci gercek reklam akisini
-    // goremezdi. Mekanizma yerinde biraktildi: yeni bir gelistirici cihazi
-    // eklenecekse ID'si buraya yazilir (o cihazda ilk reklam istegi yapildiginda
-    // logcat'te "Ads" etiketiyle otomatik yazdirilir, ornek: "Use
-    // RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList(\"XXXX\"))
-    // to get test ads on this device.").
-    val developerTestDeviceIds = emptyList<String>()
+    // Faz 100: Galaxy S8 listeden CIKARILDI — artik bir gelistirici cihazi
+    // degil, gercek bir testcinin kendi hesabiyla closed testing'e katilacagi
+    // normal bir cihaz. ID'si listede kaldigi surece o cihaza release build'de
+    // bile her zaman test reklami gosterilirdi; testci gercek reklam akisini
+    // goremezdi.
+    //
+    // Faz 102: S22 Ultra (proje sahibinin GUNLUK KULLANDIGI ve oyunu gercekten
+    // OYNADIGI telefon) EKLENDI — Faz 38'den beri eklenmesi planlaniyordu ama
+    // ID'si alinamamisti, bu yuzden release build'de bugune kadar hep GERCEK
+    // reklam gosteriyordu. Sahibin kendi oyununda rewarded reklam izleyip odul
+    // almasi AdMob'un "self-serving traffic / invalid traffic" politikasi
+    // kapsamina girer (tipik sonuc: hesabin "ad serving limited" durumuna
+    // dusmesi). Artik bu cihaza her zaman Google'in guvenli test/house
+    // reklamlari gosteriliyor, gercek kullanicilar etkilenmiyor.
+    //
+    // Yeni bir gelistirici cihazi eklenecekse ID'si buraya yazilir: o cihazda
+    // ilk reklam istegi yapildiginda logcat'e "Ads" etiketiyle otomatik
+    // yazdirilir ("Use RequestConfiguration.Builder().setTestDeviceIds(
+    // Arrays.asList(\"XXXX\")) to get test ads on this device.").
+    //
+    // DIKKAT: bu kimlik UYGULAMA BAZLIDIR, cihaz bazli DEGIL. Ayni S22
+    // Ultra'da olculdu (2026-08-13): Kaboom "F83812BB...", Kron Drive
+    // "B5BD61FF..." bildirdi. Sebebi buyuk olasilikla cihazda reklam
+    // kimliginin silinmis/sifirlanmis olmasi — bu durumda SDK uygulama basina
+    // ayri bir deger uretiyor. Yani her uygulamanin kendi listesine, O
+    // UYGULAMADAN okunan kimlik yazilmali; baska bir uygulamadan alinan
+    // kimlik hicbir ise yaramaz. Kimlik uygulama yeniden baslatildiginda
+    // degismiyor (dogrulandi).
+    val developerTestDeviceIds = listOf(
+        // Samsung Galaxy S22 Ultra (SM-S908E) — proje sahibinin gunluk telefonu.
+        // Kaboom'dan okundu; Kron Drive icin AYRI kimlik gerekir (B5BD61FF...).
+        "F83812BBF9B13BF4F83079B72057D5AC"
+    )
 }
