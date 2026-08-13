@@ -2,6 +2,7 @@ package com.miniappfactory.boomblocks.ui.consent
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -21,9 +23,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import com.miniappfactory.boomblocks.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,7 +81,35 @@ fun TermsAcceptScreen(
                 modifier = Modifier.padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = "🧩💥", fontSize = 40.sp)
+                // Faz 102: burasi uygulamanin ILK acilista gordugu ilk ekran
+                // ("Kaboom Blocks'a Hos Geldin!", dil seciminden de once).
+                // Onceden basligin ustunde duz bir "🧩💥" emoji cifti vardi —
+                // marka tasimiyordu ve emoji render'i cihazdan cihaza degisiyordu.
+                // Artik uygulamanin kendi ikonu: kullanicinin Play sayfasinda ve
+                // ana ekranda gordugu gorselle birebir ayni, yani ilk karsilasma
+                // aninda "dogru uygulamayi actim" tanınırlığı kuruluyor.
+                // Onboarding'deki dil secme ekraninda da ayni desen kullanildi,
+                // orada 84dp; burasi asil karsilama oldugu icin biraz daha buyuk.
+                Box(
+                    modifier = Modifier.size(112.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(112.dp)
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(NeonCyan.copy(alpha = 0.16f))
+                    )
+                    Image(
+                        painter = painterResource(R.drawable.logo_kaboom),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .border(1.5.dp, NeonCyan.copy(alpha = 0.55f), RoundedCornerShape(22.dp))
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
