@@ -45,7 +45,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -994,6 +993,14 @@ fun BlastTheBlocksGame(
     // maxRetryContinues (3) kez reklamli devam sunuluyor (Endless'teki 4 hak
     // ile AYNI desen); hak tukenince buton "TEKRAR DENE"ye (zorunlu
     // interstitial'a sarili, bkz. onRetryInterstitial) donuyor.
+    // Faz 98: kullanici "seviyelide yandim, reklam izle dedim reklam cikmadi
+    // ama baslatmadi da, birkac kez denemek zorunda kaldim" dedi. Kok neden:
+    // onDenied dali SADECE spinner'i kapatiyordu, oyunu devam ettirmiyordu —
+    // reklam no-fill oldugunda oyuncu game-over dialogunda kilitli kaliyordu.
+    // Faz 95c'de bu duzeltme SADECE Sonsuz Mod'a (handleContinueWithAd)
+    // uygulanmis, ayni sorunu yasayan bu akis atlanmisti. Artik Sonsuz Mod ile
+    // BIREBIR ayni desen: onGranted ve onDenied AYNI lambda — reklam gelmese
+    // de "izlemis sayilir" (oyuncunun hatasi degil), sadece hak tuketilir.
     fun handleRetryWithAd() {
         if (isRequestingContinueAd) return
         if (continuesUsedInAttempt >= maxRetryContinues) {
@@ -1001,18 +1008,14 @@ fun BlastTheBlocksGame(
             return
         }
         isRequestingContinueAd = true
-        onRequestContinueAd(
-            {
-                isRequestingContinueAd = false
-                continuesUsedInAttempt++
-                isGameOver = false
-                undoMovesForContinue(3)
-                checkGameOver()
-            },
-            {
-                isRequestingContinueAd = false
-            }
-        )
+        val proceedWithContinue = {
+            isRequestingContinueAd = false
+            continuesUsedInAttempt++
+            isGameOver = false
+            undoMovesForContinue(3)
+            checkGameOver()
+        }
+        onRequestContinueAd(proceedWithContinue, proceedWithContinue)
     }
 
     LaunchedEffect(Unit) {
@@ -1537,17 +1540,14 @@ fun BlastTheBlocksGame(
                         )
                     }
 
-                    IconButton(
-                        onClick = { resetGame() },
-                        modifier = Modifier.size(36.dp).testTag("block_blast_restart_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Reset Game",
-                            tint = NeonGold,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    // Faz 99: ust bardaki "sifirla" (Refresh) butonu KALDIRILDI.
+                    // Kullanici bildirdi: bu buton dogrudan resetGame() cagiriyordu —
+                    // onay yok, reklam yok, ceza yok. Oyuncu kaybetmek uzereyken tek
+                    // dokunusla tahtayi bedava sifirlayabiliyordu, yani Faz 96/97'de
+                    // kurulan TUM reklam ekonomisini (Yeniden Başlat esikli
+                    // interstitial, Haritaya Dön reklami, 3 rewarded devam hakki)
+                    // tamamen bypass ediyordu. Sifirlama artik SADECE game-over
+                    // modalindeki (reklamli) yollardan yapilabiliyor.
                 }
             }
 
