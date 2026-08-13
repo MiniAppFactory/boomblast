@@ -120,15 +120,15 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Faz 79: artik bolume GIRERKEN degil, kaybedip "YENIDEN BASLA (-1 can)"
-    // secilince cagriliyor — UI zaten challengeLives>0 kontrolunu yaptigi icin
-    // burada sonucu beklemeye (suspend/Boolean) gerek yok, fire-and-forget.
-    fun spendChallengeLifeForRestart() {
-        viewModelScope.launch { repository.consumeChallengeLife() }
+    // Faz 96: can sistemi kaldirildi — "Yeniden Başlat" artik bu esikli
+    // sayacla interstitial reklama bagli (resetLevelsSinceInterstitial ile
+    // AYNI desen, ayri bir sayac).
+    fun incrementProRestartsSinceInterstitial() {
+        viewModelScope.launch { repository.incrementProRestartsSinceInterstitial() }
     }
 
-    fun grantChallengeLife() {
-        viewModelScope.launch { repository.grantChallengeLife() }
+    fun resetProRestartsSinceInterstitial() {
+        viewModelScope.launch { repository.resetProRestartsSinceInterstitial() }
     }
 
     fun claimMission(missionId: String, tierIndex: Int) {

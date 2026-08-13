@@ -411,14 +411,17 @@ fun BlastTheBlocksGame(
     // gecirir.
     scoreMultiplier: Float = 1f,
     // Faz 79: Pro Mode — parca havuzu farkli (daha zor, 1x1 yok) ve oyun-bitti
-    // modalinda ekstra bir "YENIDEN BASLA (-1 can)" secenegi var. Can artik
-    // seviyeye GIRERKEN degil, kaybedip yeniden baslamayi SECINCE harcaniyor
-    // (reklamla-devam-et alternatifine karsi bir bedel, Level Mod'daki AYNI
-    // 3-hamle-geri-al mekanizmasi hala UCRETSIZ kaliyor).
+    // modalinda ekstra bir "YENIDEN BAŞLAT" secenegi var. Faz 96: can sistemi
+    // (bypass edilebiliyordu) kaldirildi — "Yeniden Başlat" artik esikli
+    // interstitial reklama bagli (onProModeRestart).
     isChallengeMode: Boolean = false,
-    challengeLives: Int = 0,
-    onChallengeRestart: () -> Unit = {},
-    onChallengeWatchAdForLife: () -> Unit = {},
+    // Faz 96: "Yeniden Başlat" (Pro Mode) ve rewarded-hakki-tukenmis "TEKRAR
+    // DENE" (Level+Pro ortak) artik interstitial reklam gosterip ardindan
+    // onProceed() cagiran bir sarmalayicidan geciyor — reklam basarisiz olsa
+    // (no-fill) bile onProceed HER ZAMAN cagrilir (InterstitialAdManager'in
+    // mevcut davranisi), oyuncu asla kilitlenmez.
+    onProModeRestart: (onProceed: () -> Unit) -> Unit = { it() },
+    onRetryInterstitial: (onProceed: () -> Unit) -> Unit = { it() },
     currentTheme: String = "CLASSIC",
     language: AppLanguage = AppLanguage.TR,
     soundEnabled: Boolean = true,
@@ -613,13 +616,16 @@ fun BlastTheBlocksGame(
     var showFirstMoveHint by remember { mutableStateOf(!hasMadeFirstMove) }
 
     var showContinueDialog by remember { mutableStateOf(false) }
-    var continueOffered by remember { mutableStateOf(false) }
+    // Faz 97: kullanici "reklam izle devam et 1 kez değil 3 kez olsun, rewarded
+    // admob gelir modeli daha iyi" dedi — Seviyeli+Pro Mode'daki bu hak artik
+    // Sonsuz Mod'daki endlessContinuesUsed/maxEndlessContinues ile AYNI desende
+    // bir sayac (eskiden tek kullanimlik bir boolean'di).
+    var continuesUsedInAttempt by remember { mutableStateOf(0) }
+    val maxRetryContinues = 3
     var isRequestingContinueAd by remember { mutableStateOf(false) }
     // Faz 90: kullanici Sonsuz Mod'da "reklam izle devam et" hakkinin oturum
-    // basina SADECE 1 degil 4 kez sunulmasini istedi. `continueOffered`
-    // (yukarida) Seviyeli Mod'un TEKRAR DENE akisiyla PAYLASILIYOR (bkz.
-    // handleRetryWithAd) — onu degistirmeden, sadece Sonsuz Mod'a ozel ayri
-    // bir sayac eklendi.
+    // basina SADECE 1 degil 4 kez sunulmasini istedi. Sonsuz Mod'a ozel ayri
+    // bir sayac (yukaridaki continuesUsedInAttempt Seviyeli/Pro Mode'a ozel).
     var endlessContinuesUsed by remember { mutableStateOf(0) }
     val maxEndlessContinues = 4
     val shakeOffset = remember { Animatable(0f) }
@@ -965,7 +971,7 @@ fun BlastTheBlocksGame(
         isGameOver = false
         isLevelComplete = false
         showContinueDialog = false
-        continueOffered = false
+        continuesUsedInAttempt = 0
         endlessContinuesUsed = 0
         lastClearedText = ""
         generateNewTray()
@@ -983,21 +989,22 @@ fun BlastTheBlocksGame(
     // `onRequestContinueAd`'i HIC BAGLAMAMISTI, sadece Routes.ENDLESS_GAME
     // bagliyordu — varsayilan deger aninda onDenied() cagiriyordu, yani
     // Seviyeli Mod'da GERCEK bir reklam hicbir zaman yuklenmiyordu (ayri
-    // duzeltildi, bkz. AppNavigation.kt). Artik `continueOffered` ile ayni
-    // seviye denemesinde SADECE BIR KEZ reklamli devam sunuluyor (Endless'le
-    // birebir ayni kural); ikinci basarisizlikta buton duz "TEKRAR DENE"ye
-    // (reklamsiz, tam sifirlama) donuyor.
+    // duzeltildi, bkz. AppNavigation.kt). Faz 97: kullanici "reklam izle
+    // devam et 1 kez değil 3 kez olsun" dedi — ayni seviye denemesinde artik
+    // maxRetryContinues (3) kez reklamli devam sunuluyor (Endless'teki 4 hak
+    // ile AYNI desen); hak tukenince buton "TEKRAR DENE"ye (zorunlu
+    // interstitial'a sarili, bkz. onRetryInterstitial) donuyor.
     fun handleRetryWithAd() {
         if (isRequestingContinueAd) return
-        if (continueOffered) {
-            resetGame()
+        if (continuesUsedInAttempt >= maxRetryContinues) {
+            onRetryInterstitial { resetGame() }
             return
         }
         isRequestingContinueAd = true
         onRequestContinueAd(
             {
                 isRequestingContinueAd = false
-                continueOffered = true
+                continuesUsedInAttempt++
                 isGameOver = false
                 undoMovesForContinue(3)
                 checkGameOver()
@@ -2633,49 +2640,53 @@ fun BlastTheBlocksGame(
                     .background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = palette.card),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .padding(16.dp)
-                        .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                // Faz 95d: kullanici "yazılar kutulara sığmamış, skor yazısını sil,
+                // reklam kutularını büyüt" dedi. Kullanicinin kendi onerisi
+                // ("kalan can sayısını sağ üst köşede göstermek gibi") benimsendi:
+                // butonlardaki uzun "(-1 ❤ · Kalan: N)" metni kaldirildi, yerine bu
+                // Box'in disina (Card'in SAG UST kosesine bindirilen) kompakt bir
+                // rozet eklendi (asagida). "Skor" etiketi + buyuk rakam TAMAMEN
+                // kaldirildi — zaten arka planda (dialog acilmadan once) SKOR/
+                // İLERLEME/HEDEF kartlari ayni bilgiyi gosteriyor, dialog icinde
+                // TEKRARI gereksiz yer kaplıyordu.
+                Box(contentAlignment = Alignment.TopEnd) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = palette.card),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .padding(16.dp)
+                            .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
                     ) {
-                        Text(
-                            text = if (isEndless) {
-                                language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "GIOCO FINITO", fr = "PARTIE TERMINÉE", es = "JUEGO TERMINADO")
-                            } else {
-                                language.pick(tr = "SEVİYE BAŞARISIZ", en = "LEVEL FAILED", it = "LIVELLO FALLITO", fr = "NIVEAU ÉCHOUÉ", es = "NIVEL FALLIDO")
-                            },
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NeonMagenta
-                        )
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = if (isEndless) {
+                                    language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "GIOCO FINITO", fr = "PARTIE TERMINÉE", es = "JUEGO TERMINADO")
+                                } else {
+                                    language.pick(tr = "SEVİYE BAŞARISIZ", en = "LEVEL FAILED", it = "LIVELLO FALLITO", fr = "NIVEAU ÉCHOUÉ", es = "NIVEL FALLIDO")
+                                },
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonMagenta
+                            )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
-                        Text(
-                            text = if (isEndless) "$score" else "$score / $targetScore",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = palette.textPrimary
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Button(
+                            Button(
                             onClick = { if (isEndless) resetGame() else handleRetryWithAd() },
                             enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                             shape = RoundedCornerShape(12.dp),
+                            // Faz 95d: kullanici "kutu esnek olmasın, farklı boylarda kutular
+                            // olur, puntoyu küçült ve kutu yüksekliğini SABİT artır" dedi —
+                            // 3 buton (bu + asagidaki YENİDEN BAŞLA + HARİTAYA DÖN) artik
+                            // AYNI sabit 52dp yukseklikte, tutarli.
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
+                                .height(52.dp)
                                 .testTag("block_blast_restart_confirm")
                         ) {
                             if (isRequestingContinueAd) {
@@ -2686,12 +2697,12 @@ fun BlastTheBlocksGame(
                                 )
                             } else {
                                 Text(
-                                    text = if (isEndless || continueOffered) {
-                                        // Faz 61: Seviyeli Mod'da bu denemede reklamli devam
-                                        // hakki zaten kullanildiysa (continueOffered=true),
-                                        // buton duz/reklamsiz "TEKRAR DENE"ye (tam sifirlama)
-                                        // donuyor — oyuncuya yanlislikla tekrar reklam vaat
-                                        // etmiyoruz.
+                                    text = if (isEndless || continuesUsedInAttempt >= maxRetryContinues) {
+                                        // Faz 97: Seviyeli/Pro Mode'da bu denemedeki 3 reklamli
+                                        // devam hakki da tukendiyse, buton "TEKRAR DENE"ye
+                                        // (zorunlu interstitial'a sarili, reklamsiz degil)
+                                        // donuyor — oyuncuya yanlislikla tekrar rewarded reklam
+                                        // vaat etmiyoruz.
                                         language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
                                     } else {
                                         // Faz 61: kullanici istegiyle metin "reklam izle,
@@ -2707,37 +2718,20 @@ fun BlastTheBlocksGame(
                             }
                         }
 
-                        // Faz 79: Pro Mode'a ozel — "REKLAM IZLE, DEVAM ET"in
-                        // ALTINDA, can harcayarak leveli TAM sifirlayan bir
-                        // ikinci secenek. Can varsa tuketip resetGame() cagirir,
-                        // yoksa reklamla +1 can akisini tetikler.
+                        // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
+                        // Pro Mode'a ozel bu buton artik HER ZAMAN tam sifirlama
+                        // yapar, esikli interstitial reklam (onProModeRestart,
+                        // "her 2 kayipta 1 reklam") arkasinda.
                         if (isChallengeMode) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
-                                onClick = {
-                                    if (challengeLives > 0) {
-                                        onChallengeRestart()
-                                        resetGame()
-                                    } else {
-                                        onChallengeWatchAdForLife()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53E3E)),
+                                onClick = { onProModeRestart { resetGame() } },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316)),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                                modifier = Modifier.fillMaxWidth().height(52.dp)
                             ) {
                                 Text(
-                                    text = if (challengeLives > 0) {
-                                        language.pick(
-                                            tr = "YENİDEN BAŞLA (-1 ❤ · Kalan: $challengeLives)",
-                                            en = "RESTART (-1 ❤ · Left: $challengeLives)",
-                                            it = "RICOMINCIA (-1 ❤ · Rimasti: $challengeLives)",
-                                            fr = "RECOMMENCER (-1 ❤ · Restants : $challengeLives)",
-                                            es = "REINICIAR (-1 ❤ · Quedan: $challengeLives)"
-                                        )
-                                    } else {
-                                        language.pick(tr = "REKLAM İZLE: +1 CAN", en = "WATCH AD: +1 LIFE", it = "GUARDA PUBBLICITÀ: +1 VITA", fr = "REGARDER PUB : +1 VIE", es = "VER ANUNCIO: +1 VIDA")
-                                    },
+                                    text = language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -2751,11 +2745,12 @@ fun BlastTheBlocksGame(
                             onClick = onBack,
                             colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
                         ) {
                             Text(language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                         }
                     }
+                }
                 }
             }
         }

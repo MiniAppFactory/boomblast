@@ -258,7 +258,33 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
-                        onBack = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) },
+                        // Faz 96: "Haritaya Dön" (level-icindeki geri buton, exit-confirm
+                        // "ÇIK" ve level-failed "HARİTAYA DÖN" — hepsi bu TEK onBack'i
+                        // paylasiyor) artik HER SEFERINDE zorunlu interstitial gosterir.
+                        // No-fill/basarisiz durumda da InterstitialAdManager onProceed'i
+                        // yine cagirir, oyuncu asla kilitlenmez.
+                        onBack = {
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = { navController.popBackStack(Routes.LEVEL_MAP, inclusive = false) }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
+                            }
+                        },
+                        // Faz 96: rewarded hakki tukendikten sonraki duz "TEKRAR DENE" de
+                        // artik zorunlu interstitial'a bagli (kullanici: tam simetri istedi).
+                        onRetryInterstitial = { onProceed ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
+                            } else {
+                                onProceed()
+                            }
+                        },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
@@ -398,7 +424,6 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
         ) { backStackEntry ->
             val level = backStackEntry.arguments?.getInt("level") ?: 1
             val definition = LevelGenerator.forChallengeLevel(level)
-            var isWatchAdForLifeLoading by remember { mutableStateOf(false) }
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
                     BlastTheBlocksGame(
@@ -407,19 +432,28 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         shapePoolTier = definition.shapePoolTier,
                         scoreMultiplier = definition.scoreMultiplier,
                         isChallengeMode = true,
-                        challengeLives = progress.challengeLives,
-                        onChallengeRestart = { viewModel.spendChallengeLifeForRestart() },
-                        onChallengeWatchAdForLife = {
+                        // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
+                        // "Yeniden Başlat" artik esikli interstitial reklama bagli:
+                        // her 2 kayipta 1 reklam, aradaki ise reklamsiz gecer. Sayac
+                        // levelsCompletedSinceInterstitial ile AYNI desen.
+                        onProModeRestart = { onProceed ->
                             val activity = context.findActivity()
-                            if (activity != null && !isWatchAdForLifeLoading) {
-                                isWatchAdForLifeLoading = true
-                                RewardedAdManager.loadAndShow(
-                                    context = context,
-                                    activity = activity,
-                                    onRewardEarned = { viewModel.grantChallengeLife() },
-                                    onFailure = { showAdUnavailableToast(context, progress.language) },
-                                    onAdClosed = { isWatchAdForLifeLoading = false }
-                                )
+                            if (progress.proRestartsSinceInterstitial >= 1 && activity != null) {
+                                viewModel.resetProRestartsSinceInterstitial()
+                                InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
+                            } else {
+                                viewModel.incrementProRestartsSinceInterstitial()
+                                onProceed()
+                            }
+                        },
+                        // Faz 96: rewarded hakki tukendikten sonraki duz "TEKRAR DENE"
+                        // de artik zorunlu interstitial'a bagli (Seviyeli Mod ile ayni).
+                        onRetryInterstitial = { onProceed ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
+                            } else {
+                                onProceed()
                             }
                         },
                         currentTheme = progress.blockTheme,
@@ -431,7 +465,20 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onUseBooster = { type -> viewModel.consumeChallengeBoosterFromInventory(type) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
-                        onBack = { navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false) },
+                        // Faz 96: bkz. Routes.GAME'deki ayni yorumu — "Haritaya Dön" artik
+                        // HER SEFERINDE zorunlu interstitial gosterir.
+                        onBack = {
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = { navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false) }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
+                            }
+                        },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },

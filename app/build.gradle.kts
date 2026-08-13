@@ -24,8 +24,12 @@ android {
     // Faz 88: closed testing release'i internal testing'in kullandigi
     // versionCode=1 ile cakisti ("Version code 1 has already been used").
     // Play Console tum track'lerde tekil/artan versionCode istiyor.
-    versionCode = 2
-    versionName = "1.0.1"
+    // Faz 95c: Faz 90-95 arasi tum degisiklikleri (booster mimarisi, drag-lift
+    // duzeltmesi, UI sikilastirma vb.) test kullanicilarina ulastirmak icin.
+    // Faz 97: Faz 96-97 (can sistemi kaldirildi, reklam mekanizmasi yeniden
+    // duzenlendi) degisikliklerini Play Console'a yuklemek icin.
+    versionCode = 4
+    versionName = "1.0.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

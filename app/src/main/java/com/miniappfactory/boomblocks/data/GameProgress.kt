@@ -36,15 +36,13 @@ data class PlayerProgress(
     // Faz 39/42: Seviye Modu'nda son zorunlu gecis reklamindan bu yana kac
     // bolum tamamlandi — esige (Faz 42: her bolum) ulasinca sifirlanir ve bir interstitial gosterilir.
     val levelsCompletedSinceInterstitial: Int = 0,
-    // Faz 77: Pro Mode ("Challenge") — Seviyeli Mod'dan AYRI ilerleme +
-    // can/enerji sistemi. challengeLives 0'a dusunce yeni bolume baslanamaz,
-    // dakikada CHALLENGE_LIFE_REFILL_MS'de bir 1 can yenilenir (bkz.
-    // GameStateRepository.regenChallengeLives) veya 1 reklam = 1 can.
+    // Faz 77: Pro Mode ("Challenge") — Seviyeli Mod'dan AYRI ilerleme.
     val challengeHighestUnlockedLevel: Int = 1,
     val challengeLevelStars: Map<Int, Int> = emptyMap(),
-    val challengeLives: Int = 4,
-    // Son can dususu/regen hesaplamasinin baz aldigi epoch-millis zaman damgasi.
-    val challengeLastLifeTimestamp: Long = 0L
+    // Faz 96: can sistemi (bypass edilebiliyordu, bkz. eski challengeLives)
+    // yerini "Yeniden Başlat"a bagli esikli interstitial reklama birakti —
+    // levelsCompletedSinceInterstitial ile AYNI desen, ayri bir sayac.
+    val proRestartsSinceInterstitial: Int = 0
 )
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS, MULTI_CLEARS }

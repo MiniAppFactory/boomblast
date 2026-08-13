@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -106,39 +105,6 @@ fun LevelMapScreen(
                 onOpenSettings = onOpenSettings,
                 onBack = onBack
             )
-
-            // Faz 77: can rozeti onceden basligin YANINDA (ayni satirda) idi —
-            // "PRO MOD" + kalp rozeti birlikte sikisip baslik "PRO ..." diye
-            // kirpiliyordu (Faz 72'nin tam duzelttigi "Seviyel..." sorununun
-            // ayni tekrari). Artik TAMAMEN AYRI, kendi satirinda — basligin
-            // genisligiyle asla yarismiyor.
-            if (isChallengeMode) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = language.pick(tr = "Canlar", en = "Lives", it = "Vite", fr = "Vies", es = "Vidas"),
-                        tint = Color(0xFFE53E3E),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = language.pick(
-                            tr = "${progress.challengeLives} Can",
-                            en = "${progress.challengeLives} Lives",
-                            it = "${progress.challengeLives} Vite",
-                            fr = "${progress.challengeLives} Vies",
-                            es = "${progress.challengeLives} Vidas"
-                        ),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE53E3E),
-                        modifier = Modifier.testTag("level_map_lives_pill")
-                    )
-                }
-            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
