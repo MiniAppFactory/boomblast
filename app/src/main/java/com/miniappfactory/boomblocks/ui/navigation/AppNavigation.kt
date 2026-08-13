@@ -433,16 +433,23 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         scoreMultiplier = definition.scoreMultiplier,
                         isChallengeMode = true,
                         // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
-                        // "Yeniden Başlat" artik esikli interstitial reklama bagli:
-                        // her 2 kayipta 1 reklam, aradaki ise reklamsiz gecer. Sayac
-                        // levelsCompletedSinceInterstitial ile AYNI desen.
+                        // "Yeniden Başlat" interstitial reklama baglandi.
+                        // Faz 103: esik KALDIRILDI, artik HER yeniden baslatmada reklam.
+                        // Onceden "her 2 kayipta 1"di (proRestartsSinceInterstitial sayaci),
+                        // yani sifirlamalarin yarisi bedavaydi. Kullanicinin gerekcesi: bu
+                        // buton zaten "cik-gir yaparak bedava sifirlama" bypass'ini kapatmak
+                        // icin var; cikis yolu (onBack -> HER SEFERINDE interstitial) daha
+                        // pahali kalirsa kimse cikmaz, herkes yeniden baslatir — arbitraj
+                        // olusur ve cikis reklami hic tetiklenmez. Ikisi ayni bedele gelince
+                        // hem bosluk kapaniyor hem oyuncu icin davranis ongorulebilir oluyor.
+                        // NOT: progress.proRestartsSinceInterstitial artik hicbir yerde
+                        // okunmuyor/yazilmiyor — kalici veri oldugu icin (DataStore) simdilik
+                        // dokunulmadi, ileride temizlenebilir.
                         onProModeRestart = { onProceed ->
                             val activity = context.findActivity()
-                            if (progress.proRestartsSinceInterstitial >= 1 && activity != null) {
-                                viewModel.resetProRestartsSinceInterstitial()
+                            if (activity != null) {
                                 InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
                             } else {
-                                viewModel.incrementProRestartsSinceInterstitial()
                                 onProceed()
                             }
                         },
@@ -677,6 +684,23 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = {
                             viewModel.resetEndlessBoosters()
                             navController.popBackStack()
+                        },
+                        // Faz 103: Sonsuz Mod'da 4 rewarded devam hakki bitince gosterilen
+                        // "TEKRAR DENE" butonu bu kancayi HIC baglamiyordu — varsayilan deger
+                        // ({ it() }) yuzunden dogrudan resetGame() cagriliyor, yani bedava
+                        // sifirlama oluyordu. Seviyeli/Pro Mode'da ayni durumda zorunlu
+                        // interstitial vardi; asimetrikti ve Sonsuz en cok oynanan mod
+                        // oldugu icin en cok kaybettiren bosluk burasiydi. Artik HER
+                        // sifirlamada interstitial gosteriliyor (Seviyeli/Pro ile ayni).
+                        // No-fill/basarisiz durumda InterstitialAdManager onProceed'i yine
+                        // cagirir — oyuncu asla kilitlenmez.
+                        onRetryInterstitial = { onProceed ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
+                            } else {
+                                onProceed()
+                            }
                         },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,

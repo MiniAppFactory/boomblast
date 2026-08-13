@@ -2731,8 +2731,28 @@ fun BlastTheBlocksGame(
 
                             Spacer(modifier = Modifier.height(20.dp))
 
+                            // Faz 103: Pro Mode'da rewarded devam haklari (3) bitince bu
+                            // buton "TEKRAR DENE"ye donuyordu ve tam sifirlama yapiyordu —
+                            // ama hemen altindaki turuncu "YENİDEN BAŞLAT" da AYNI seyi
+                            // yapiyor. Iki buton, ayni sonuc, farkli bedel: oyuncu birkac
+                            // denemede ucuz olani ogrenip digerine bir daha basmiyordu.
+                            // Kullanici karari: Pro'da haklar bitince bu buton hic
+                            // GORUNMESIN — geriye net isi olan iki buton kalir
+                            // ("YENİDEN BAŞLAT" = sifirla, "HARİTAYA DÖN" = cik).
+                            // Seviyeli Mod'da turuncu buton YOK, orada "TEKRAR DENE"
+                            // kalmaya devam ediyor; Sonsuz Mod'da da kaliyor.
+                            val hideRetryButton = isChallengeMode && continuesUsedInAttempt >= maxRetryContinues
+
+                            if (!hideRetryButton) {
                             Button(
-                            onClick = { if (isEndless) resetGame() else handleRetryWithAd() },
+                            // Faz 103: Sonsuz Mod'da "TEKRAR DENE" dogrudan resetGame()
+                            // cagiriyordu — hic reklam yok, bedava sifirlama. Seviyeli/Pro'da
+                            // ayni durumda zorunlu interstitial vardi, yani asimetrikti ve
+                            // Sonsuz en cok oynanan mod oldugu icin en cok kaybettiren
+                            // bosluk burasiydi. Artik o da her sifirlamada interstitial
+                            // gosteriyor (bkz. AppNavigation.kt Routes.ENDLESS_GAME'de
+                            // onRetryInterstitial baglandi). No-fill'de yine gecer.
+                            onClick = { if (isEndless) onRetryInterstitial { resetGame() } else handleRetryWithAd() },
                             enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                             shape = RoundedCornerShape(12.dp),
@@ -2774,12 +2794,19 @@ fun BlastTheBlocksGame(
                             }
                         }
 
+                        }
+
                         // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
-                        // Pro Mode'a ozel bu buton artik HER ZAMAN tam sifirlama
-                        // yapar, esikli interstitial reklam (onProModeRestart,
-                        // "her 2 kayipta 1 reklam") arkasinda.
+                        // Pro Mode'a ozel bu buton HER ZAMAN tam sifirlama yapar,
+                        // interstitial reklam (onProModeRestart) arkasinda.
+                        // Faz 103: reklam artik HER yeniden baslatmada gosteriliyor
+                        // (onceden "her 2 kayipta 1"di). Kullanicinin gerekcesi: bu buton
+                        // zaten "cik-gir yaparak bedava sifirlama" bypass'ini kapatmak icin
+                        // var; cikistan (HARİTAYA DÖN, her seferinde reklam) ucuz olursa
+                        // kimse cikmaz, herkes yeniden baslatir ve arbitraj olusur.
+                        // Ikisi de ayni bedele gelince kafa karisikligi da bitiyor.
                         if (isChallengeMode) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            if (!hideRetryButton) Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = { onProModeRestart { resetGame() } },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316)),
