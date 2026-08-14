@@ -189,12 +189,26 @@ val SHAPE_PATTERNS = listOf(
     listOf(listOf(true), listOf(true), listOf(true)),
     // 2x2 Square
     listOf(listOf(true, true), listOf(true, true)),
+    // --- Kose ailesi (3 hucre, 2x2 kutu) — 4 yonun TAMAMI (Faz 107) ---
     // L Shape 1
     listOf(listOf(true, false), listOf(true, true)),
     // L Shape 2
     listOf(listOf(true, true), listOf(false, true)),
+    // Faz 107: kose parcasinin 4 donme varyantindan yalnizca 2'si tanimliydi;
+    // oyunda dondurme olmadigi icin diger 2 yon HIC cikmiyordu.
+    // Kose 3 (L1'in 90°'si)
+    listOf(listOf(true, true), listOf(true, false)),
+    // Kose 4 (L2'nin 90°'si)
+    listOf(listOf(false, true), listOf(true, true)),
+    // --- T ailesi — 4 yonun TAMAMI (Faz 107) ---
     // T Shape
     listOf(listOf(true, true, true), listOf(false, true, false)),
+    // T 90° (sag)
+    listOf(listOf(false, true), listOf(true, true), listOf(false, true)),
+    // T 180° (ters T)
+    listOf(listOf(false, true, false), listOf(true, true, true)),
+    // T 270° (sol)
+    listOf(listOf(true, false), listOf(true, true), listOf(true, false)),
     // Faz 61: 3x3 buyuk kare kullanici istegiyle TAMAMEN KALDIRILDI (tek
     // hamlede tahtanin buyuk bir kismini kaplayip manevra alanini asiri
     // daraltiyordu). SHAPE_PATTERNS/SHAPE_WEIGHTS/SHAPE_WEIGHTS_ENDLESS
@@ -210,8 +224,15 @@ val SHAPE_PATTERNS = listOf(
     // 2x3'lü küp de yok" dedi — L1/L2 zaten vardi ama sadece kucuk (2x2) kose
     // parcalariydi, kullanicinin tarif ettigi BUYUK L (5 hucreli, Tetris-L
     // benzeri) ve dikdortgen bloklar eksikti.
+    // --- Buyuk L ailesi (5 hucre, 3x3 kutu) — 4 yonun TAMAMI (Faz 107) ---
     // Big L (5 cells): ustte 3 yanyana, sol sutunda 2 tane daha asagi
     listOf(listOf(true, true, true), listOf(true, false, false), listOf(true, false, false)),
+    // Buyuk L 90°
+    listOf(listOf(true, true, true), listOf(false, false, true), listOf(false, false, true)),
+    // Buyuk L 180°
+    listOf(listOf(false, false, true), listOf(false, false, true), listOf(true, true, true)),
+    // Buyuk L 270°
+    listOf(listOf(true, false, false), listOf(true, false, false), listOf(true, true, true)),
     // 2x3 Rectangle
     listOf(listOf(true, true, true), listOf(true, true, true)),
     // 3x2 Rectangle
@@ -221,14 +242,34 @@ val SHAPE_PATTERNS = listOf(
     // setini (I/O/T/L/J/S/Z) dogruladi. Bizde S/Z (capraz/skew) hic yoktu, L/J
     // de sadece kucuk 2x2 kose parcasi olarak vardi — standart 4 hucreli
     // (3-uzunlugunda + 1 dik) L/J eksikti. Hepsi eklendi.
+    // --- S ailesi — 2 yonun TAMAMI (Faz 107; S/Z'nin yalnizca 2 farkli donusu var) ---
     // S-tetromino
     listOf(listOf(false, true, true), listOf(true, true, false)),
+    // S-tetromino dikey
+    listOf(listOf(true, false), listOf(true, true), listOf(false, true)),
+    // --- Z ailesi — 2 yonun TAMAMI (Faz 107) ---
     // Z-tetromino
     listOf(listOf(true, true, false), listOf(false, true, true)),
+    // Z-tetromino dikey
+    listOf(listOf(false, true), listOf(true, true), listOf(true, false)),
+    // --- L-tetromino ailesi — 4 yonun TAMAMI (Faz 107) ---
     // Standart L-tetromino (4 hucre)
     listOf(listOf(true, false), listOf(true, false), listOf(true, true)),
+    // L-tetromino 90°
+    listOf(listOf(true, true, true), listOf(true, false, false)),
+    // L-tetromino 180°
+    listOf(listOf(true, true), listOf(false, true), listOf(false, true)),
+    // L-tetromino 270°
+    listOf(listOf(false, false, true), listOf(true, true, true)),
+    // --- J-tetromino ailesi — 4 yonun TAMAMI (Faz 107) ---
     // Standart J-tetromino (4 hucre)
-    listOf(listOf(false, true), listOf(false, true), listOf(true, true))
+    listOf(listOf(false, true), listOf(false, true), listOf(true, true)),
+    // J-tetromino 90°
+    listOf(listOf(true, false, false), listOf(true, true, true)),
+    // J-tetromino 180°
+    listOf(listOf(true, true), listOf(true, false), listOf(true, false)),
+    // J-tetromino 270°
+    listOf(listOf(true, true, true), listOf(false, false, true))
 )
 
 // SHAPE_PATTERNS ile ayni sirada agirliklar — duz uniform-random secim, 1x1/2'li
@@ -243,25 +284,53 @@ val SHAPE_PATTERNS = listOf(
 // bu buyuk/karmasik parcalarin toplam cekilis payi >%50'ye firliyordu. Artik
 // tumu (T-shape dahil) agirlik 1 — hala cikabilirler ama NADIR, kucuk/kolay
 // parcalar oranı korunuyor, oyuncunun her zaman "manevra alani" kalıyor.
+// Faz 107: eksik donme yonleri eklenince (18 -> 34 parca) agirliklar TAMAMEN
+// yeniden olceklendi. Naif yaklasim — her yeni yone kardesiyle ayni agirligi
+// vermek — zor parcalarin toplam payini %33'ten %48'e cikarirdi: T ailesi 1
+// yonden 4'e cikinca payi 4 KATINA firlar, Buyuk L ve L/J tetrominolari da
+// oyle. Bu tam olarak Faz 55'te duzeltilen "seviye 9'da bir anda zorlasiyor"
+// sikayetinin geri gelmesi demekti.
+//
+// Cozum: tum agirliklar x4 olceklendi ve her AILENIN toplam payi Faz 55'teki
+// haliyle birebir korunup aile ICINDE yonlere esit bolundu. Ornek: T ailesi
+// once 1/30 pay aliyordu, simdi 4 yon x agirlik 1 = 4/120 — pay ayni, ama
+// artik 4 farkli yonle geliyor. Yani cesitlilik artti, zorluk sabit kaldi.
+// Toplam: 120 (eski 30'un tam 4 kati).
 val SHAPE_WEIGHTS = listOf(
-    1, // 1x1
-    2, // 2x1
-    2, // 1x2
-    3, // 3x1
-    3, // 1x3
-    3, // 2x2
-    3, // L1
-    3, // L2
-    1, // T
-    1, // 4x1 (Faz 46)
-    1, // 1x4 (Faz 46)
-    1, // Big L (Faz 48)
-    1, // 2x3 (Faz 48)
-    1, // 3x2 (Faz 48)
-    1, // S-tetromino (Faz 48)
-    1, // Z-tetromino (Faz 48)
-    1, // L-tetromino (Faz 48)
-    1  // J-tetromino (Faz 48)
+    4,  // 1x1                      | aile 4
+    8,  // 2x1                      \
+    8,  // 1x2                      / aile 16
+    12, // 3x1                      \
+    12, // 1x3                      / aile 24
+    12, // 2x2                      | aile 12
+    6,  // Kose L1                  \
+    6,  // Kose L2                   \
+    6,  // Kose 3   (Faz 107)        / aile 24
+    6,  // Kose 4   (Faz 107)       /
+    1,  // T                        \
+    1,  // T  90°   (Faz 107)        \
+    1,  // T 180°   (Faz 107)        / aile 4
+    1,  // T 270°   (Faz 107)       /
+    4,  // 4x1                      \
+    4,  // 1x4                      / aile 8
+    1,  // Buyuk L                  \
+    1,  // Buyuk L  90° (Faz 107)    \
+    1,  // Buyuk L 180° (Faz 107)    / aile 4
+    1,  // Buyuk L 270° (Faz 107)   /
+    4,  // 2x3                      \
+    4,  // 3x2                      / aile 8
+    2,  // S                        \
+    2,  // S dikey  (Faz 107)       / aile 4
+    2,  // Z                        \
+    2,  // Z dikey  (Faz 107)       / aile 4
+    1,  // L-tetromino              \
+    1,  // L-tet  90°   (Faz 107)    \
+    1,  // L-tet 180°   (Faz 107)    / aile 4
+    1,  // L-tet 270°   (Faz 107)   /
+    1,  // J-tetromino              \
+    1,  // J-tet  90°   (Faz 107)    \
+    1,  // J-tet 180°   (Faz 107)    / aile 4
+    1   // J-tet 270°   (Faz 107)   /
 )
 
 // Faz 57: kullanici "sonsuz modda hic zorlasmiyor, hep en fazla 2x2 geliyor"
@@ -273,44 +342,56 @@ val SHAPE_WEIGHTS = listOf(
 // yetismesi gerekmiyor) buyuk parcalarin daha sik gorunmesi sorun degil —
 // ayri bir tablo ile buyuk parcalarin agirligi 2'ye cikarildi (kucuk
 // parcalarla ayni degil, ama Seviyeli Mod'daki 1'in iki kati).
+// Faz 107: SHAPE_WEIGHTS ile ayni x4 olcekleme ve aile-payi koruma mantigi
+// (bkz. yukaridaki not). Toplam: 160 (eski 40'in tam 4 kati).
 val SHAPE_WEIGHTS_ENDLESS = listOf(
-    1, 2, 2, 3, 3, 3, 3, 3, // 1x1..L2, Seviyeli Mod ile ayni
-    2, // T
-    2, // 4x1
-    2, // 1x4
-    2, // Big L
-    2, // 2x3
-    2, // 3x2
-    2, // S-tetromino
-    2, // Z-tetromino
-    2, // L-tetromino
-    2  // J-tetromino
+    4,  // 1x1                      | aile 4
+    8, 8,      // 2x1, 1x2          | aile 16
+    12, 12,    // 3x1, 1x3          | aile 24
+    12,        // 2x2               | aile 12
+    6, 6, 6, 6, // Kose x4          | aile 24
+    2, 2, 2, 2, // T x4             | aile 8
+    8, 8,      // 4x1, 1x4          | aile 16
+    2, 2, 2, 2, // Buyuk L x4       | aile 8
+    8, 8,      // 2x3, 3x2          | aile 16
+    4, 4,      // S x2              | aile 8
+    4, 4,      // Z x2              | aile 8
+    2, 2, 2, 2, // L-tetromino x4   | aile 8
+    2, 2, 2, 2  // J-tetromino x4   | aile 8
 )
 
 // Faz 79: Pro Mode — kullanici "puan degil parca zorlugu yuksek olmali,
 // 1x1 hic olmamali" dedi. 1x1'in agirligi 0 (matematiksel olarak asla
 // secilmez, availableCount kapsaminda olsa bile), buyuk/karmasik parcalar
 // Sonsuz Mod'dan da agir.
+// Faz 107: SHAPE_WEIGHTS ile ayni x4 olcekleme ve aile-payi koruma mantigi
+// (bkz. yukaridaki not). Toplam: 168 (eski 42'nin tam 4 kati). 1x1 yine 0.
 val SHAPE_WEIGHTS_CHALLENGE = listOf(
-    0, // 1x1 — ASLA gelmez
-    1, // 2x1
-    1, // 1x2
-    2, // 3x1
-    2, // 1x3
-    2, // 2x2
-    2, // L1
-    2, // L2
-    3, // T
-    3, // 4x1
-    3, // 1x4
-    3, // Big L
-    3, // 2x3
-    3, // 3x2
-    3, // S-tetromino
-    3, // Z-tetromino
-    3, // L-tetromino
-    3  // J-tetromino
+    0,  // 1x1 — ASLA gelmez       | aile 0
+    4, 4,      // 2x1, 1x2          | aile 8
+    8, 8,      // 3x1, 1x3          | aile 16
+    8,         // 2x2               | aile 8
+    4, 4, 4, 4, // Kose x4          | aile 16
+    3, 3, 3, 3, // T x4             | aile 12
+    12, 12,    // 4x1, 1x4          | aile 24
+    3, 3, 3, 3, // Buyuk L x4       | aile 12
+    12, 12,    // 2x3, 3x2          | aile 24
+    6, 6,      // S x2              | aile 12
+    6, 6,      // Z x2              | aile 12
+    3, 3, 3, 3, // L-tetromino x4   | aile 12
+    3, 3, 3, 3  // J-tetromino x4   | aile 12
 )
+
+// Faz 107: havuz "SHAPE_PATTERNS'in ilk N parcasi" olarak aciliyor. Yonler
+// eklenince N'in bir AILE SINIRINDA durmasi sart oldu — aksi halde oyuncuya
+// ornegin T'nin 4 yonunden 2'si acilirdi, ki bu tamamen keyfi bir durum olurdu
+// ("neden ters T geliyor ama yan T gelmiyor?"). Asagidaki kumulatif sinirlar
+// listenin aile sonlarina denk gelir:
+//   1 · 3 · 5 · 6 · 10 · 14 · 16 · 20 · 22 · 24 · 26 · 30 · 34
+// Tum acilim tablolari bu degerlerden secilir; ara bir sayi KULLANILMAZ.
+private val CAREER_POOL_STEPS = listOf(14, 16, 20, 22, 24, 26, 30, 34)
+private val PRO_POOL_STEPS = listOf(10, 16, 22, 26, 30)
+private val ENDLESS_POOL_STEPS = listOf(6, 10, 16, 22, 26, 30)
 
 data class BlockThemeOption(
     val id: String,
@@ -819,11 +900,12 @@ fun BlastTheBlocksGame(
             else -> (levelNumber / 2) + 1
         }
         val availableCount = if (isChallengeMode) {
-            when {
-                progressLevel <= 1 -> 8 // L sekilleri dahil, kolay-6 tier YOK
-                progressLevel <= 4 -> (8 + (progressLevel - 1) * 3).coerceAtMost(SHAPE_PATTERNS.size)
-                else -> SHAPE_PATTERNS.size
-            }
+            // Faz 107: havuz 18 -> 34 oldugu icin esikler aile sinirlarina tasindi
+            // (bkz. PRO_POOL_STEPS). Kolay-6 tier yine atlaniyor, havuz yine hizli
+            // aciliyor; tam havuz seviye 5 yerine 6'da tamamlaniyor — parca sayisi
+            // neredeyse iki katina ciktigi icin son adimi tek seferde 8 parca
+            // acmak yerine bir seviyeye daha yaymak daha yumusak.
+            PRO_POOL_STEPS.getOrElse(progressLevel - 1) { SHAPE_PATTERNS.size }
         } else if (isEndless) {
             // Faz 92/93: kullanici once "score/15 ile 200 puanda TUM havuz
             // cok erken aciliyor" dedi, birkac egri denendi (kare, ozel
@@ -836,12 +918,21 @@ fun BlastTheBlocksGame(
             // Normal oyunda peakScore bayat/0 olabilir ama score her zaman
             // ondan buyuk oldugu icin sonuc degismez; SADECE geri alma
             // sonrasinda peakScore devreye girer (bkz. undoMovesForContinue).
-            (6 + (maxOf(score, peakScore) / 100) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+            // Faz 107: adimlar aile sinirlarina tasindi (bkz. ENDLESS_POOL_STEPS).
+            // Bant genisligi yine 100 puan ve tam havuz yine 600 puanda aciliyor —
+            // yani acilim HIZI degismedi, sadece her adimda daha cok yon geliyor.
+            ENDLESS_POOL_STEPS.getOrElse(maxOf(score, peakScore) / 100) { SHAPE_PATTERNS.size }
         } else {
             when {
-                progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2
-                progressLevel <= 8 -> 8 // + L shapes
-                else -> (8 + (progressLevel - 8) * 2).coerceAtMost(SHAPE_PATTERNS.size)
+                progressLevel <= 3 -> 6 // 1x1, 2x1, 1x2, 3x1, 1x3, 2x2 — degismedi
+                // Faz 107: bu kademe 8 -> 10 oldu; kose ailesinin 4 yonu de burada
+                // birlikte aciliyor (onceden yalnizca 2'si vardi).
+                progressLevel <= 8 -> 10
+                // Faz 107: duz "+2 parca/kademe" formulu yerine aile sinirlari
+                // (bkz. CAREER_POOL_STEPS). Tam havuz seviye 24 yerine ~30'da
+                // tamamlaniyor — seviyeler parametrik/sonsuz oldugu icin ust sinir
+                // sorunu yok (bkz. LevelGenerator).
+                else -> CAREER_POOL_STEPS.getOrElse(progressLevel - 9) { SHAPE_PATTERNS.size }
             }
         }
         val weights = when {
