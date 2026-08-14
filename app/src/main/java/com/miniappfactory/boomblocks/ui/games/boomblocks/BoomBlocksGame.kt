@@ -539,6 +539,19 @@ fun BlastTheBlocksGame(
     // bizde skor bonusu sadece merkezi tek bir banner metniydi.
     var glowingRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var glowingCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // Faz 106 (TODO 12): patlamayi TETIKLEYEN parcanin rengi. Onceden patlama
+    // hep sabit NeonGold + beyaz + gokkusagi sweep ile ciziliyordu, yani tahtada
+    // hangi renk parca oynanirsa oynansin patlama hep ayni goruluyordu. Artik
+    // satir/sutun patlarken karisik renklerinden cikip TEK renge — o hamlede
+    // yerlestirilen parcanin rengine — donuyor: "bunu ben patlattim" baglantisi
+    // gorsel olarak kuruluyor (Block Blast referansi, kullanici istegi).
+    var clearAccentColor by remember { mutableStateOf(NeonGold) }
+    // Faz 106 (TODO 12): patlama aninda satir/sutun boyunca disa acilip sonen
+    // sok dalgasi. glowingRows/Cols patlamadan HEMEN once bosaltildigi icin ayri
+    // durum tutuluyor — dalga patlamadan SONRA devam ediyor.
+    var shockRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var shockCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val shockProgress = remember { Animatable(0f) }
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
 
@@ -553,9 +566,6 @@ fun BlastTheBlocksGame(
     }
 
     val glowPulse = remember { Animatable(0f) }
-    val glowBrush = remember {
-        Brush.sweepGradient(listOf(NeonCyan, NeonGold, NeonPurple, NeonGreen, NeonCyan))
-    }
     // Faz 22: skor degisince anlik ziplama yerine eski degerden yeniye SAYARAK
     // artiyor + kisa bir "pop" (kullanicinin degerlendirmesi: rakip oyunlarda
     // standart olan bu geri bildirim bizde yoktu).
@@ -1308,6 +1318,10 @@ fun BlastTheBlocksGame(
             // kilitlendi" hissi, Block Blast referansi — kullanici geri bildirimi:
             // "3'lü patlamak üzereyken glow efekti falan ekliyor"). Gercek temizleme
             // (board sifirlama + parcacik patlamasi + ses) bu glow'dan HEMEN SONRA olur.
+            // Faz 106 (TODO 12): bu patlamanin rengi = o hamlede yerlestirilen
+            // parcanin rengi. board'dan degil `shape`'ten okunuyor — patlayan
+            // satirdaki hucreler karisik renkte, tetikleyen parca ise tek renk.
+            clearAccentColor = BLOCK_COLORS.getOrElse((shape.colorIndex - 1).coerceAtLeast(0)) { NeonGold }
             glowingClearCells = clearedIndices
             // Faz 50: hucre-hucre glow'a ek olarak tum satir/sutunun etrafinda
             // TEK bir cerceve (rakip oyun referansi) — render tarafinda ayri
@@ -1338,6 +1352,20 @@ fun BlastTheBlocksGame(
                 dragCoroutineScope.launch {
                     clearFlashAlpha.snapTo(1f)
                     clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
+                }
+                // Faz 106 (TODO 12): patlama animasyonu tek bir flash'ti — hucreler
+                // parlayip yok oluyordu, "patlama" hissi yalnizca parcaciklardan
+                // geliyordu. Artik patlayan satirin/sutunun boyunca disari acilip
+                // sonen bir sok dalgasi da ciziliyor: flash 350ms'de sonerken dalga
+                // 420ms boyunca genisliyor, ikisi ust uste binince cizgi "itiliyor"
+                // gibi gorunuyor.
+                shockRows = rowsToClear.toSet()
+                shockCols = colsToClear.toSet()
+                dragCoroutineScope.launch {
+                    shockProgress.snapTo(0f)
+                    shockProgress.animateTo(1f, animationSpec = tween(420, easing = FastOutSlowInEasing))
+                    shockRows = emptySet()
+                    shockCols = emptySet()
                 }
 
                 // Faz 50: patlama noktasinda yuzen "+N" puan yazisi — her temizlenen
@@ -1374,12 +1402,17 @@ fun BlastTheBlocksGame(
                     val r = index / gridSize
                     val c = index % gridSize
                     val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
+                    // Faz 106 (TODO 12): parcaciklarin cogunlugu artik patlamayi
+                    // TETIKLEYEN parcanin rengini tasiyor — satir tek renge donerken
+                    // konfetinin karisik kalmasi ikisini birbirinden kopariyordu.
+                    // Tamami tek renk de yapilmadi: %30 hucrenin kendi rengi kalinca
+                    // patlama tek duze bir renk lekesi olmuyor, doku koruniyor.
                     BlastParticle(
                         row = r,
                         col = c,
                         angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
                         distance = 28f + Random.nextFloat() * 36f,
-                        color = cellColor
+                        color = if (Random.nextFloat() < 0.7f) clearAccentColor else cellColor
                     )
                 }
 
@@ -1954,12 +1987,19 @@ fun BlastTheBlocksGame(
                                         )
                                     }
                                     if ((r * gridSize + c) in glowingClearCells) {
+                                        // Faz 106 (TODO 12): onceden beyaz yari saydam
+                                        // dolgu + gokkusagi sweep kenarlikti; patlama
+                                        // hangi parcayla tetiklendiginden bagimsiz hep
+                                        // ayni goruluyordu. Artik dolgu tetikleyen
+                                        // parcanin rengi (satir gozle gorulur sekilde
+                                        // TEK renge doner), kenarlik ise sicak bir beyaz
+                                        // — renk kimligi dolguda, "kor edici" his kenarda.
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(Color.White.copy(alpha = glowPulse.value * 0.4f))
-                                                .border(2.dp, glowBrush, RoundedCornerShape(6.dp))
+                                                .background(clearAccentColor.copy(alpha = glowPulse.value * 0.8f))
+                                                .border(2.dp, Color.White.copy(alpha = glowPulse.value * 0.9f), RoundedCornerShape(6.dp))
                                         )
                                         if ((r + c) % 3 == 0) {
                                             Text(
@@ -1987,7 +2027,9 @@ fun BlastTheBlocksGame(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(NeonGold.copy(alpha = clearFlashAlpha.value * 0.85f))
+                                                // Faz 106 (TODO 12): sabit NeonGold degil,
+                                                // patlamayi tetikleyen parcanin rengi.
+                                                .background(clearAccentColor.copy(alpha = clearFlashAlpha.value * 0.85f))
                                         )
                                     }
                                 }
@@ -2002,7 +2044,8 @@ fun BlastTheBlocksGame(
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val cell = size.width / gridSize
                         val strokeWidth = 3.dp.toPx()
-                        val glowColor = NeonGold.copy(alpha = glowPulse.value)
+                        // Faz 106 (TODO 12): cerceve de tetikleyen parcanin rengini alir.
+                        val glowColor = clearAccentColor.copy(alpha = glowPulse.value)
                         glowingRows.forEach { r ->
                             drawRoundRect(
                                 color = glowColor,
@@ -2024,17 +2067,80 @@ fun BlastTheBlocksGame(
                     }
                 }
 
-                // Faz 51: surukleme ONIZLEMESI — parca su an gecerli bir hucreye
-                // hover ediyorsa ve birakilirsa hangi satir/sutunlar tamamlanacaksa,
-                // onlarin etrafinda (Faz 50'deki gercek-patlama cercevesinden farkli
-                // renk/pulse ile) bir on-izleme cercevesi gosteriliyor.
+                // Faz 106 (TODO 12): patlama sok dalgasi — patlayan satirin/sutunun
+                // boyunca disa acilip sonen bir halka. Faz 50 cercevesiyle ayni
+                // geometri, ama patlamadan SONRA calisiyor: genisliyor, inceliyor,
+                // soneriyor. Flash (350ms) sonerken dalga (420ms) hala aciliyor,
+                // ust uste binince cizgi "itiliyor" gibi gorunuyor.
+                if (shockRows.isNotEmpty() || shockCols.isNotEmpty()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cell = size.width / gridSize
+                        val p = shockProgress.value
+                        val spread = p * cell * 0.55f
+                        val stroke = (4.dp.toPx() * (1f - p)).coerceAtLeast(0.5f)
+                        val waveColor = clearAccentColor.copy(alpha = (1f - p) * 0.9f)
+                        val waveCorner = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx())
+                        shockRows.forEach { r ->
+                            drawRoundRect(
+                                color = waveColor,
+                                topLeft = Offset(-spread, r * cell - spread),
+                                size = androidx.compose.ui.geometry.Size(size.width + spread * 2, cell + spread * 2),
+                                cornerRadius = waveCorner,
+                                style = Stroke(width = stroke)
+                            )
+                        }
+                        shockCols.forEach { c ->
+                            drawRoundRect(
+                                color = waveColor,
+                                topLeft = Offset(c * cell - spread, -spread),
+                                size = androidx.compose.ui.geometry.Size(cell + spread * 2, size.height + spread * 2),
+                                cornerRadius = waveCorner,
+                                style = Stroke(width = stroke)
+                            )
+                        }
+                    }
+                }
+
+                // Faz 51 + Faz 106 (TODO 11): surukleme ONIZLEMESI. Faz 51'de
+                // tamamlanacak satir/sutunun etrafina yalnizca ince bir CERCEVE
+                // ciziliyordu; kullanici Block Blast'ta satirin TAMAMININ, o parcanin
+                // rengiyle DOLGULU vurgulandigini bildirdi ("daha senlikli"). Artik
+                // cerceveye ek olarak o satir/sutundaki her hucre surukledigin parcanin
+                // renginde yari saydam doluyor — ve renk artik sabit yesil degil,
+                // parcanin kendi rengi. Boylece "bu parca burayi patlatacak" baglantisi
+                // patlamadan ONCE kuruluyor; patlama anindaki karsiligi TODO 12.
                 if (draggedTrayIndex != -1) {
                     val (previewRows, previewCols) = previewClearedLines()
                     if (previewRows.isNotEmpty() || previewCols.isNotEmpty()) {
+                        val previewBase = activeDragShape()?.let { dragged ->
+                            BLOCK_COLORS.getOrElse((dragged.colorIndex - 1).coerceAtLeast(0)) { NeonGreen }
+                        } ?: NeonGreen
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val cell = size.width / gridSize
                             val strokeWidth = 3.dp.toPx()
-                            val previewColor = NeonGreen.copy(alpha = sharedPulse)
+                            val previewColor = previewBase.copy(alpha = sharedPulse)
+                            val fillColor = previewBase.copy(alpha = 0.20f + sharedPulse * 0.22f)
+                            val fillInset = 1.5.dp.toPx()
+                            val fillCorner = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                            // Satir + sutun ayni anda tamamlaniyorsa kesisen hucre iki kez
+                            // boyanip iki kat koyu cikardi — once tekil indeks kumesi.
+                            val fillCells = mutableSetOf<Int>()
+                            previewRows.forEach { r -> for (c in 0 until gridSize) fillCells.add(r * gridSize + c) }
+                            previewCols.forEach { c -> for (r in 0 until gridSize) fillCells.add(r * gridSize + c) }
+                            fillCells.forEach { index ->
+                                val r = index / gridSize
+                                val c = index % gridSize
+                                // Parcanin kendi ayak izi HARIC — orada zaten yesil/kirmizi
+                                // "buraya birakilir mi" gostergesi var, ust uste binince iki
+                                // bilgi birden okunamaz hale geliyordu.
+                                if (isCellInDragFootprint(r, c)) return@forEach
+                                drawRoundRect(
+                                    color = fillColor,
+                                    topLeft = Offset(c * cell + fillInset, r * cell + fillInset),
+                                    size = androidx.compose.ui.geometry.Size(cell - fillInset * 2, cell - fillInset * 2),
+                                    cornerRadius = fillCorner
+                                )
+                            }
                             previewRows.forEach { r ->
                                 drawRoundRect(
                                     color = previewColor,
