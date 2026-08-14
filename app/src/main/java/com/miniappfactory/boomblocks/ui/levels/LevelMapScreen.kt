@@ -203,7 +203,10 @@ private fun LevelMapHeader(
                 text = if (isChallengeMode) {
                     language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO")
                 } else {
-                    language.pick(tr = "SEVİYELER", en = "LEVELS", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES")
+                    // Faz 104: mod adi "SEVİYELİ" -> "KARİYER" olunca bu harita basligi da
+                    // ("SEVİYELER") modun adiyla hizalandi — oyuncu mod kartinda "KARİYER"
+                    // yazan butona basip "SEVİYELER" baslikli bir ekrana dusmesin.
+                    language.pick(tr = "KARİYER", en = "CAREER", it = "CARRIERA", fr = "CARRIÈRE", es = "CARRERA")
                 },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,

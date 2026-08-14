@@ -188,7 +188,16 @@ fun ModeSelectScreen(
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         ModeCard(
-                            title = language.pick(tr = "SEVİYELİ", en = "LEVEL", it = "LIVELLI", fr = "NIVEAUX", es = "NIVELES"),
+                            // Faz 104: "SEVİYELİ" -> "KARİYER". Eski ad yavan ve islevsel
+                            // duruyordu. Kullanici "Rekabetçi/Competitive" onerdi ama o ad
+                            // olmayan bir sey vaat ederdi (lider tablosu/rakip/siralama yok,
+                            // mod tek kisilik bir bolum haritasi) ve zaten rekabet cagrisimi
+                            // tasiyan PRO MOD ile cakisirdi. "Kariyer" ilerleme/yolculuk
+                            // fikrini dogru veriyor, PRO ile net bir cift olusturuyor
+                            // (KARİYER = normal yolculuk, PRO = zorlu versiyonu) ve 5 dilde
+                            // de kisa. NOT: kod icindeki eski yorumlarda gecen "Seviyeli Mod"
+                            // ifadesi bu moddur — sadece gorunen metinler degistirildi.
+                            title = language.pick(tr = "KARİYER", en = "CAREER", it = "CARRIERA", fr = "CARRIÈRE", es = "CARRERA"),
                             statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
                             statValue = "$highestUnlockedLevel",
                             icon = Icons.Default.Extension,

@@ -115,7 +115,8 @@ fun HowToPlayScreen(
 
             ModeInfoCard(
                 accentColor = com.miniappfactory.boomblocks.ui.theme.NeonCyan,
-                title = language.pick(tr = "SEVİYELİ MOD", en = "LEVEL MODE", it = "MODALITÀ LIVELLI", fr = "MODE NIVEAUX", es = "MODO NIVELES"),
+                // Faz 104: mod adi "SEVİYELİ" -> "KARİYER" (bkz. ModeSelectScreen).
+                title = language.pick(tr = "KARİYER MODU", en = "CAREER MODE", it = "MODALITÀ CARRIERA", fr = "MODE CARRIÈRE", es = "MODO CARRERA"),
                 body = language.pick(
                     tr = "Her bölümün bir hedef skoru vardır — blokları yerleştirip satır/sütun patlatarak hedefe ulaş. Hedefi ne kadar aştığına göre 1-3 yıldız kazanırsın. Bölüm ilerledikçe parça havuzu kademeli olarak genişler.",
                     en = "Each level has a target score — place blocks and clear rows/columns to reach it. You earn 1-3 stars depending on how much you exceed the target. The piece pool gradually widens as you progress.",
@@ -130,11 +131,17 @@ fun HowToPlayScreen(
                 accentColor = NeonPurple,
                 title = language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO"),
                 body = language.pick(
-                    tr = "Seviyeli Mod'un daha zorlu hali: puanlar 1.5 kat sayılır, 1x1 parça hiç gelmez ve zor parçalar çok daha erken açılır. 4 canın var, zamanla yenilenir; bir bölümü kaybedip \"Yeniden Başla\"yı seçersen 1 can harcarsın (dilersen bunun yerine ücretsiz reklam izleyip devam edebilirsin).",
-                    en = "A tougher version of Level Mode: scores count 1.5x, 1x1 pieces never appear, and hard pieces unlock much earlier. You have 4 lives that regenerate over time; choosing \"Restart\" after failing a level costs 1 life (or you can watch a free ad to continue instead).",
-                    it = "Una versione più difficile della Modalità Livelli: i punteggi contano 1.5x, i pezzi 1x1 non compaiono mai e i pezzi difficili si sbloccano molto prima. Hai 4 vite che si rigenerano nel tempo; scegliere \"Ricomincia\" dopo aver fallito un livello costa 1 vita (oppure puoi guardare una pubblicità gratuita per continuare).",
-                    fr = "Une version plus difficile du Mode Niveaux : les scores comptent 1.5x, les pièces 1x1 n'apparaissent jamais et les pièces difficiles se débloquent bien plus tôt. Tu as 4 vies qui se régénèrent avec le temps ; choisir \"Recommencer\" après un échec coûte 1 vie (ou tu peux regarder une pub gratuite pour continuer).",
-                    es = "Una versión más difícil del Modo Niveles: las puntuaciones cuentan 1.5x, las piezas 1x1 nunca aparecen y las piezas difíciles se desbloquean mucho antes. Tienes 4 vidas que se regeneran con el tiempo; elegir \"Reiniciar\" tras fallar un nivel cuesta 1 vida (o puedes ver un anuncio gratis para continuar)."
+                    // Faz 103: bu metin Faz 96'dan beri YANLIStI — can sistemi (4 can,
+                    // zamanla yenilenme, "Yeniden Başla 1 can harcar") o fazda tamamen
+                    // KALDIRILMISTI (bypass edilebiliyordu: haritaya donup tekrar girmek
+                    // can harcamadan ayni sonucu veriyordu), ama kilavuz guncellenmemisti.
+                    // Oyuncu var olmayan bir mekanigi okuyordu. Artik gercek davranis
+                    // anlatiliyor; devam/reklam detaylari asagidaki ayri kartta.
+                    tr = "Kariyer Modu'nun daha zorlu hali: puanlar 1.5 kat sayılır, 1x1 parça hiç gelmez ve zor parçalar çok daha erken açılır. Can sistemi yoktur — kaybettiğinde reklam izleyip kaldığın yerden devam edebilir ya da bölümü baştan başlatabilirsin.",
+                    en = "A tougher version of Career Mode: scores count 1.5x, 1x1 pieces never appear, and hard pieces unlock much earlier. There are no lives — when you fail, you can watch an ad to continue where you left off, or restart the level.",
+                    it = "Una versione più difficile della Modalità Carriera: i punteggi contano 1.5x, i pezzi 1x1 non compaiono mai e i pezzi difficili si sbloccano molto prima. Non ci sono vite — quando perdi, puoi guardare un annuncio per continuare da dove eri, oppure ricominciare il livello.",
+                    fr = "Une version plus difficile du Mode Carrière : les scores comptent 1.5x, les pièces 1x1 n'apparaissent jamais et les pièces difficiles se débloquent bien plus tôt. Il n'y a pas de vies — quand tu échoues, tu peux regarder une pub pour reprendre où tu en étais, ou recommencer le niveau.",
+                    es = "Una versión más difícil del Modo Carrera: las puntuaciones cuentan 1.5x, las piezas 1x1 nunca aparecen y las piezas difíciles se desbloquean mucho antes. No hay vidas — cuando pierdes, puedes ver un anuncio para continuar donde lo dejaste, o reiniciar el nivel."
                 ),
                 palette = palette
             )
@@ -148,6 +155,27 @@ fun HowToPlayScreen(
                     it = "Tetris classico! Guida i pezzi che cadono e riempi completamente le righe per eliminarle. 1 riga=100, 2=300, 3=500, 4 righe (Tetris)=800 punti (×livello) — Tetris consecutivi e combo danno bonus extra. Usa \"Tieni\" per conservare un pezzo, e l'anteprima del pezzo fantasma per vedere dove atterrerà.",
                     fr = "Tetris classique ! Dirige les pièces qui tombent et remplis complètement les lignes pour les effacer. 1 ligne=100, 2=300, 3=500, 4 lignes (Tetris)=800 points (×niveau) — des Tetris consécutifs et des combos donnent des bonus. Utilise \"Garder\" pour réserver une pièce, et l'aperçu de la pièce fantôme pour voir où elle atterrira.",
                     es = "¡Tetris clásico! Dirige las piezas que caen y llena filas completas para eliminarlas. 1 línea=100, 2=300, 3=500, 4 líneas (Tetris)=800 puntos (×nivel) — Tetris consecutivos y combos dan bonus extra. Usa \"Guardar\" para reservar una pieza, y la vista previa de la pieza fantasma para ver dónde caerá."
+                ),
+                palette = palette
+            )
+
+            // Faz 103: kilavuzda devam etme/reklam kurallari hicbir yerde anlatilmiyordu —
+            // tek deginen yer Pro Mod kartindaki (artik silinen) yanlis can metniydi.
+            // Oyuncu "kac hakkim var", "reklam gelmezse ne olur", "geri alma ne yapar"
+            // sorularinin cevabini oyun ici hicbir yerden ogrenemiyordu. Reklam ekonomisi
+            // Faz 96-103 arasinda epey degistigi icin tek ve net bir yere yazildi.
+            ModeInfoCard(
+                accentColor = NeonCyan,
+                title = language.pick(
+                    tr = "DEVAM ETME VE REKLAMLAR", en = "CONTINUES & ADS",
+                    it = "CONTINUA E ANNUNCI", fr = "CONTINUER ET PUBS", es = "CONTINUAR Y ANUNCIOS"
+                ),
+                body = language.pick(
+                    tr = "Kaybettiğinde \"Reklam İzle, Devam Et\" son 3 hamleni geri alır ve tahtada sana yer açar — Kariyer ve Pro Mod'da deneme başına 3, Sonsuz Mod'da oturum başına 4 hakkın var. Haklar bitince bölümü baştan başlatabilirsin. Reklam yüklenemezse oyun seni asla bekletmez, yine devam edersin.",
+                    en = "When you fail, \"Watch Ad, Continue\" undoes your last 3 moves and clears space on the board — you get 3 per attempt in Career and Pro Mode, and 4 per session in Endless Mode. Once they run out you can restart. If an ad can't load, the game never blocks you — you continue anyway.",
+                    it = "Quando perdi, \"Guarda Annuncio, Continua\" annulla le tue ultime 3 mosse e libera spazio sulla griglia — ne hai 3 per tentativo in Modalità Carriera e Pro, e 4 per sessione in Modalità Infinita. Esauriti, puoi ricominciare. Se un annuncio non si carica, il gioco non ti blocca mai — continui comunque.",
+                    fr = "Quand tu échoues, « Regarder Pub, Continuer » annule tes 3 derniers coups et libère de la place sur le plateau — tu en as 3 par tentative en Mode Carrière et Pro, et 4 par session en Mode Infini. Une fois épuisés, tu peux recommencer. Si une pub ne se charge pas, le jeu ne te bloque jamais — tu continues quand même.",
+                    es = "Cuando pierdes, \"Ver Anuncio, Continuar\" deshace tus últimos 3 movimientos y libera espacio en el tablero — tienes 3 por intento en Modo Carrera y Pro, y 4 por sesión en Modo Infinito. Cuando se acaban, puedes reiniciar. Si un anuncio no carga, el juego nunca te bloquea — continúas igualmente."
                 ),
                 palette = palette
             )

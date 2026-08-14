@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -170,7 +172,16 @@ fun OnboardingScreen(
                     .border(2.dp, NeonCyan, RoundedCornerShape(20.dp))
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    // Faz 104: savunma amacli verticalScroll. Kart sabit yukseklikte degil,
+                    // icerigi kadar buyuyor ve hicbir yerde kaydirilamiyordu — Faz 102'de
+                    // dil secme adiminin basina 104dp'lik logo eklenince icerik yaklasik
+                    // 55dp uzadi. S8'de (1080x2220) rahat sigiyor, ama minSdk 24 seviyesindeki
+                    // kucuk ekranlarda 5 dil satiri + logo + baslik tasabilir ve tasan kisma
+                    // ERISILEMEZ olurdu (dil secmek ilerlemenin TEK yolu, atlanamiyor).
+                    // Scroll ile en kotu ihtimalde kaydirilarak ulasilabilir kaliyor.
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                   if (!languageConfirmed) {
