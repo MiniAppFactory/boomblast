@@ -24,6 +24,10 @@ data class PlayerProgress(
     val soundEnabled: Boolean = true,
     val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,
+    // Faz 105: coklu patlama titresimi (Kariyer/Pro/Sonsuz). Varsayilan ACIK —
+    // ozelligin kendisi ancak hissedilirse ise yariyor; rahatsiz olan kapatir.
+    // Retro Modu'nun kendi ayri anahtari var (kendi ses anahtari gibi).
+    val hapticsEnabled: Boolean = true,
     val darkMode: Boolean = true,
     val language: AppLanguage = AppLanguage.TR,
     val blockTheme: String = "CLASSIC",

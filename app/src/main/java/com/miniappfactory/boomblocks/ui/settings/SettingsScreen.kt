@@ -66,12 +66,16 @@ fun SettingsScreen(
     soundEnabled: Boolean,
     soundVolume: Float = 0.5f,
     musicEnabled: Boolean,
+    // Faz 105: coklu patlama titresimi. Varsayilan degerli — bu ekran oyun ici
+    // overlay olarak da cagriliyor, cagiran her yerin guncellenmesi sart olmasin.
+    hapticsEnabled: Boolean = true,
     darkMode: Boolean,
     language: AppLanguage,
     skin: BlastSkin = BlastSkin.DEFAULT,
     onToggleSound: (Boolean) -> Unit,
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit,
+    onToggleHaptics: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit,
     onSelectLanguage: (AppLanguage) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
@@ -174,6 +178,17 @@ fun SettingsScreen(
             checked = musicEnabled,
             onCheckedChange = onToggleMusic,
             testTag = "settings_music_switch",
+            palette = palette
+        )
+        // Faz 105: coklu patlama titresimi. Ses/muzik anahtarlarinin hemen
+        // altinda — ucu de "oyunun sana verdigi geri bildirim" grubunu olusturuyor,
+        // Koyu Mod'dan (gorunum) ve Bildirimler'den (sistem) once geliyor.
+        SettingsSwitchRow(
+            icon = "📳",
+            label = language.pick(tr = "Titreşim", en = "Vibration", it = "Vibrazione", fr = "Vibration", es = "Vibración"),
+            checked = hapticsEnabled,
+            onCheckedChange = onToggleHaptics,
+            testTag = "settings_haptics_switch",
             palette = palette
         )
         SettingsSwitchRow(

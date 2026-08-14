@@ -25,6 +25,8 @@ class GameStateRepository(private val context: Context) {
         val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         val SOUND_VOLUME = floatPreferencesKey("sound_volume")
         val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
+        // Faz 105: coklu patlama titresimi acik/kapali.
+        val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         // Faz 35: "is_tr" (Boolean, sadece TR/EN) yerini "language" (String kod,
         // 5 dil) alıyor. Eski key SILINMEDI — asagidaki okuma mantiginda geriye
@@ -66,6 +68,7 @@ class GameStateRepository(private val context: Context) {
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
             soundVolume = prefs[Keys.SOUND_VOLUME] ?: 0.5f,
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
+            hapticsEnabled = prefs[Keys.HAPTICS_ENABLED] ?: true,
             darkMode = prefs[Keys.DARK_MODE] ?: true,
             // Faz 37: gercekten ilk kurulumda (ne yeni "language" ne eski
             // "is_tr" kaydi varsa) cihazin sistem diline gore akilli bir
@@ -225,6 +228,10 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun setMusicEnabled(enabled: Boolean) {
         context.gameDataStore.edit { it[Keys.MUSIC_ENABLED] = enabled }
+    }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.gameDataStore.edit { it[Keys.HAPTICS_ENABLED] = enabled }
     }
 
     suspend fun setDarkMode(enabled: Boolean) {

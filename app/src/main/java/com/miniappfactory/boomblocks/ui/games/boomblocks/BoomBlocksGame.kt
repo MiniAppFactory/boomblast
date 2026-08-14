@@ -111,6 +111,7 @@ import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.utils.HapticManager
 import com.miniappfactory.boomblocks.utils.SoundManager
 import com.miniappfactory.boomblocks.utils.TextToSpeechManager
 import kotlinx.coroutines.delay
@@ -424,6 +425,9 @@ fun BlastTheBlocksGame(
     currentTheme: String = "CLASSIC",
     language: AppLanguage = AppLanguage.TR,
     soundEnabled: Boolean = true,
+    // Faz 105: coklu patlama titresimi. Bu composable'i Kariyer, Pro ve Sonsuz
+    // modlarinin UCU de kullaniyor — tek baglanti noktasi ucunu birden kapsiyor.
+    hapticsEnabled: Boolean = true,
     darkMode: Boolean = true,
     isEndless: Boolean = false,
     bestScore: Int = 0,
@@ -452,6 +456,7 @@ fun BlastTheBlocksGame(
     onToggleSound: (Boolean) -> Unit = {},
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit = {},
+    onToggleHaptics: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
     onSelectLanguage: (AppLanguage) -> Unit = {},
     uiSkin: BlastSkin = BlastSkin.DEFAULT,
@@ -1321,6 +1326,11 @@ fun BlastTheBlocksGame(
                 } else {
                     SoundManager.playBlast(soundEnabled)
                 }
+                // Faz 105: titresim tam patlama aninda, ses ile AYNI karede —
+                // glow bittikten sonra. Kendi icinde 2 satir esigini kontrol
+                // ediyor (tek satirda titresim yok), bu yuzden burada kosulsuz
+                // cagriliyor: ses/titresim ayrimi tek bir yerde, HapticManager'da.
+                HapticManager.playClearHaptic(hapticsEnabled, totalLinesCleared, comboCount)
                 glowingClearCells = emptySet()
                 glowingRows = emptySet()
                 glowingCols = emptySet()
@@ -2465,12 +2475,14 @@ fun BlastTheBlocksGame(
                     soundEnabled = soundEnabled,
                     soundVolume = soundVolume,
                     musicEnabled = musicEnabled,
+                    hapticsEnabled = hapticsEnabled,
                     darkMode = darkMode,
                     language = language,
                     skin = uiSkin,
                     onToggleSound = onToggleSound,
                     onSoundVolumeChange = onSoundVolumeChange,
                     onToggleMusic = onToggleMusic,
+                    onToggleHaptics = onToggleHaptics,
                     onToggleDarkMode = onToggleDarkMode,
                     onSelectLanguage = onSelectLanguage,
                     onSelectSkin = onSelectSkin,

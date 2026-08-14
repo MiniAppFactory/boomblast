@@ -30,6 +30,7 @@ import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.BlastTheBlocksTheme
 import com.miniappfactory.boomblocks.ads.AdIds
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.utils.HapticManager
 import com.miniappfactory.boomblocks.utils.SoundManager
 import com.miniappfactory.boomblocks.utils.TextToSpeechManager
 import com.google.android.gms.ads.MobileAds
@@ -82,6 +83,8 @@ class MainActivity : ComponentActivity() {
         // caliyor (onceden elle sentezliyordu, context gerektirmiyordu) —
         // TextToSpeechManager ile ayni desen: uygulama basinda bir kez init.
         SoundManager.init(applicationContext)
+        // Faz 105: coklu patlama titresimi — SoundManager ile ayni desen.
+        HapticManager.init(applicationContext)
         // Faz 27: rastgele araliklarla "geri gel" hatirlatma bildirimi zinciri.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -133,6 +136,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         TextToSpeechManager.shutdown()
         SoundManager.release()
+        HapticManager.release()
         super.onDestroy()
     }
 

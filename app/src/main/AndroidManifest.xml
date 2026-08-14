@@ -6,6 +6,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Faz 27: rastgele "geri gel" hatirlatma bildirimleri icin (Android 13+ zorunlu). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Faz 105: coklu patlama titresimi. DIKKAT — bu izin bugune kadar YOKTU, ama
+         RetroSoundManager Faz 78'den beri vibrator.vibrate() cagiriyordu: izinsiz
+         cagri SecurityException firlatir, kod da onu yutuyordu (catch { }). Yani
+         Retro Modu'nun titresimi ve ayarlarindaki "Titreşim" anahtari bugune kadar
+         hicbir sey yapmiyordu; bu izinle o da gercekten calisir hale geliyor.
+         VIBRATE "normal" izindir: runtime izin diyalogu yok, Data Safety'ye etkisi
+         yok, magaza listesinde kullaniciyi urkutecek bir sey gostermez. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"

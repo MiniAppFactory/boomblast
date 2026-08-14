@@ -151,6 +151,10 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setMusicEnabled(enabled) }
     }
 
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setHapticsEnabled(enabled) }
+    }
+
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch { repository.setDarkMode(enabled) }
     }
