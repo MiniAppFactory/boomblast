@@ -55,15 +55,22 @@ object HapticManager {
      */
     fun playClearHaptic(hapticsEnabled: Boolean, totalLinesCleared: Int, comboCount: Int) {
         if (!hapticsEnabled) return
-        // Kullanici karari: tek satirda titresim YOK. Kombo serisi ne kadar
-        // uzun olursa olsun bu kural bozulmuyor — kombo sadece asagida
-        // siddeti bir kademe artirabiliyor.
-        if (totalLinesCleared < 2) return
+        // Kullanici karari (iki asamali):
+        //  1) Tek satir titremez — her hamlede titresim komboyu anlamsizlastirir.
+        //  2) AMA oyuncu bir seri (streak) icindeyse tek satir da titrer:
+        //     "streak icindeyse 1 satir patlasa da titremeli". Seri halindeki
+        //     tek satir artik siradan bir hamle degil, seriyi AYAKTA TUTAN
+        //     hamledir — sessiz kalmasi seriyi gorunmez kiliyordu.
+        // Esik comboCount >= 2, oyun ici "2x KOMBO" rozetiyle ayni esik:
+        // ekranda kombo yaziyorsa titresim de var, tutarli.
+        if (totalLinesCleared < 2 && comboCount < 2) return
         val v = vibrator ?: return
 
         // 0 = 2 satir, 1 = 3 satir, 2 = 4+ satir. 3x ve uzeri kombo seride
         // olan oyuncuyu bir kademe yukari tasir (ses tarafinda playComboBlast
         // da comboCount'a gore varyant seciyor, ikisi tutarli kalsin).
+        // Seri icindeki TEK satir (-1) coerceIn ile en alt kademeye duser —
+        // yani hafif bir dokunus alir, seri derinlestikce (3x+) guclenir.
         val tier = (totalLinesCleared - 2 + if (comboCount >= 3) 1 else 0).coerceIn(0, 2)
 
         try {
