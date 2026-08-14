@@ -34,8 +34,15 @@ android {
     // Faz 102: kullanici "garanti olsun" diye 5'i atlayip 6'yi sectti (Play'de
     // yayindaki release hala 4/1.0.3; 5 uretildi ama hic yuklenmedi).
     // versionName 1.0.4 kaliyor — o da hic yayinlanmadi.
-    versionCode = 6
-    versionName = "1.0.4"
+    // Faz 108 (release): 6 -> 7. Faz 103-107 arasi HICBIR degisiklik testcilere
+    // ulasmadi — reklam ekonomisi bosluklari (103), "Kariyer" yeniden adlandirma
+    // + kilavuz duzeltmesi (104), coklu patlama titresimi + Ayarlar'da Titresim
+    // anahtari (105/105b), patlama soleni: surukleme onizlemesi + patlama rengi
+    // + sok dalgasi (106), 16 eksik donme yonu: 18 -> 34 parca (107).
+    // versionName 1.0.4 -> 1.0.5: 1.0.4 Alpha kanalina yuklendi, ayni ada FARKLI
+    // bir build vermek karisiklik yaratir.
+    versionCode = 7
+    versionName = "1.0.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
