@@ -9,6 +9,38 @@ enum class BoosterType(val tokenPrice: Int) {
     LINE_CLEAR(100)
 }
 
+// Faz 109: patlama efektleri (isik huzmesi, fizikli parcaciklar, ileride ambient
+// toz ve radyal isinlar) zayif cihazlarda kare suresini yiyebiliyor, ayrica
+// "ne kadar sölen" bir zevk meselesi. hapticsEnabled (Faz 105) ile AYNI zincir
+// (alan -> DataStore anahtari -> repository setter -> ViewModel -> Ayarlar satiri),
+// tek farki iki degil UC degerli olmasi.
+//
+// Neden Boolean/Int degil de enum + String kod:
+//  - Boolean yetmiyor (uc kademe), Int ise DataStore'da anlamsiz bir sayi olarak
+//    kalir ve ileride araya bir kademe eklenince (ör. OFF) eski kayitlar kayar.
+//  - String kod, AppLanguage'in ("tr"/"en"/...) ve BoosterType'in (enum adi)
+//    zaten kullandigi desen; bilinmeyen/bozuk kod okununca fromCode() sessizce
+//    varsayilana duser, yani ileri/geri surum uyumu bedava geliyor.
+// Varsayilan NORMAL — bugunku (Faz 106) efekt yogunlugu "normal" kabul ediliyor,
+// mevcut oyuncunun hissi guncellemeyle degismesin.
+enum class EffectIntensity(val code: String) {
+    LOW("low"),
+    NORMAL("normal"),
+    HIGH("high");
+
+    companion object {
+        fun fromCode(code: String?): EffectIntensity = entries.find { it.code == code } ?: NORMAL
+    }
+}
+
+// AppLanguage.label() ile ayni desen — gorsel metin enum'un yaninda duruyor,
+// cagiran ekranin when/if zinciri yazmasi gerekmiyor.
+fun EffectIntensity.label(language: AppLanguage): String = when (this) {
+    EffectIntensity.LOW -> language.pick(tr = "Düşük", en = "Low", it = "Basso", fr = "Faible", es = "Bajo")
+    EffectIntensity.NORMAL -> language.pick(tr = "Normal", en = "Normal", it = "Normale", fr = "Normal", es = "Normal")
+    EffectIntensity.HIGH -> language.pick(tr = "Yüksek", en = "High", it = "Alto", fr = "Élevé", es = "Alto")
+}
+
 data class PlayerProgress(
     val tokens: Int = 150,
     val highestUnlockedLevel: Int = 1,
@@ -28,6 +60,8 @@ data class PlayerProgress(
     // ozelligin kendisi ancak hissedilirse ise yariyor; rahatsiz olan kapatir.
     // Retro Modu'nun kendi ayri anahtari var (kendi ses anahtari gibi).
     val hapticsEnabled: Boolean = true,
+    // Faz 109: patlama efekti yogunlugu (Düşük/Normal/Yüksek). Bkz. EffectIntensity.
+    val effectIntensity: EffectIntensity = EffectIntensity.NORMAL,
     val darkMode: Boolean = true,
     val language: AppLanguage = AppLanguage.TR,
     val blockTheme: String = "CLASSIC",

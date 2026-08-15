@@ -3,11 +3,14 @@ package com.miniappfactory.boomblocks.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,10 +50,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
+import com.miniappfactory.boomblocks.data.EffectIntensity
 import com.miniappfactory.boomblocks.data.flag
 import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
@@ -69,6 +75,11 @@ fun SettingsScreen(
     // Faz 105: coklu patlama titresimi. Varsayilan degerli — bu ekran oyun ici
     // overlay olarak da cagriliyor, cagiran her yerin guncellenmesi sart olmasin.
     hapticsEnabled: Boolean = true,
+    // Faz 109: patlama efekti yogunlugu (Düşük/Normal/Yüksek). hapticsEnabled ile
+    // ayni gerekce ile varsayilan degerli — bu ekran oyun ici overlay olarak da
+    // cagriliyor; ayrica deger henuz AppNavigation'a baglanmadi (sonraki faz),
+    // varsayilan olmadan mevcut cagiranlar derlenmez.
+    effectIntensity: EffectIntensity = EffectIntensity.NORMAL,
     darkMode: Boolean,
     language: AppLanguage,
     skin: BlastSkin = BlastSkin.DEFAULT,
@@ -76,6 +87,7 @@ fun SettingsScreen(
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit,
     onToggleHaptics: (Boolean) -> Unit = {},
+    onSelectEffectIntensity: (EffectIntensity) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit,
     onSelectLanguage: (AppLanguage) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
@@ -193,6 +205,27 @@ fun SettingsScreen(
             checked = hapticsEnabled,
             onCheckedChange = onToggleHaptics,
             testTag = "settings_haptics_switch",
+            palette = palette
+        )
+        // Faz 109: patlama efekti yogunlugu. Titresimin hemen altinda —
+        // ikisi de "patlama ne kadar hissediliyor" grubunun parcasi. Anahtar
+        // degil UC secenek oldugu icin SettingsSwitchRow yerine kendi
+        // segment kontrolu; kartin gorsel dili Dil/Görünüm kartlariyla ayni
+        // (palette.card, 12dp kose, 14dp ic padding, kalin baslik + altinda kontrol).
+        SettingsSegmentedRow(
+            icon = "✨",
+            label = language.pick(
+                tr = "Efekt Yoğunluğu",
+                en = "Effect Intensity",
+                it = "Intensità Effetti",
+                fr = "Intensité des Effets",
+                es = "Intensidad de Efectos"
+            ),
+            options = EffectIntensity.entries,
+            optionLabel = { it.label(language) },
+            selected = effectIntensity,
+            onSelect = onSelectEffectIntensity,
+            optionTestTag = { "settings_effect_intensity_${it.code}" },
             palette = palette
         )
         SettingsSwitchRow(
@@ -442,6 +475,92 @@ private fun SettingsNavRow(
                 contentDescription = null,
                 tint = palette.textSecondary
             )
+        }
+    }
+}
+
+// Faz 109: iki degerli anahtarlarin (SettingsSwitchRow) UC degerli karsiligi.
+// Genel (<T>) tutuldu — ileride baska bir kademeli ayar geldiginde kopyalanmasin.
+//
+// TASMA NOTU: bu projede tekrar eden hata, uzun TR/IT/FR cevirilerin sabit
+// yukseklikli/genislikli kontrollere sigmamasi. Bu yuzden burada:
+//  - segmentlerin genisligi weight(1f) ile ekrana gore bolunuyor (sabit dp yok),
+//  - yukseklik sabit DEGIL: defaultMinSize ile ALT sinir var, ust sinir yok,
+//  - metin maxLines = 2 ve ortalanmis, yani buyuk yazi tipi olceginde (fontScale)
+//    kirpilmak yerine ikinci satira tasiyor ve kart bir miktar uzuyor.
+// "Yüksek" / "Alto" / "Élevé" / "Normale" hepsi 13sp'de tek satira siger;
+// dogrulama SettingsScreenEffectIntensityTest icinde 5 dil x 3 secenek uzerinde
+// gercek TextLayoutResult olcumuyle (320dp ekran + fontScale 1.3) yapiliyor.
+//
+// Erisilebilirlik: uc secenekten biri secildigi icin dogru anlambilim
+// clickable degil selectable/selectableGroup (TalkBack "radio button,
+// selected" diye okur, tek tek dugme gibi degil).
+@Composable
+private fun <T> SettingsSegmentedRow(
+    icon: String,
+    label: String,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    selected: T,
+    onSelect: (T) -> Unit,
+    optionTestTag: (T) -> String,
+    palette: BlastPalette
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = palette.card),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = icon, fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                options.forEach { option ->
+                    val isSelected = option == selected
+                    Surface(
+                        color = if (isSelected) NeonPurple.copy(alpha = 0.22f) else palette.background,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) NeonPurple else NeonPurple.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(option) }
+                            )
+                            .testTag(optionTestTag(option))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 44.dp)
+                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = optionLabel(option),
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) NeonPurple else palette.textPrimary,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

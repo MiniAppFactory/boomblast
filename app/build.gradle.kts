@@ -118,11 +118,23 @@ dependencies {
   implementation(libs.user.messaging.platform)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.fragment.ktx)
+  // Faz 109: `androidTest/` klasoru YOK, yani bugune kadar hicbir UI testi
+  // calismiyordu — ui-test-junit4 zaten testImplementation'daydi ama JVM'de
+  // Android runtime'i saglayan bir sey olmadigi icin kullanilamiyordu.
+  // Robolectric bu bosluğu dolduruyor: Compose UI testleri artik cihazsiz,
+  // `testDebugUnitTest` ile calisiyor (bkz. testOptions.unitTests.
+  // isIncludeAndroidResources, zaten aciktı).
+  //
+  // BOM platform'u testImplementation'a da veriliyor: ui-test-junit4 surumsuz
+  // tanimli ve bugune kadar SADECE ana kaynak setinin gecisli bagimliliklariyla
+  // (tesadufen 1.7.2) hizalaniyordu. Artik ayni BOM'a acikca bagli.
+  testImplementation(platform(libs.androidx.compose.bom))
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.robolectric)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)

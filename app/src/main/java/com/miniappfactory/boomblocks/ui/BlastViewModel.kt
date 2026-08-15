@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
+import com.miniappfactory.boomblocks.data.EffectIntensity
 import com.miniappfactory.boomblocks.data.GameStateRepository
 import com.miniappfactory.boomblocks.data.MissionType
 import com.miniappfactory.boomblocks.data.PlayerProgress
@@ -153,6 +154,12 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setHapticsEnabled(enabled: Boolean) {
         viewModelScope.launch { repository.setHapticsEnabled(enabled) }
+    }
+
+    // Faz 109: patlama efekti yogunlugu (Düşük/Normal/Yüksek) — setHapticsEnabled
+    // ile ayni desen, sadece Boolean yerine uc degerli enum.
+    fun setEffectIntensity(intensity: EffectIntensity) {
+        viewModelScope.launch { repository.setEffectIntensity(intensity) }
     }
 
     fun setDarkMode(enabled: Boolean) {

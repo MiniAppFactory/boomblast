@@ -27,6 +27,10 @@ class GameStateRepository(private val context: Context) {
         val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
         // Faz 105: coklu patlama titresimi acik/kapali.
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+        // Faz 109: patlama efekti yogunlugu. AppLanguage'in LANGUAGE anahtari
+        // gibi String KOD olarak saklaniyor (enum ordinal DEGIL) — kademe sirasi
+        // ileride degisirse eski kayitlar kaymasin.
+        val EFFECT_INTENSITY = stringPreferencesKey("effect_intensity")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         // Faz 35: "is_tr" (Boolean, sadece TR/EN) yerini "language" (String kod,
         // 5 dil) alıyor. Eski key SILINMEDI — asagidaki okuma mantiginda geriye
@@ -69,6 +73,8 @@ class GameStateRepository(private val context: Context) {
             soundVolume = prefs[Keys.SOUND_VOLUME] ?: 0.5f,
             musicEnabled = prefs[Keys.MUSIC_ENABLED] ?: true,
             hapticsEnabled = prefs[Keys.HAPTICS_ENABLED] ?: true,
+            // fromCode() null'da da bozuk kodda da NORMAL'e duser.
+            effectIntensity = EffectIntensity.fromCode(prefs[Keys.EFFECT_INTENSITY]),
             darkMode = prefs[Keys.DARK_MODE] ?: true,
             // Faz 37: gercekten ilk kurulumda (ne yeni "language" ne eski
             // "is_tr" kaydi varsa) cihazin sistem diline gore akilli bir
@@ -232,6 +238,10 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun setHapticsEnabled(enabled: Boolean) {
         context.gameDataStore.edit { it[Keys.HAPTICS_ENABLED] = enabled }
+    }
+
+    suspend fun setEffectIntensity(intensity: EffectIntensity) {
+        context.gameDataStore.edit { it[Keys.EFFECT_INTENSITY] = intensity.code }
     }
 
     suspend fun setDarkMode(enabled: Boolean) {
