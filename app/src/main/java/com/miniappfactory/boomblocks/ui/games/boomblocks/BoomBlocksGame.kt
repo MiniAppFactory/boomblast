@@ -2337,6 +2337,26 @@ fun BlastTheBlocksGame(
                 contentAlignment = Alignment.Center
             ) {
             val gridSide = minOf(maxWidth, maxHeight)
+
+            // Faz 3: BoardGeometry hesapla (satır offset + padding hisset)
+            val boardGeometry = remember(gridSide, density) {
+                val sidePx = with(density) { gridSide.toPx() }
+                // Card 6.dp padding icindedir, ama geometry tahta camiasinin (Card'dan sonra)
+                // icindeki hucreler icin hesaplanmalidir — topLeft = Card padding sonrasi.
+                val paddingPx = with(density) { 6.dp.toPx() }
+                val availableSidePx = sidePx - 2 * paddingPx
+                createBoardGeometry(
+                    screenWidthPx = availableSidePx,
+                    screenHeightPx = availableSidePx,
+                    headerHeightPx = 0f, // Tahta Card'in icinde, header yok
+                    gridRowCount = gridSize,
+                    gridColCount = gridSize,
+                    horizontalPaddingPx = 0f, // Padding Card'ta, burada yok
+                    safeInsetTop = 0f,
+                    safeInsetBottom = 0f
+                )
+            }
+
             Card(
                 colors = CardDefaults.cardColors(containerColor = animatedCard),
                 shape = RoundedCornerShape(16.dp),
@@ -2347,202 +2367,240 @@ fun BlastTheBlocksGame(
                     .padding(6.dp)
             ) {
               Box(modifier = Modifier.fillMaxSize()) {
-                Column(
+                // Faz 3: Tahta Canvas'i — 64 hucre + glowingRows/Cols + clear glow + sparkles
+                Canvas(
                     modifier = Modifier
                         .fillMaxSize()
                         .onGloballyPositioned { coords ->
                             gridOriginPx = coords.positionInRoot()
                             cellSizePx = coords.size.width / gridSize.toFloat()
                         }
-                    // Not: verticalArrangement = SpaceEvenly idi — grid tam kare
-                    // olmadiginda satirlar arasina/oncesine bosluk ekliyordu, bu da
-                    // gridOriginPx'e gore olculen parmak-hucre eslesmesini kaydiriyordu
-                    // (kullanici geri bildirimi: "tam bir kare kadar kayma var").
-                    // Hucreler zaten weight(1f) ile tam genisligi dolduruyor, arrangement
-                    // gereksiz — kaldirildi, hucreler artik ust-sol kosede sikica diziliyor.
                 ) {
-                    for (r in 0 until gridSize) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            for (c in 0 until gridSize) {
-                                val cellVal = board[r * gridSize + c]
-                                val inDragFootprint = isCellInDragFootprint(r, c)
+                    val cellSize = size.width / gridSize
+                    val cellPaddingPx = with(drawContext.density) { 1.5.dp.toPx() }
+                    val cornerRadiusPx = with(drawContext.density) { 6.dp.toPx() }
+                    val bevelRatio = 0.16f // baseColor'dan sonraki `b = w * 0.16f`
+                    val fontSizePx = size.minDimension * 0.6f
 
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .aspectRatio(1f)
-                                        .padding(1.5.dp)
-                                        .background(
-                                            if (cellVal == 0 && !inDragFootprint) palette.emptyCell else Color.Transparent,
-                                            shape = RoundedCornerShape(6.dp)
-                                        )
-                                        .border(
-                                            width = 0.5.dp,
-                                            // Dolu hucreler arasinda ONCEDEN sinir tamamen
-                                            // saydamdi — aynı renkteki iki AYRI parca yan yana
-                                            // gelince tek buyuk blok gibi gorunuyor, kullanici
-                                            // bunu "parca farkli sekle donustu" sanip yanlis
-                                            // yorumluyordu. Artik dolu hucrelerde de hafif bir
-                                            // koyu sinir var, her parca gorsel olarak ayirt edilebiliyor.
-                                            color = if (cellVal > 0) palette.background.copy(alpha = 0.35f) else palette.cardBorder,
-                                            shape = RoundedCornerShape(6.dp)
-                                        )
-                                        .then(
-                                            if (armedBooster != null) {
-                                                Modifier.clickable { applyBoosterAt(r, c) }
-                                            } else {
-                                                Modifier
-                                            }
-                                        )
-                                        .testTag("block_cell_${r}_${c}")
-                                ) {
-                                    if (cellVal > 0) {
-                                        EmbossedBlockCell(
-                                            colorIndex = cellVal,
-                                            theme = currentTheme,
-                                            modifier = Modifier.fillMaxSize(),
-                                            // Faz 1 (performans): BU SATIR baseline'daki
-                                            // "Slow issue draw commands" baskinliginin kok
-                                            // nedeniydi. `shimmerPhase` bir deger olarak
-                                            // gecilince kompozisyonda okunuyordu ve
-                                            // `infiniteRepeatable` hic durmadigi icin —
-                                            // TAHTA BOSKEN BILE — grid Card'inin content
-                                            // lambda'si (64 hucre + tum overlay'ler + kombo
-                                            // banner) saniyede 60 kez yeniden deriliyordu.
-                                            // Artik lambda: deger EmbossedBlockCell'in
-                                            // Canvas draw lambda'sinda okunuyor.
-                                            shimmerPhase = { shimmerPhaseState.value + (r + c) * 0.4f }
-                                        )
+                    // Faz 3: Tum 64 hucre dongusu
+                    for (r in 0 until gridSize) {
+                        for (c in 0 until gridSize) {
+                            val cellIndex = r * gridSize + c
+                            val cellVal = board[cellIndex]
+                            val topLeftX = c * cellSize + cellPaddingPx
+                            val topLeftY = r * cellSize + cellPaddingPx
+                            val cellDrawSize = cellSize - 2 * cellPaddingPx
+
+                            val inDragFootprint = isCellInDragFootprint(r, c)
+                            val dropValid = if (inDragFootprint) isCurrentDropValid() else false
+
+                            // 1. Empty cell background (hucre bos ve drag degil)
+                            if (cellVal == 0 && !inDragFootprint) {
+                                drawRect(
+                                    color = palette.emptyCell,
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize)
+                                )
+                            }
+
+                            // 2. Embossed block cell (dolu hucre)
+                            if (cellVal > 0) {
+                                val baseColor = BLOCK_COLORS.getOrElse((cellVal - 1).coerceAtLeast(0)) { NeonCyan }
+                                val bevelSize = cellDrawSize * bevelRatio
+
+                                // Background rect
+                                drawRect(
+                                    color = baseColor,
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize)
+                                )
+
+                                // Top Bevel (bright highlight)
+                                val topBevelPath = Path().apply {
+                                    moveTo(topLeftX, topLeftY)
+                                    lineTo(topLeftX + cellDrawSize, topLeftY)
+                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + bevelSize)
+                                    lineTo(topLeftX + bevelSize, topLeftY + bevelSize)
+                                    close()
+                                }
+                                drawPath(topBevelPath, color = Color.White.copy(alpha = 0.45f))
+
+                                // Left Bevel (mid highlight)
+                                val leftBevelPath = Path().apply {
+                                    moveTo(topLeftX, topLeftY)
+                                    lineTo(topLeftX + bevelSize, topLeftY + bevelSize)
+                                    lineTo(topLeftX + bevelSize, topLeftY + cellDrawSize - bevelSize)
+                                    lineTo(topLeftX, topLeftY + cellDrawSize)
+                                    close()
+                                }
+                                drawPath(leftBevelPath, color = Color.White.copy(alpha = 0.25f))
+
+                                // Right Bevel (mid shadow)
+                                val rightBevelPath = Path().apply {
+                                    moveTo(topLeftX + cellDrawSize, topLeftY)
+                                    lineTo(topLeftX + cellDrawSize, topLeftY + cellDrawSize)
+                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + cellDrawSize - bevelSize)
+                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + bevelSize)
+                                    close()
+                                }
+                                drawPath(rightBevelPath, color = Color.Black.copy(alpha = 0.25f))
+
+                                // Bottom Bevel (dark shadow)
+                                val bottomBevelPath = Path().apply {
+                                    moveTo(topLeftX, topLeftY + cellDrawSize)
+                                    lineTo(topLeftX + bevelSize, topLeftY + cellDrawSize - bevelSize)
+                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + cellDrawSize - bevelSize)
+                                    lineTo(topLeftX + cellDrawSize, topLeftY + cellDrawSize)
+                                    close()
+                                }
+                                drawPath(bottomBevelPath, color = Color.Black.copy(alpha = 0.45f))
+
+                                // Inner face rect
+                                drawRect(
+                                    color = baseColor,
+                                    topLeft = Offset(topLeftX + bevelSize, topLeftY + bevelSize),
+                                    size = Size((cellDrawSize - 2 * bevelSize).coerceAtLeast(0f), (cellDrawSize - 2 * bevelSize).coerceAtLeast(0f))
+                                )
+
+                                // Inner face shimmer
+                                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhaseState.value + (r + c) * 0.4f)
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
+                                    ),
+                                    topLeft = Offset(topLeftX + bevelSize, topLeftY + bevelSize),
+                                    size = Size((cellDrawSize - 2 * bevelSize).coerceAtLeast(0f), ((cellDrawSize - 2 * bevelSize) * 0.45f).coerceAtLeast(0f))
+                                )
+
+                                // Tema emoji (FRUIT/SWEETS)
+                                val emoji = when (currentTheme.uppercase()) {
+                                    "FRUIT" -> when (cellVal % 6) {
+                                        1 -> "🍉"
+                                        2 -> "🍊"
+                                        3 -> "🥝"
+                                        4 -> "🍓"
+                                        5 -> "🧀"
+                                        0 -> "🍇"
+                                        else -> ""
                                     }
-                                    // Faz 22: satir/sutun tam 1 hucre eksikken dolu hucreler
-                                    // hafifce nabiz atar ("bir hamle kaldi" ipucu).
-                                    if (cellVal > 0 &&
-                                        (r * gridSize + c) in nearMissCells &&
-                                        (r * gridSize + c) !in glowingClearCells
-                                    ) {
-                                        // Faz 1 (performans): `NeonGold.copy(alpha = sharedPulse)`
-                                        // kompozisyonda okunuyordu; near-miss aktifken tum grid
-                                        // alt agaci her karede yeniden derileniyordu. Ayni
-                                        // geometri (bkz. drawPhaseRoundedBorder), alpha artik
-                                        // cizim fazinda.
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .drawPhaseRoundedBorder(
-                                                    width = 1.5.dp,
-                                                    radius = 6.dp,
-                                                    brush = nearMissBorderBrush
-                                                ) { sharedPulseState.value }
-                                        )
+                                    "SWEETS" -> when (cellVal % 6) {
+                                        1 -> "🍩"
+                                        2 -> "🍫"
+                                        3 -> "🍪"
+                                        4 -> "🧁"
+                                        5 -> "🍬"
+                                        0 -> "🧇"
+                                        else -> ""
                                     }
-                                    if ((r * gridSize + c) in glowingClearCells) {
-                                        // Faz 106 (TODO 12): onceden beyaz yari saydam
-                                        // dolgu + gokkusagi sweep kenarlikti; patlama
-                                        // hangi parcayla tetiklendiginden bagimsiz hep
-                                        // ayni goruluyordu. Artik dolgu tetikleyen
-                                        // parcanin rengi (satir gozle gorulur sekilde
-                                        // TEK renge doner), kenarlik ise sicak bir beyaz
-                                        // — renk kimligi dolguda, "kor edici" his kenarda.
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                // Faz 107: nabizli beklenti egrisi son
-                                                // segmentte overshoot yapiyor — alpha'nin
-                                                // 1.0'i asmamasi icin coerce.
-                                                // Faz 1 (performans): coerce/carpim ifadeleri
-                                                // AYNEN korundu, sadece cizim lambda'sina
-                                                // tasindi — beklenti glow'u (320/480ms)
-                                                // boyunca artik recomposition degil yeniden
-                                                // cizim oluyor.
-                                                // `Modifier.background(color)` sekil
-                                                // verilmediginde tam olarak `drawRect(color)`
-                                                // + `drawContent()` yapar; drawBehind ayni
-                                                // sirada ayni cagriyi yapiyor (yuvarlatma
-                                                // zaten onceki .clip'ten geliyordu).
-                                                .drawBehind {
-                                                    drawRect(
-                                                        color = clearAccentColor.copy(
-                                                            alpha = (glowPulse.value * 0.8f).coerceIn(0f, 1f)
-                                                        )
-                                                    )
-                                                }
-                                                .drawPhaseRoundedBorder(
-                                                    width = 2.dp,
-                                                    radius = 6.dp,
-                                                    brush = clearGlowBorderBrush
-                                                ) { (glowPulse.value * 0.9f).coerceIn(0f, 1f) }
-                                        )
-                                        if ((r + c) % 3 == 0) {
-                                            Text(
-                                                text = "✨",
-                                                fontSize = 12.sp,
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    // Faz 1 (performans): `Modifier.alpha(v)`
-                                                    // = `graphicsLayer(alpha = v, clip = true)`
-                                                    // (bytecode'dan dogrulandi) ve degeri
-                                                    // kompozisyonda okur. Lambda'li surum ayni
-                                                    // katmani ayni clip ile kurar.
-                                                    .graphicsLayer {
-                                                        alpha = glowPulse.value.coerceIn(0f, 1f)
-                                                        clip = true
-                                                    }
-                                            )
-                                        }
+                                    else -> ""
+                                }
+
+                                if (emoji.isNotEmpty()) {
+                                    val paint = android.graphics.Paint().apply {
+                                        isAntiAlias = true
+                                        textAlign = android.graphics.Paint.Align.CENTER
+                                        textSize = fontSizePx
                                     }
-                                    if (inDragFootprint) {
-                                        val dropValid = isCurrentDropValid()
-                                        val tint = if (dropValid) NeonGreen else Color(0xFFF87171)
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(tint.copy(alpha = 0.55f))
-                                                .border(1.dp, tint, RoundedCornerShape(6.dp))
-                                        )
-                                    }
-                                    // Faz 107: "temizlenmis hucre flash'i" ONCEDEN burada,
-                                    // hucre basina bir Box olarak ciziliyordu ve kosulu
-                                    // `clearFlashAlpha.value > 0f` idi — yani animasyon
-                                    // degeri KOMPOZISYON kapsaminda okunuyordu ve flash
-                                    // suresince 64 hucrelik bu alt agac her karede yeniden
-                                    // derleniyordu. Flash artik asagidaki tek Canvas
-                                    // katmaninda, huzme ile ayni yerde ciziliyor (deger
-                                    // sadece draw lambda'sinda okunuyor).
+                                    val fm = paint.fontMetrics
+                                    val textY = topLeftY + cellDrawSize / 2f - (fm.ascent + fm.descent) / 2f
+                                    drawContext.canvas.nativeCanvas.drawText(emoji, topLeftX + cellDrawSize / 2f, textY, paint)
                                 }
                             }
+
+                            // 3. Near-miss pulse (nabiz) — satir/sutun 1 hucre eksik
+                            if (cellVal > 0 && cellIndex in nearMissCells && cellIndex !in glowingClearCells) {
+                                drawRoundRect(
+                                    color = NeonGold.copy(alpha = sharedPulseState.value),
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                                    style = Stroke(width = with(drawContext.density) { 1.5.dp.toPx() })
+                                )
+                            }
+
+                            // 4. Clear glow (patlamaya hazir satir/sutun)
+                            if (cellIndex in glowingClearCells) {
+                                // Inner dolgu
+                                drawRect(
+                                    color = clearAccentColor.copy(alpha = (glowPulse.value * 0.8f).coerceIn(0f, 1f)),
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize)
+                                )
+
+                                // Border
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = (glowPulse.value * 0.9f).coerceIn(0f, 1f)),
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                                    style = Stroke(width = with(drawContext.density) { 2.dp.toPx() })
+                                )
+
+                                // Sparkle (her 3. hucrede)
+                                if ((r + c) % 3 == 0) {
+                                    val sparkText = "✨"
+                                    val sparkPaint = android.graphics.Paint().apply {
+                                        isAntiAlias = true
+                                        textAlign = android.graphics.Paint.Align.CENTER
+                                        textSize = with(drawContext.density) { 12.sp.toPx() }
+                                        alpha = (glowPulse.value.coerceIn(0f, 1f) * 255).toInt()
+                                    }
+                                    val fm = sparkPaint.fontMetrics
+                                    val sparkY = topLeftY + 4.dp.toPx() - (fm.ascent + fm.descent) / 2f
+                                    drawContext.canvas.nativeCanvas.drawText(sparkText, topLeftX + cellDrawSize - 4.dp.toPx(), sparkY, sparkPaint)
+                                }
+                            }
+
+                            // 5. Drag footprint tint (suruklenirken gosterilen alan)
+                            if (inDragFootprint) {
+                                val tint = if (dropValid) NeonGreen else Color(0xFFF87171)
+                                drawRect(
+                                    color = tint.copy(alpha = 0.55f),
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize)
+                                )
+                                drawRoundRect(
+                                    color = tint,
+                                    topLeft = Offset(topLeftX, topLeftY),
+                                    size = Size(cellDrawSize, cellDrawSize),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                                    style = Stroke(width = with(drawContext.density) { 1.dp.toPx() })
+                                )
+                            }
+
+                            // 6. Cell border (Compose border simulasyonu)
+                            val borderColor = if (cellVal > 0) palette.background.copy(alpha = 0.35f) else palette.cardBorder
+                            drawRoundRect(
+                                color = borderColor,
+                                topLeft = Offset(topLeftX, topLeftY),
+                                size = Size(cellDrawSize, cellDrawSize),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                                style = Stroke(width = with(drawContext.density) { 0.5.dp.toPx() })
+                            )
                         }
                     }
-                }
 
-                // Faz 50: tum satir/sutunun etrafinda TEK bir parlak cerceve — rakip
-                // oyun kaydinda gorulen, hucre-hucre glow'dan farkli/ek bir katman.
-                if (glowingRows.isNotEmpty() || glowingCols.isNotEmpty()) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val cell = size.width / gridSize
-                        val strokeWidth = 3.dp.toPx()
-                        // Faz 106 (TODO 12): cerceve de tetikleyen parcanin rengini alir.
+                    // Faz 50 + Faz 3: Glowing row/col cerceveleri (patlama beklentisi)
+                    if (glowingRows.isNotEmpty() || glowingCols.isNotEmpty()) {
+                        val glowStrokeWidth = with(drawContext.density) { 3.dp.toPx() }
                         val glowColor = clearAccentColor.copy(alpha = glowPulse.value.coerceIn(0f, 1f))
+
                         glowingRows.forEach { r ->
                             drawRoundRect(
                                 color = glowColor,
-                                topLeft = Offset(strokeWidth / 2, r * cell + strokeWidth / 2),
-                                size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, cell - strokeWidth),
-                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
-                                style = Stroke(width = strokeWidth)
+                                topLeft = Offset(glowStrokeWidth / 2, r * cellSize + glowStrokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(size.width - glowStrokeWidth, cellSize - glowStrokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(with(drawContext.density) { 8.dp.toPx() }),
+                                style = Stroke(width = glowStrokeWidth)
                             )
                         }
                         glowingCols.forEach { c ->
                             drawRoundRect(
                                 color = glowColor,
-                                topLeft = Offset(c * cell + strokeWidth / 2, strokeWidth / 2),
-                                size = androidx.compose.ui.geometry.Size(cell - strokeWidth, size.height - strokeWidth),
-                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
-                                style = Stroke(width = strokeWidth)
+                                topLeft = Offset(c * cellSize + glowStrokeWidth / 2, glowStrokeWidth / 2),
+                                size = androidx.compose.ui.geometry.Size(cellSize - glowStrokeWidth, size.height - glowStrokeWidth),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(with(drawContext.density) { 8.dp.toPx() }),
+                                style = Stroke(width = glowStrokeWidth)
                             )
                         }
                     }
