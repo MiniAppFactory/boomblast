@@ -118,6 +118,7 @@ import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.data.EffectIntensity
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 import com.miniappfactory.boomblocks.utils.HapticManager
 import com.miniappfactory.boomblocks.utils.SoundManager
@@ -131,6 +132,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import android.view.Choreographer
 
 data class BlockShape(
     val id: Int,
@@ -182,6 +184,7 @@ class BlastParticle {
     var delay = 0f      // saniye
     var life = 0f       // saniye
     var color = Color.White
+    var active = false  // Faz 5: ParticlePool'da aktiflik durumu
 }
 
 // Faz 107: karakterli egriler. Duz `FastOutSlowInEasing` her asamayi ayni
@@ -676,7 +679,10 @@ fun BlastTheBlocksGame(
     // kalici (DataStore) oldugu icin varsayilan deger `true` (ipucu KAPALI), aksi
     // halde onizleme/test cagrilarinda yanlislikla her zaman gosterilir.
     hasMadeFirstMove: Boolean = true,
-    onFirstMoveMade: () -> Unit = {}
+    onFirstMoveMade: () -> Unit = {},
+    // Faz 4: Ambient toz + radyal isin etki yogunlugu (Düşük/Normal/Yüksek).
+    // Yuksek yogunlukta daha cok parca, daha sering yenileme; zayif cihazlar icin opsiyonel.
+    effectIntensity: EffectIntensity = EffectIntensity.NORMAL
 ) {
     val palette = blastPalette(uiSkin, darkMode)
     // Faz 22: skin/koyu-mod degisiminde renkler ONCEDEN tek karede sertce
@@ -768,6 +774,24 @@ fun BlastTheBlocksGame(
     val beamProgress = remember { Animatable(0f) }
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
+
+    // Faz 4: Ambient toz + Radyal isín efektleri
+    // Ambient toz idle'da gosteriliyor (arka plan sabiti)
+    var ambientParticles by remember { mutableStateOf<List<AmbientParticle>>(emptyList()) }
+    val ambientEnabled = effectIntensity != EffectIntensity.LOW
+    val ambientParticleCount = when (effectIntensity) {
+        EffectIntensity.LOW -> 0
+        EffectIntensity.NORMAL -> 20
+        EffectIntensity.HIGH -> 30
+    }
+    // Radyal isin flash — patlama aninda tetikleniyor (300-400ms)
+    var radialFlash by remember { mutableStateOf<RadialFlashState?>(null) }
+    val radialFlashDurationMs = 350
+    val radialBeamCount = when (effectIntensity) {
+        EffectIntensity.LOW -> 0
+        EffectIntensity.NORMAL -> 8
+        EffectIntensity.HIGH -> 12
+    }
 
     // Faz 38: sistem geri tusu/jesti artik dogrudan menuye cikmiyor — once
     // "cikmak istedigine emin misin" onay ekranini aciyor (kullanici geri
@@ -886,12 +910,15 @@ fun BlastTheBlocksGame(
     val comboTextScale = remember { Animatable(1f) }
     // Faz 107: sabit boyutlu parcacik HAVUZU — patlama basina `List.map` ile
     // yeni nesne uretmek yerine ayni nesneler yeniden doldurulur (GC duraklamasi
-    // = jank). Havuz "patlama"ya ozel degil; ileride eklenecek ambient emitter
-    // de ayni havuzdan beslenebilsin diye jenerik tutuldu (bkz. spawn fonksiyonu).
-    val particlePool = remember { Array(MAX_BLAST_PARTICLES) { BlastParticle() } }
-    // Kac parcacigin AKTIF oldugu. Cizim lambda'si icinde okunur (kompozisyonda
-    // DEGIL) — aksi halde burst boyunca her karede recomposition tetiklenir.
-    var activeParticles by remember { mutableIntStateOf(0) }
+    // Faz 5: ParticlePool obje havuzuna geçiş. Eski: Array + activeParticles sayacı.
+    // Yeni: ParticlePool sınıfı tüm durumu yönetiyor.
+    val particlePool = remember { ParticlePool() }
+
+    // Faz 5: Floating score yönetimi — "+10/50/100" yazıları animasyonu.
+    val floatingScoreManager = remember { FloatingScoreManager() }
+
+    // Faz 5: Kullanılmayan (Choreographer callback'inde local değişken)
+    // var activeParticles by remember { mutableIntStateOf(0) }
     val particleProgress = remember { Animatable(0f) }
     // 4 uclu yildiz — birim koordinatlarda BIR KEZ kurulur, her parcacik icin
     // sadece transform uygulanir (sicak dongude Path tahsisi yok).
@@ -1356,6 +1383,83 @@ fun BlastTheBlocksGame(
         }
     }
 
+    // Faz 5: withFrameNanos — her karede parçacık physics + floating score update.
+    // Choreographer callback'i, kare zamanını doğru şekilde yakalıyor.
+    LaunchedEffect(Unit) {
+        val choreographer = Choreographer.getInstance()
+        var lastFrameTimeNanos = System.nanoTime()
+
+        choreographer.postFrameCallback(object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                val deltaTimeNanos = frameTimeNanos - lastFrameTimeNanos
+                val deltaTimeMs = deltaTimeNanos / 1_000_000f
+                lastFrameTimeNanos = frameTimeNanos
+
+                // Faz 5: Physics güncelleme
+                particlePool.update(deltaTimeMs)
+                floatingScoreManager.update(deltaTimeMs)
+
+                // Faz 4: Ambient toz particle'lari guncelle
+                if (ambientEnabled) {
+                    val deltaTimeSec = deltaTimeMs / 1000f
+                    // Eski particle'lari kaldır
+                    val alive = ambientParticles.toMutableList()
+                    alive.removeAll { p -> p.age + deltaTimeSec >= p.maxAge }
+
+                    // Yeni particle'lar spawn et (hedef sayi tutuluncaya kadar)
+                    while (alive.size < ambientParticleCount) {
+                        val x = Random.nextFloat()
+                        val y = -0.1f - Random.nextFloat() * 0.1f  // Ustten baslar
+                        val sineFreq = 1f + Random.nextFloat() * 1f // 1-2 Hz
+                        val vx = sin((sineFreq * 2 * Math.PI * y).toFloat()) * 0.3f
+                        val vy = 0.1f + Random.nextFloat() * 0.2f // Yukaridan asagiya (piksel/saniye degil, fraction)
+                        val lifetime = 3f + Random.nextFloat() * 1.5f
+                        val size = 2f + Random.nextFloat() * 4f
+
+                        alive.add(
+                            AmbientParticle(
+                                x = x,
+                                y = y,
+                                vx = vx,
+                                vy = vy,
+                                age = 0f,
+                                maxAge = lifetime,
+                                sinePhase = Random.nextFloat() * 6.28f,
+                                size = size
+                            )
+                        )
+                    }
+
+                    // Particle'lari guncelle (hareket + yaslandirma)
+                    val updated = alive.map { p ->
+                        val newAge = p.age + deltaTimeSec
+                        val sineWave = sin(p.sinePhase + p.vx * p.age * 2 * Math.PI).toFloat()
+                        p.copy(
+                            x = p.x + sineWave * 0.05f * deltaTimeSec,
+                            y = p.y + p.vy * deltaTimeSec,
+                            age = newAge
+                        )
+                    }
+                    ambientParticles = updated
+                }
+
+                // Faz 4: Radyal flash'i guncelle (progress += delta)
+                if (radialFlash != null) {
+                    val flash = radialFlash!!
+                    val newProgress = flash.progress + deltaTimeMs / radialFlashDurationMs
+                    if (newProgress >= 1f) {
+                        radialFlash = null  // Sifirlanir
+                    } else {
+                        radialFlash = flash.copy(progress = newProgress)
+                    }
+                }
+
+                // Sonraki frame için tekrar kayıt
+                choreographer.postFrameCallback(this)
+            }
+        })
+    }
+
     // Basari rozeti kisa bir sure gosterilip kendiliginden kapanir.
     LaunchedEffect(activeAchievementText) {
         if (activeAchievementText != null) {
@@ -1670,6 +1774,18 @@ fun BlastTheBlocksGame(
                     clearFlashAlpha.snapTo(1f)
                     clearFlashAlpha.animateTo(0f, animationSpec = tween(110, easing = EaseOutQuartBoom))
                 }
+                // Faz 4: Radyal isin flash tetikleme (patlama aninda merkezden disa)
+                if (effectIntensity != EffectIntensity.LOW && radialBeamCount > 0) {
+                    val centerX = gridOriginPx.x + (gridSize * cellSizePx) / 2f
+                    val centerY = gridOriginPx.y + (gridSize * cellSizePx) / 2f
+                    radialFlash = RadialFlashState(
+                        centerX = centerX,
+                        centerY = centerY,
+                        progress = 0f,
+                        beamCount = radialBeamCount,
+                        rotationOffset = Random.nextFloat() * 360f
+                    )
+                }
                 // Faz 107 (Kademe B-1): ISIK HUZMESI. Hucreler gidince patlayan
                 // satir/sutun boyunca parlak bir serit kalir. Olcum: ~690ms ve
                 // IKI asamali — 1) dar/keskin beyaz cekirdek (~1/3 hucre),
@@ -1724,6 +1840,15 @@ fun BlastTheBlocksGame(
                     ScorePopup(row = gridSize / 2f, col = c + 0.5f, text = "+$perLineScore", color = popupColor)
                 }
                 scorePopups = rowPopups + colPopups
+
+                // Faz 5: Floating score — "+puan" animasyonu
+                rowsToClear.forEach { r ->
+                    floatingScoreManager.recordClear(perLineScore, r + 0.5f, gridSize / 2f)
+                }
+                colsToClear.forEach { c ->
+                    floatingScoreManager.recordClear(perLineScore, gridSize / 2f, c + 0.5f)
+                }
+
                 dragCoroutineScope.launch {
                     popupProgress.snapTo(0f)
                     popupProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
@@ -1746,12 +1871,14 @@ fun BlastTheBlocksGame(
                 // omur/gecikme/boyut, ve donme.
                 // Tur dagilimi referanstan: ~%51 eskenar dortgen, %15 daire,
                 // %9 serit, %15 kare zerre, %10 dort-uclu yildiz.
+                // Faz 5: ParticlePool.acquire() ile yeni havuz sistemi.
+                particlePool.reset()
                 val clearedList = clearedIndices.toList()
                 val burstCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10)
                     .coerceIn(20, MAX_BLAST_PARTICLES)
-                for (i in 0 until burstCount) {
+                repeat(burstCount) {
                     val index = clearedList[Random.nextInt(clearedList.size)]
-                    val p = particlePool[i]
+                    val p = particlePool.acquire() ?: return@repeat
                     val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
                     val roll = Random.nextFloat()
                     p.kind = when {
@@ -1799,7 +1926,7 @@ fun BlastTheBlocksGame(
                         else -> cellColor
                     }
                 }
-                activeParticles = burstCount
+                // Faz 5: ParticlePool kendi state'ini yönetiyor, activeParticles atıyor yok
 
                 // Clear cells
                 rowsToClear.forEach { r ->
@@ -2743,6 +2870,57 @@ fun BlastTheBlocksGame(
                     }
                 }
 
+                // Faz 4: Ambient toz + Radyal isin overlay. OLAY: her karede sadece
+                // redraw (recomposition yok). drawLambda icinden canvas.size.width/height
+                // kullaniyoruz — piksel, hucre degil. Faz 3'ten farkli olarak burada
+                // tahta grid'i yoktur, sadece tam ekran FX.
+                if (ambientEnabled || radialFlash != null) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val screenWidth = size.width
+                        val screenHeight = size.height
+
+                        // AMBIENT TOZ: idle / hep gorulur
+                        if (ambientEnabled && ambientParticles.isNotEmpty()) {
+                            ambientParticles.forEach { particle ->
+                                val progress = particle.age / particle.maxAge
+                                // Ilk %50: fully opaque, sonrasi fade out
+                                val alpha = if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f)
+                                drawCircle(
+                                    color = Color.White.copy(alpha = alpha * 0.5f),
+                                    radius = with(drawContext.density) { particle.size.dp.toPx() },
+                                    center = Offset(particle.x * screenWidth, particle.y * screenHeight)
+                                )
+                            }
+                        }
+
+                        // RADYAL ISIN: patlama tetiklemesinde gosteriliyor (300-400ms)
+                        if (radialFlash != null) {
+                            val flash = radialFlash!!
+                            val p = flash.progress
+                            // progress >= 1 ise artik gorunmez, update loop tarafinda kaldiriliyor
+                            if (p < 1f) {
+                                val alpha = (1f - p).coerceIn(0f, 1f)
+                                val baseLength = maxOf(screenWidth, screenHeight)
+                                val rayLength = baseLength * p
+
+                                repeat(flash.beamCount) { i ->
+                                    val angle = (360f / flash.beamCount) * i + flash.rotationOffset
+                                    val theta = Math.toRadians(angle.toDouble()).toFloat()
+                                    val endX = flash.centerX + (rayLength * cos(theta.toDouble())).toFloat()
+                                    val endY = flash.centerY + (rayLength * sin(theta.toDouble())).toFloat()
+
+                                    drawLine(
+                                        color = NeonGold.copy(alpha = alpha.coerceIn(0f, 1f)),
+                                        strokeWidth = with(drawContext.density) { 3.dp.toPx() },
+                                        start = Offset(flash.centerX, flash.centerY),
+                                        end = Offset(endX, endY)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Faz 51 + Faz 106 (TODO 11): surukleme ONIZLEMESI. Faz 51'de
                 // tamamlanacak satir/sutunun etrafina yalnizca ince bir CERCEVE
                 // ciziliyordu; kullanici Block Blast'ta satirin TAMAMININ, o parcanin
@@ -2843,6 +3021,30 @@ fun BlastTheBlocksGame(
                     }
                 }
 
+                // Faz 5: Floating score — "+puan" animasyonu (Choreographer tabanlı)
+                // Her harita temizlemesinde emit edilen puanlar yukarı uçuyor, 1 saniye içinde fade-out.
+                if (floatingScoreManager.getAliveScores().isNotEmpty()) {
+                    val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+                    floatingScoreManager.getAliveScores().forEach { score ->
+                        // Faz 5: hücre birimine göre offset — yukarı doğru hareket (negatif dy)
+                        val offsetDpValue = with(density) { (score.getOffset() * cellSizePx).toDp() }
+                        val alpha = score.getAlpha()
+                        Text(
+                            text = score.text,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = score.color.copy(alpha = alpha),
+                            style = TextStyle(
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
+                            ),
+                            modifier = Modifier.offset(
+                                x = cellDp * score.x - 18.dp,
+                                y = cellDp * score.y - 12.dp + offsetDpValue
+                            )
+                        )
+                    }
+                }
+
                 // Faz 107 (Kademe B-2): fizikli parcacik katmani.
                 // Onceki hali: `drawCircle(radius = 4f + 3f*(1f-progress))` —
                 // (a) HAM PIKSEL yariçap, S8'in 3.0 yogunlugunda ~1.3-2.3dp,
@@ -2859,7 +3061,8 @@ fun BlastTheBlocksGame(
                 // burst boyunca bu Box her karede yeniden derleniyordu. Artik erken
                 // cikis draw lambda'sinin ICINDE.
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val n = activeParticles
+                    // Faz 5: ParticlePool.getActiveCount() ile aktif parçacık sayısı
+                    val n = particlePool.getActiveCount()
                     if (n == 0) return@Canvas
                     val t = particleProgress.value * PARTICLE_WINDOW_S
                     if (t >= PARTICLE_WINDOW_S) return@Canvas
