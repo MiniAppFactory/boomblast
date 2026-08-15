@@ -5,8 +5,8 @@ package com.miniappfactory.boomblocks.data
 // clear olsun sadece" dedi — SHUFFLE turu tamamen kaldirildi (35/50/20 ->
 // sadece BOMB/LINE_CLEAR, ikisi de 100).
 enum class BoosterType(val tokenPrice: Int) {
-    BOMB(100),
-    LINE_CLEAR(100)
+    BOMB(150),
+    LINE_CLEAR(150)
 }
 
 // Faz 109: patlama efektleri (isik huzmesi, fizikli parcaciklar, ileride ambient

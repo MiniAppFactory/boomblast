@@ -42,7 +42,7 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
 
     fun watchAdForTokens() {
         // Faz 4'te gerçek rewarded ad sonucuna bağlanacak; şimdilik sabit bir test ödülü.
-        viewModelScope.launch { repository.addTokens(15) }
+        viewModelScope.launch { repository.addTokens(40) }
     }
 
     fun consumeBoosterFromInventory(type: BoosterType) {
@@ -95,6 +95,7 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     fun recordLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
             repository.recordLevelResult(level, stars)
+            repository.addTokens(5)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()
@@ -110,6 +111,7 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     fun recordChallengeLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
             repository.recordChallengeLevelResult(level, stars)
+            repository.addTokens(5)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             // recordLevelComplete'teki ile ayni sayaci artiriyor — AppNavigation'daki
