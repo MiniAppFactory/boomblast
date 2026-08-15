@@ -257,6 +257,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
                         darkMode = progress.darkMode,
+                        effectIntensity = progress.effectIntensity,
                         initialBoosterCounts = progress.ownedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
@@ -437,6 +438,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         shapePoolTier = definition.shapePoolTier,
                         scoreMultiplier = definition.scoreMultiplier,
                         isChallengeMode = true,
+                        effectIntensity = progress.effectIntensity,
                         // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
                         // "Yeniden Başlat" interstitial reklama baglandi.
                         // Faz 103: esik KALDIRILDI, artik HER yeniden baslatmada reklam.
@@ -680,6 +682,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
                         darkMode = progress.darkMode,
+                        effectIntensity = progress.effectIntensity,
                         initialBoosterCounts = progress.endlessOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeEndlessBoosterFromInventory(type) },
@@ -806,6 +809,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         hapticsEnabled = progress.hapticsEnabled,
                         soundVolume = progress.soundVolume,
                         musicEnabled = progress.musicEnabled,
+                        effectIntensity = progress.effectIntensity,
                         darkMode = progress.darkMode,
                         language = progress.language,
                         skin = skin,
@@ -813,6 +817,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onSoundVolumeChange = { viewModel.setSoundVolume(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },
                         onToggleHaptics = { viewModel.setHapticsEnabled(it) },
+                        onSelectEffectIntensity = { viewModel.setEffectIntensity(it) },
                         onToggleDarkMode = { viewModel.setDarkMode(it) },
                         onSelectLanguage = { viewModel.setLanguage(it) },
                         onSelectSkin = onSelectSkin,
