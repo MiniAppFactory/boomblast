@@ -2201,12 +2201,12 @@ fun BlastTheBlocksGame(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 0.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = palette.card),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                    modifier = Modifier.weight(0.45f)
                 ) {
                     Column(
                         modifier = Modifier.padding(4.dp),
