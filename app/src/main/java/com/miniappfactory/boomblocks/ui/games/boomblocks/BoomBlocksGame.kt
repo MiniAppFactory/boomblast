@@ -2293,32 +2293,6 @@ fun BlastTheBlocksGame(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (comboCount >= 2) NeonGold else palette.textPrimary
                             )
-                        } else {
-                            Text(
-                                text = language.pick(tr = "📈 İLERLEME", en = "📈 PROGRESS", it = "📈 PROGRESSO", fr = "📈 PROGRÈS", es = "📈 PROGRESO"),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeonCyan
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            LinearProgressIndicator(
-                                progress = { levelProgress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp)),
-                                color = NeonCyan,
-                                trackColor = palette.cardAlt
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            // Cubuk tek basina sayisal bir okuma sunmuyordu (UI/UX
-                            // karsilastirma bulgusu) — artik altinda kesir gosteriliyor.
-                            Text(
-                                text = "$score/$targetScore",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = palette.textSecondary
-                            )
                         }
                     }
                 }
