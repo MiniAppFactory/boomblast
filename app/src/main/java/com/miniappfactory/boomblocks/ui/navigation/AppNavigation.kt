@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,6 +23,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.miniappfactory.boomblocks.ads.AdsConsent
 import com.miniappfactory.boomblocks.ads.BannerAdView
 import com.miniappfactory.boomblocks.ads.InterstitialAdManager
 import com.miniappfactory.boomblocks.ads.RewardedAdManager
@@ -344,7 +347,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     )
                 }
                 if (adsConsentResolved) {
-                    BannerAdView()
+                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
                 }
             }
         }
@@ -542,7 +545,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     )
                 }
                 if (adsConsentResolved) {
-                    BannerAdView()
+                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
                 }
             }
         }
@@ -772,7 +775,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                     )
                 }
                 if (adsConsentResolved) {
-                    BannerAdView()
+                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
                 }
             }
         }
@@ -816,6 +819,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         notificationsEnabled = progress.notificationsEnabled,
                         onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                         onOpenHowToPlay = { navController.navigate(Routes.HOW_TO_PLAY) },
+                        // Faz 108: UMP zorunlulugu — kullanicinin ilk aciliste
+                        // verdigi rizayi geri alabilecegi kalici giris noktasi.
+                        // Satir yalnizca UMP "gerekli" dedigi bolgelerde cikar.
+                        showPrivacyOptions = AdsConsent.privacyOptionsRequired,
+                        onShowPrivacyOptions = {
+                            context.findActivity()?.let { AdsConsent.showPrivacyOptionsForm(it) }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }

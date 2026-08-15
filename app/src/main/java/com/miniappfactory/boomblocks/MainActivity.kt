@@ -28,6 +28,7 @@ import com.miniappfactory.boomblocks.ui.navigation.AppNavigation
 import com.miniappfactory.boomblocks.ui.retro.RetroViewModel
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.BlastTheBlocksTheme
+import com.miniappfactory.boomblocks.ads.AdsConsent
 import com.miniappfactory.boomblocks.ads.AdIds
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 import com.miniappfactory.boomblocks.utils.HapticManager
@@ -98,6 +99,12 @@ class MainActivity : ComponentActivity() {
         // adsConsentResolved sonsuza kadar false kalip banner reklam O OTURUM
         // BOYUNCA HIC gorunmuyordu (kullanici geri bildirimi: "banner yok").
         // Guvenlik agi: 4 saniyede hala cozulmediyse reklamlari zorla ac.
+        // Faz 108: bu guvenlik agi ARTIK yalnizca UI'i serbest birakiyor.
+        // Onceden bayragi kosulsuz true yapmasi, canRequestAds() false olsa
+        // bile (sistemin "reklam isteme" dedigi tek durum) reklamlarin
+        // acilmasina yol aciyordu — AB Kullanici Rizasi Politikasi acisindan
+        // ihlal. Reklam gosterme yetkisi artik bu bayrakta degil,
+        // AdsConsent.canRequestAds'te; ikisi ayrildi.
         Handler(Looper.getMainLooper()).postDelayed({
             if (!adsConsentResolved.value) adsConsentResolved.value = true
         }, 4000)
@@ -151,9 +158,17 @@ class MainActivity : ComponentActivity() {
             this,
             params,
             {
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(this) { onResolved() }
+                UserMessagingPlatform.loadAndShowConsentFormIfRequired(this) {
+                    // Faz 108: form kapandiktan SONRA okunur — kullanicinin
+                    // az once verdigi/reddettigi cevap burada yansir.
+                    AdsConsent.refresh(this)
+                    onResolved()
+                }
             },
             {
+                // Hata dalinda da durumu okuyoruz: canRequestAds() bazi
+                // bolgelerde riza gerekmedigi icin zaten true olabilir.
+                AdsConsent.refresh(this)
                 if (consentInformation.canRequestAds()) {
                     onResolved()
                 }

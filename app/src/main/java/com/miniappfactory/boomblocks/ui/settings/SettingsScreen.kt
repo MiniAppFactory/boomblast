@@ -82,6 +82,10 @@ fun SettingsScreen(
     notificationsEnabled: Boolean = true,
     onToggleNotifications: (Boolean) -> Unit = {},
     onOpenHowToPlay: () -> Unit = {},
+    // Faz 108: UMP gizlilik secenekleri girisi — yalnizca UMP "gerekli" dedigi
+    // bolgelerde gosterilir (bkz. AdsConsent.privacyOptionsRequired).
+    showPrivacyOptions: Boolean = false,
+    onShowPrivacyOptions: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
@@ -219,6 +223,31 @@ fun SettingsScreen(
             testTag = "settings_how_to_play_row",
             palette = palette
         )
+
+        // Faz 108: UMP "Gizlilik Seçenekleri" girişi. Google'in AB Kullanici
+        // Rizasi Politikasi, form gerektiginde uygulamanin kullaniciya rizayi
+        // SONRADAN degistirebilecegi kalici bir giris noktasi sunmasini zorunlu
+        // kiliyor — bugune kadar hic yoktu, yani ilk aciliste verilen cevap geri
+        // alinamiyordu. Yaptirim Play incelemesinden cok AdMob hesap seviyesinde
+        // (ad serving limited) gelir.
+        //
+        // Satir yalnizca UMP "gerekli" dedigi bolgelerde (fiilen AB/İngiltere)
+        // gorunur; AB disindaki oyuncuya anlamsiz bir menu maddesi cikmaz.
+        if (showPrivacyOptions) {
+            SettingsNavRow(
+                icon = "🔐",
+                label = language.pick(
+                    tr = "Gizlilik Seçenekleri",
+                    en = "Privacy Options",
+                    it = "Opzioni Privacy",
+                    fr = "Options de Confidentialité",
+                    es = "Opciones de Privacidad"
+                ),
+                onClick = onShowPrivacyOptions,
+                testTag = "settings_privacy_options_row",
+                palette = palette
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 

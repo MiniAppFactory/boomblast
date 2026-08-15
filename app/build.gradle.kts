@@ -41,8 +41,13 @@ android {
     // + sok dalgasi (106), 16 eksik donme yonu: 18 -> 34 parca (107).
     // versionName 1.0.4 -> 1.0.5: 1.0.4 Alpha kanalina yuklendi, ayni ada FARKLI
     // bir build vermek karisiklik yaratir.
-    versionCode = 7
-    versionName = "1.0.5"
+    // Faz 108 (release): 7 -> 8. vc7 AAB'si uretildi ama yayina alinmadi;
+    // uzerine reklam/riza uyum duzeltmeleri geldi (interstitial cift dokunma
+    // korumasi, banner yukseklik rezervasyonu + tepsiden uzaklastirma, UMP
+    // gizlilik secenekleri girisi, canRequestAds kapisi). Ayni versionCode ile
+    // FARKLI bir ikili uretmemek icin numara artirildi.
+    versionCode = 8
+    versionName = "1.0.6"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

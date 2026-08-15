@@ -24,6 +24,15 @@ object RewardedAdManager {
         // cagriliyor, SADECE "artik yukleme/gosterim bitti" sinyali icin.
         onAdClosed: () -> Unit = {}
     ) {
+        // Faz 108: riza kapisi. canRequestAds() false iken (AB'de riza
+        // alinmamis/geri cekilmis) reklam ISTENMEZ. onFailure + onAdClosed
+        // yine cagrilir — cagiran taraf bunu no-fill ile ayni sekilde
+        // isliyor, yani oyuncu kilitlenmez ve devam hakkini kaybetmez.
+        if (!AdsConsent.canRequestAds) {
+            onFailure()
+            onAdClosed()
+            return
+        }
         RewardedAd.load(
             context,
             AdIds.rewardedAdUnitId(),
