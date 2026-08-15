@@ -10,18 +10,21 @@ class LevelGeneratorTest {
     fun `level 1 has base target score and easiest shape pool`() {
         val def = LevelGenerator.forLevel(1)
         assertEquals(1, def.number)
-        assertEquals(100, def.targetScore)
+        // Faz 110: Career Mode Level 1-10 binding phase, target score = 200 + (n-1)*40
+        assertEquals(200, def.targetScore)
         assertEquals(1, def.shapePoolTier)
     }
 
     @Test
-    fun `target score increases by a flat 5 points per level`() {
-        // Faz 64: kademeli egri terk edildi, artik her yerde sabit +5.
-        assertEquals(5, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
-        assertEquals(5, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
+    fun `target score increases by expected increments per level`() {
+        // Faz 110: Career Mode Level 1-10 binding phase = +40/level,
+        // Level 11+ = +5/level (seamless from Level 10 = 560).
+        assertEquals(40, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
+        assertEquals(40, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
         assertEquals(5, LevelGenerator.forLevel(20).targetScore - LevelGenerator.forLevel(19).targetScore)
         assertEquals(5, LevelGenerator.forLevel(35).targetScore - LevelGenerator.forLevel(34).targetScore)
-        assertEquals(345, LevelGenerator.forLevel(50).targetScore)
+        // Level 50: 560 + (50-10)*5 = 560 + 200 = 760
+        assertEquals(760, LevelGenerator.forLevel(50).targetScore)
     }
 
     @Test
@@ -36,7 +39,8 @@ class LevelGeneratorTest {
     fun `non-positive level numbers are coerced to level 1`() {
         val def = LevelGenerator.forLevel(0)
         assertEquals(1, def.number)
-        assertEquals(100, def.targetScore)
+        // Faz 110: Level 1 = 200 (Career Mode binding phase)
+        assertEquals(200, def.targetScore)
     }
 
     @Test

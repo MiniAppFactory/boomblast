@@ -310,8 +310,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             // olmadan oyuncu seviyeleri ucretsiz geçebiliyordu, bu da
                             // reklam gelirini cok dusuruyordu. Faz 42: kullanici istegiyle
                             // "her 2 bolumde bir" -> "her bolum sonrasi" (esik 2 -> 1).
+                            //
+                            // Faz 110: Career Mode — Level 1-10'de binding phase'i
+                            // desteklemek icin reklam sikligi azaltildi: Her 2 levelda 1
+                            // (2, 4, 6, 8, 10), Level 11+ standard "her level" davranisi.
+                            val shouldShowAd = LevelGenerator.shouldShowInterstitialAfterLevel(level)
                             val activity = context.findActivity()
-                            if (progress.levelsCompletedSinceInterstitial >= 1 && activity != null) {
+                            if (shouldShowAd && activity != null) {
                                 viewModel.resetLevelsSinceInterstitial()
                                 InterstitialAdManager.loadAndShow(
                                     context = context,
@@ -514,8 +519,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             // "levelsCompletedSinceInterstitial" sayacini
                             // paylasiyor — iki modda birlesik "her bolum"
                             // esigi, ayri bir sayac eklemeye gerek yok.
+                            //
+                            // Faz 110: Pro Mode Level 1-10'de de Career Mode'la ayni
+                            // reklam stratejisi — binding phase (her 2 levelda 1), Level 11+
+                            // ise standart "her level" davranisi.
+                            val shouldShowAd = LevelGenerator.shouldShowInterstitialAfterLevel(level)
                             val activity = context.findActivity()
-                            if (progress.levelsCompletedSinceInterstitial >= 1 && activity != null) {
+                            if (shouldShowAd && activity != null) {
                                 viewModel.resetLevelsSinceInterstitial()
                                 InterstitialAdManager.loadAndShow(
                                     context = context,

@@ -33,7 +33,16 @@ object LevelGenerator {
     // zaman zorlasmiyor gibi hissettiren" bir egri: her seviye bir oncekine
     // neredeyse ozdes, oyuncu skill/challenge yerine sadece "bir tane daha
     // gectim" tekrarindan motive oluyor.
-    private fun targetScoreForLevel(n: Int): Int = 100 + (n - 1) * 5
+    //
+    // Faz 110: Career Mode (Level 1-10) — binding phase: reklam sikligi
+    // azaltildi (her 2 levelda 1) oyuncuyu takip etmek amaciyla. Puan serti
+    // de dinamik: Level 1-10'da hedef 45-60 sn oynanis (1 star) vermek icin
+    // +40/seviye (200, 240, 280, ..., 560). Level 11+ ise Level 10'dan
+    // seamless devam: 560 + (n-10)*5.
+    private fun targetScoreForLevel(n: Int): Int = when {
+        n <= 10 -> 200 + (n - 1) * 40
+        else -> 560 + (n - 10) * 5
+    }
 
     // Faz 77: Pro Mode — "daha zor zorluk eğrisi, daha yüksek puan çarpanı"
     // (handover 6.1). Faz 79'da zorluk agirligi PUANDAN PARCA HAVUZUNA
@@ -43,13 +52,28 @@ object LevelGenerator {
     // onerisi: "zorlugu parcadan yonetirsek puanı o kadar dik tutmaya gerek yok").
     // 1.5x puan carpani ve shapePoolTier (dead/kullanilmiyor, bkz. generateNewTray)
     // aynen kaliyor.
+    //
+    // Faz 110: Pro Mode de Career Mode stratejisini takip et — Level 1-10
+    // binding phase: daha yiksekcek puan (250 base), Level 11+ ise seamless
+    // (Level 10 = 700 + (n-10)*5).
     fun forChallengeLevel(number: Int): LevelDefinition {
         val safeNumber = number.coerceAtLeast(1)
-        val targetScore = 150 + (safeNumber - 1) * 10
+        val targetScore = when {
+            safeNumber <= 10 -> 250 + (safeNumber - 1) * 50
+            else -> 700 + (safeNumber - 10) * 5
+        }
         val shapePoolTier = when {
             safeNumber <= 2 -> 2
             else -> 3
         }
         return LevelDefinition(safeNumber, targetScore, shapePoolTier, scoreMultiplier = 1.5f)
+    }
+
+    // Faz 110: Career Mode reklam sinlifi. Level 1-10'de binding phase'i
+    // destelemek icin her 2 levelda 1 reklam (2, 4, 6, 8, 10); Level 11+'da
+    // standard "her level" gosterimine gecis.
+    fun shouldShowInterstitialAfterLevel(level: Int): Boolean = when {
+        level <= 10 -> level % 2 == 0  // çift seviyelerde (2, 4, 6, 8, 10)
+        else -> true  // Level 11+ her level sonrası
     }
 }
