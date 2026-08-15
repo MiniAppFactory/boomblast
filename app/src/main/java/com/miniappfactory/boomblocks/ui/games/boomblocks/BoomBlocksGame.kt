@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
@@ -69,18 +71,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -90,6 +97,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -116,8 +124,10 @@ import com.miniappfactory.boomblocks.utils.SoundManager
 import com.miniappfactory.boomblocks.utils.TextToSpeechManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
@@ -135,16 +145,52 @@ data class GameSnapshot(
     val score: Int
 )
 
-// Satır/kombo temizlenince fırlayan küçük parçacıklar icin — her biri sabit bir
-// baslangic hucresi + acı/mesafe ile, tek paylasilan bir Animatable ilerleme
-// degeriyle (0f->1f) animasyonlanir, ayrı ayrı Animatable acmaya gerek kalmaz.
-data class BlastParticle(
-    val row: Int,
-    val col: Int,
-    val angle: Float,
-    val distance: Float,
-    val color: Color
-)
+// Faz 107: patlama parcaciklari. Onceden `data class` + `List.map` ile her
+// patlamada YENIDEN uretiliyordu ve hepsi TEK bir `progress` paylasiyordu —
+// yani hepsi ayni anda dogup ayni anda oluyordu, duz cizgide, yercekimsiz.
+// Artik: sabit boyutlu bir HAVUZ (kare basi tahsis yok), parcacik basina
+// dogum gecikmesi/omur/boyut/donme, ve yukari yonelimli basit fizik.
+//
+// KRITIK BIRIM NOTU: tum konum/hiz/boyut degerleri HUCRE birimindedir
+// (1.0 = bir grid hucresi), ham piksel DEGIL. Eski kod `radius = 4f + ...`
+// yaziyordu; DrawScope'ta bu ham pikseldir, S8'in 3.0 yogunlugunda ~1.3dp
+// eder — parcaciklar fiilen gorunmuyordu. Hucre birimi kullanmak ayrica
+// tablet/telefon ve (banner reklam yuklenince kuculen) grid'de ayni hissi verir.
+const val MAX_BLAST_PARTICLES = 96
+// Parcacik penceresi: en gec dogan (300ms) + en uzun omur (600ms) = 900ms.
+const val PARTICLE_WINDOW_MS = 950
+const val PARTICLE_WINDOW_S = PARTICLE_WINDOW_MS / 1000f
+// Hucre/saniye^2. Parcaciklar yukari firlar, tepe noktasina ~0.44sn'de varir
+// ve dusmeye baslar — referanstaki "kucuk kupler huzme icinde yukari suzuluyor".
+const val PARTICLE_GRAVITY = 8f
+
+const val PK_DIAMOND = 0
+const val PK_CIRCLE = 1
+const val PK_STREAK = 2
+const val PK_MOTE = 3
+const val PK_STAR = 4
+
+class BlastParticle {
+    var kind = PK_DIAMOND
+    var x = 0f          // hucre birimi
+    var y = 0f
+    var vx = 0f         // hucre / saniye
+    var vy = 0f
+    var rot = 0f        // derece
+    var spin = 0f       // derece / saniye
+    var size = 0f       // hucre birimi
+    var delay = 0f      // saniye
+    var life = 0f       // saniye
+    var color = Color.White
+}
+
+// Faz 107: karakterli egriler. Duz `FastOutSlowInEasing` her asamayi ayni
+// hissettiriyordu; asagidakiler olculmus referans degerleri.
+// easeOutBack = %10 overshoot.
+val EaseOutBackBoom = CubicBezierEasing(0.175f, 0.885f, 0.32f, 1.275f)
+val EaseInCubicBoom = CubicBezierEasing(0.55f, 0.055f, 0.675f, 0.19f)
+val EaseOutCubicBoom = CubicBezierEasing(0.215f, 0.61f, 0.355f, 1f)
+val EaseOutQuartBoom = CubicBezierEasing(0.165f, 0.84f, 0.44f, 1f)
 
 // Faz 50: patlama noktasinda yukari suzulup solan "+N" puan yazisi (Block
 // Blast referansindan — kullanici "kayittan izle" dedi, orada her patlamada
@@ -156,6 +202,79 @@ data class ScorePopup(
     val text: String,
     val color: Color
 )
+
+// ---------------------------------------------------------------------------
+// Faz 1 (performans): alpha'si CIZIM FAZINDA okunan yuvarlak kenarlik.
+//
+// Sorun: `Modifier.border(w, NeonGold.copy(alpha = pulse), shape)` yazildiginda
+// `pulse` KOMPOZISYON fazinda okunur. Deger `infiniteRepeatable` ile saniyede 60
+// kez degistigi icin bu modifier zincirini iceren en yakin restart scope da
+// saniyede 60 kez yeniden derlenir. Bu dosyada o scope grid Card'inin content
+// lambda'siydi -> tahta boşken bile 64 hucrelik alt agac + overlay Canvas'lar +
+// kombo banner her karede yeniden derleniyordu (bkz. docs/PERF_BASELINE.md,
+// "Slow issue draw commands 704").
+//
+// `Modifier.border` bir `Brush` alir ama `Brush` **sealed** oldugu icin (Compose
+// 1.7) kendi "gec baglanan" Brush'imizi yazamiyoruz. Bu yuzden kenarligi kendimiz
+// ciziyoruz — ancak GEOMETRIYI uydurmadan: asagidaki hesap, Compose Foundation
+// 1.7.2 `BorderModifierNode.drawWithCacheModifierNode` + `drawRoundRectBorder`
+// bytecode'undan birebir cikarildi:
+//
+//   strokeWidthPx = min(ceil(width.toPx()), ceil(size.minDimension / 2f))
+//   fillArea      = strokeWidthPx * 2 > size.minDimension
+//   halfStroke    = strokeWidthPx / 2
+//   topLeft       = Offset(halfStroke, halfStroke)
+//   borderSize    = Size(width - strokeWidthPx, height - strokeWidthPx)
+//   cornerRadius  = max(0f, r - halfStroke)            // BorderKt.shrink
+//   style         = Stroke(strokeWidthPx)
+//
+// Cizim de `border` ile ayni sirada: once `drawContent()`, sonra stroke.
+// Rengi `SolidColor` brush + `alpha` parametresi ureter; `SolidColor.applyTo`
+// (bytecode) `p.color = value.copy(alpha = value.alpha * alpha)` yaptigi icin
+// opak bir taban renkle sonuc `color.copy(alpha = a)` ile BIT-BIREBIR aynidir.
+//
+// Compose'un ucuncu bir dali daha var (cornerRadius.x < halfStroke -> clipRect
+// difference + dolu roundRect). Bu dosyadaki tum cagrilar icin ulasilamaz:
+// r = 6dp veya 12dp, halfStroke <= (2*d + 1)/2 = d + 0.5 piksel, ve
+// 6*d >= d + 0.5 esitsizligi d >= 0.1 icin her zaman dogru.
+private fun Modifier.drawPhaseRoundedBorder(
+    width: Dp,
+    radius: Dp,
+    brush: Brush,
+    alpha: () -> Float
+): Modifier = this.drawWithCache {
+    val strokeWidthPx = min(ceil(width.toPx()), ceil(size.minDimension / 2f))
+    val r = radius.toPx()
+    when {
+        strokeWidthPx <= 0f || size.minDimension <= 0f -> onDrawWithContent { drawContent() }
+        strokeWidthPx * 2 > size.minDimension -> {
+            val corner = androidx.compose.ui.geometry.CornerRadius(r, r)
+            onDrawWithContent {
+                drawContent()
+                drawRoundRect(brush = brush, cornerRadius = corner, alpha = alpha())
+            }
+        }
+        else -> {
+            val halfStroke = strokeWidthPx / 2f
+            val topLeft = Offset(halfStroke, halfStroke)
+            val borderSize = Size(size.width - strokeWidthPx, size.height - strokeWidthPx)
+            val shrunk = (r - halfStroke).coerceAtLeast(0f)
+            val corner = androidx.compose.ui.geometry.CornerRadius(shrunk, shrunk)
+            val stroke = Stroke(strokeWidthPx)
+            onDrawWithContent {
+                drawContent()
+                drawRoundRect(
+                    brush = brush,
+                    topLeft = topLeft,
+                    size = borderSize,
+                    cornerRadius = corner,
+                    alpha = alpha(),
+                    style = stroke
+                )
+            }
+        }
+    }
+}
 
 // Faz 22: seviye tamamlanma anina ozel, tam ekran konfeti — grid'e gore konumlanan
 // BlastParticle'dan farkli olarak ekran genisligine (0f..1f) gore konumlanir.
@@ -598,6 +717,13 @@ fun BlastTheBlocksGame(
     var comboCount by remember { mutableIntStateOf(0) }
     var isGameOver by remember { mutableStateOf(false) }
     var isLevelComplete by remember { mutableStateOf(false) }
+    // Faz 107b: kullanici bildirdi — "son patlamayi goremeden ekrana Level Complete
+    // cikiyor". Kok neden: `isLevelComplete` placeShape icinde SENKRON set ediliyor
+    // (t=0), oysa patlama ritueli (beklenti 400-620ms + flash + huzme) async bir
+    // coroutine'de daha yeni basliyor. Yani bolumu bitiren patlama HIC gorulmuyordu.
+    // Cozum: mantik aynen kaliyor (ilerleme aninda kaydediliyor), sadece DIYALOGUN
+    // gorunurlugu ritual bitene kadar geciktiriliyor.
+    var levelCompleteRevealed by remember { mutableStateOf(false) }
     var lastClearedText by remember { mutableStateOf("") }
     var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -633,6 +759,13 @@ fun BlastTheBlocksGame(
     var shockRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var shockCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val shockProgress = remember { Animatable(0f) }
+    // Faz 107: hucreler yok olduktan SONRA yerinde kalan isik huzmesi. Referans
+    // olcumu: huzme ~690ms yasiyor ve patlamanin asil GOVDESI o — hucrelerin
+    // yok olusu (~110ms) sadece tetik. Iki asamali: once dar/keskin/beyaz
+    // cekirdek, sonra genisleyen yumusak altin bant.
+    var beamRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var beamCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val beamProgress = remember { Animatable(0f) }
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
 
@@ -660,24 +793,42 @@ fun BlastTheBlocksGame(
     // Faz 22: paylasilan, TEK infiniteTransition kaynaklari — her hucreye/karta
     // AYRI bir animasyon dongusu acmak (64 hucre + N kart) performans sorunu
     // yaratir, bunun yerine birkac paylasilan faz degeri hesaplanip asagi aktarilir.
-    val sharedPulse by rememberInfiniteTransition(label = "sharedPulse").animateFloat(
+    // Faz 1 (performans): bu ucu de `infiniteRepeatable`, yani HIC durmuyorlar.
+    // Artik `by` ile degil, State nesnesi olarak tutuluyorlar — degerleri sadece
+    // cizim fazinda (Canvas draw lambda'si, Brush.applyTo, graphicsLayer bloğu)
+    // `.value` ile okunur. Kompozisyon fazinda okunurlarsa en yakin restart scope
+    // saniyede 60 kez yeniden derlenir; bu dosyada o scope grid Card'inin content
+    // lambda'siydi (64 hucre + overlay'ler).
+    val sharedPulseState = rememberInfiniteTransition(label = "sharedPulse").animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "sharedPulseAnim"
     )
-    val ambientPhase by rememberInfiniteTransition(label = "ambientPhase").animateFloat(
+    val ambientPhaseState = rememberInfiniteTransition(label = "ambientPhase").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(26000, easing = LinearEasing), RepeatMode.Restart),
         label = "ambientPhaseAnim"
     )
-    val shimmerPhase by rememberInfiniteTransition(label = "shimmerPhase").animateFloat(
+    val shimmerPhaseState = rememberInfiniteTransition(label = "shimmerPhase").animateFloat(
         initialValue = 0f,
         targetValue = (2f * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
         label = "shimmerPhaseAnim"
     )
+
+    // Faz 1 (performans): `drawPhaseRoundedBorder` icin SABIT taban brush'lar.
+    // Renk/gradyan degismiyor — sadece alpha animasyonlu, o da cizim fazinda
+    // uygulaniyor. `remember` ediliyorlar ki modifier element esitligi bozulmasin
+    // (aksi halde her kompozisyonda drawWithCache onbellegi bosuna yenilenir) ve
+    // gradyan shader'i bir kez kurulsun (eskiden her karede yeni bir
+    // `Brush.linearGradient` nesnesi uretiliyordu).
+    val nearMissBorderBrush = remember { SolidColor(NeonGold) }
+    val streakCardBorderBrush = remember {
+        Brush.linearGradient(listOf(Color(0xFFFF6B35), NeonGold))
+    }
+    val clearGlowBorderBrush = remember { SolidColor(Color.White) }
 
     // Faz 22: bir satir/sutunda TAM 1 hucre bos kalinca, o satirdaki dolu
     // hucreler hafifce nabiz atarak "bir hamle kaldi" hissi verir (Woodoku/
@@ -733,8 +884,24 @@ fun BlastTheBlocksGame(
     val maxEndlessContinues = 4
     val shakeOffset = remember { Animatable(0f) }
     val comboTextScale = remember { Animatable(1f) }
-    var particleBurst by remember { mutableStateOf<List<BlastParticle>>(emptyList()) }
+    // Faz 107: sabit boyutlu parcacik HAVUZU — patlama basina `List.map` ile
+    // yeni nesne uretmek yerine ayni nesneler yeniden doldurulur (GC duraklamasi
+    // = jank). Havuz "patlama"ya ozel degil; ileride eklenecek ambient emitter
+    // de ayni havuzdan beslenebilsin diye jenerik tutuldu (bkz. spawn fonksiyonu).
+    val particlePool = remember { Array(MAX_BLAST_PARTICLES) { BlastParticle() } }
+    // Kac parcacigin AKTIF oldugu. Cizim lambda'si icinde okunur (kompozisyonda
+    // DEGIL) — aksi halde burst boyunca her karede recomposition tetiklenir.
+    var activeParticles by remember { mutableIntStateOf(0) }
     val particleProgress = remember { Animatable(0f) }
+    // 4 uclu yildiz — birim koordinatlarda BIR KEZ kurulur, her parcacik icin
+    // sadece transform uygulanir (sicak dongude Path tahsisi yok).
+    val sparkStarPath = remember {
+        Path().apply {
+            moveTo(0f, -1f); lineTo(0.24f, -0.24f); lineTo(1f, 0f); lineTo(0.24f, 0.24f)
+            lineTo(0f, 1f); lineTo(-0.24f, 0.24f); lineTo(-1f, 0f); lineTo(-0.24f, -0.24f)
+            close()
+        }
+    }
     // Faz 22: seviye tamamlanma kutlamasi — onceden bu an gorsel olarak sadece
     // skor/yildiz sayilarindan ibaretti (tasarim onerisi: rakip oyunlarda en
     // yuksek motivasyon aninin ozel bir gorseli olmaliydi).
@@ -1131,6 +1298,9 @@ fun BlastTheBlocksGame(
         armedBooster = null
         isGameOver = false
         isLevelComplete = false
+        // Faz 107b: gorunurluk bayragi da sifirlanmali, aksi halde yeniden
+        // baslatildiginda diyalog ekranda asili kalir.
+        levelCompleteRevealed = false
         showContinueDialog = false
         continuesUsedInAttempt = 0
         endlessContinuesUsed = 0
@@ -1197,6 +1367,18 @@ fun BlastTheBlocksGame(
     // Seviye tamamlaninca bir kerelik konfeti patlamasi.
     LaunchedEffect(isLevelComplete) {
         if (isLevelComplete) {
+            // Faz 107b: bolumu bitiren patlama izlensin diye bekle. Ritual:
+            // beklenti (tek satir 400ms / kombo 620ms) + flash 110ms + huzme 360ms.
+            // En uzun hâli ~1090ms; kombo olmayan durumda biraz erken gelmesi
+            // sorun degil, tersi (patlamayi kacirmak) sorun.
+            // Faz 107c: ritual kisaldi (beklenti 480 + flash 110 + huzme 280 = ~870),
+            // bekleme de ona gore indirildi. Bu deger ritual sureleriyle birlikte
+            // guncellenmezse diyalog gereksiz gec gelir.
+            delay(860)
+            levelCompleteRevealed = true
+            // Zafer sesi de burada calar — onceden placeShape icinde t=0'da
+            // caliyordu ve patlama sesinin uzerine biniyordu.
+            SoundManager.playSuccess(soundEnabled)
             confettiPieces = List(36) {
                 ConfettiPiece(
                     xFraction = Random.nextFloat(),
@@ -1419,10 +1601,51 @@ fun BlastTheBlocksGame(
             // bir Canvas katmaninda cizilecek.
             glowingRows = rowsToClear.toSet()
             glowingCols = colsToClear.toSet()
+            // Faz 107 (Kademe A — ritim): referans klibi kare kare olculdu ve
+            // ritmimizin TAM TERS oldugu ortaya cikti:
+            //   Block Blast : ~640ms beklenti -> ~60ms yok olus
+            //   Bizim (eski): ~250ms beklenti -> ~350ms flash sonmesi
+            // Yani onlar uzun bekletip ANI kesiyor, biz az bekletip uzun
+            // sonduruyorduk — "patlama" degil "eriyip gitme" hissi.
+            //
+            // Beklenti artik UZUN ve NABIZLI (tek rampa degil, 2 cevrim), yok
+            // olus ANI. Ama beklentiyi her patlamada 620ms yapmak Sonsuz Mod'da
+            // hizli oynayan biri icin fark edilir bir yavaslama olurdu ve tekli
+            // patlama vakaların cogunlugu — bu yuzden IKI ayri ritim:
+            //   tek satir & seri yok    -> 400ms (2 hizli nabiz, akici kalir)
+            //   coklu satir VEYA 2x+    -> 620ms (referansa yakin, "buyuk an")
+            // Boylece ritmin uzunlugu olayin buyuklugunu ANLATIR.
+            val isBigClear = totalLinesCleared >= 2 || comboCount >= 2
+            // Faz 107c: 400/620 -> 320/480. Kullanici cihazda "patlama suresi hala
+            // biraz daha kisaltilabilir" dedi. Beklenti oyuncuyu FIILEN bekletir
+            // (hucreler hala dolu, tahta guncellenmemis), o yuzden asil kesilecek
+            // yer burasi — huzme/parcacik ise tahta zaten temizken oynuyor.
+            // Nabiz yapisi korunuyor: keyframe'lerin hepsi bu degere oranli.
+            val anticipationMs = if (isBigClear) 480 else 320
             dragCoroutineScope.launch {
                 glowPulse.snapTo(0f)
-                glowPulse.animateTo(1f, animationSpec = tween(160, easing = FastOutSlowInEasing))
-                delay(90)
+                // 2 nabiz: parla -> kis -> daha parla -> kis -> patlamadan hemen
+                // once overshoot ile "sarj ol". Segment easing'leri kasitli
+                // asimetrik (cikis easeOutCubic = ani tutusma, inis easeInCubic
+                // = yumusak birakma); duz FastOutSlowIn her asamayi ayni
+                // hissettiriyordu. Son segmentteki easeOutBack overshoot'u
+                // 0.52 -> 0.95 araliginda kaldigi icin tepe ~0.99'da kalir,
+                // alpha 1.0'i asmaz (yine de okuma yerlerinde coerce ediliyor).
+                glowPulse.animateTo(
+                    targetValue = 0.95f,
+                    animationSpec = keyframes {
+                        durationMillis = anticipationMs
+                        0f at 0 using EaseOutCubicBoom
+                        0.85f at (anticipationMs * 0.20f).toInt() using EaseInCubicBoom
+                        0.40f at (anticipationMs * 0.42f).toInt() using EaseOutCubicBoom
+                        1.0f at (anticipationMs * 0.64f).toInt() using EaseInCubicBoom
+                        0.52f at (anticipationMs * 0.80f).toInt() using EaseOutBackBoom
+                        0.95f at anticipationMs
+                    }
+                )
+                // Onceden burada `delay(90)` vardi — rampanin KENDISI artik
+                // beklenti oldugu icin ek gecikme gereksiz (ve patlamayi
+                // olu bir bosluktan sonra tetikliyordu).
 
                 // Faz 33: ayni anda 2+ satir/sutun temizlenince (gercek kombo)
                 // tekli patlama yerine daha uzun/coskulu "kombo patlamasi" calar.
@@ -1440,9 +1663,34 @@ fun BlastTheBlocksGame(
                 glowingRows = emptySet()
                 glowingCols = emptySet()
                 recentlyClearedCells = clearedIndices
+                // Faz 107: 350ms -> 110ms. Yok olus ANI olmali; 350ms'lik sonme
+                // patlamayi "eriyip gitme"ye ceviriyordu. Kalici gorsel gövde
+                // artik asagidaki isik huzmesi (690ms).
                 dragCoroutineScope.launch {
                     clearFlashAlpha.snapTo(1f)
-                    clearFlashAlpha.animateTo(0f, animationSpec = tween(350))
+                    clearFlashAlpha.animateTo(0f, animationSpec = tween(110, easing = EaseOutQuartBoom))
+                }
+                // Faz 107 (Kademe B-1): ISIK HUZMESI. Hucreler gidince patlayan
+                // satir/sutun boyunca parlak bir serit kalir. Olcum: ~690ms ve
+                // IKI asamali — 1) dar/keskin beyaz cekirdek (~1/3 hucre),
+                // 2) genisleyip yumusayan yari saydam altin bant. Tek bir sonen
+                // dikdortgen DEGIL. Ilerleme LINEER: cizim tarafi bunu zaman
+                // olarak kullaniyor.
+                beamRows = rowsToClear.toSet()
+                beamCols = colsToClear.toSet()
+                dragCoroutineScope.launch {
+                    beamProgress.snapTo(0f)
+                    // Faz 107b: 690ms -> 360ms. Referans olcumu 690ms diyordu ama
+                    // kullanici cihazda "oyun takilmis gibi his veriyor" dedi.
+                    // Referansta huzme oyuncuyu BEKLETMIYOR (tahta zaten temiz,
+                    // oynamaya devam edilebiliyor); bizde ritmin gorsel agirligi
+                    // daha fazla hissediliyor. Sure yariya indirildi.
+                    // EASING LINEAR KALMALI: `bp` burada zaman tabani olarak
+                    // kullaniliyor (cizim tarafinda cekirdek ilk %30'da soner,
+                    // bant %18'den acilir). Easing degistirmek faz matematigini bozar.
+                    beamProgress.animateTo(1f, animationSpec = tween(280, easing = LinearEasing))
+                    beamRows = emptySet()
+                    beamCols = emptySet()
                 }
                 // Faz 106 (TODO 12): patlama animasyonu tek bir flash'ti — hucreler
                 // parlayip yok oluyordu, "patlama" hissi yalnizca parcaciklardan
@@ -1454,7 +1702,10 @@ fun BlastTheBlocksGame(
                 shockCols = colsToClear.toSet()
                 dragCoroutineScope.launch {
                     shockProgress.snapTo(0f)
-                    shockProgress.animateTo(1f, animationSpec = tween(420, easing = FastOutSlowInEasing))
+                    // Faz 107: 420ms/FastOutSlowIn -> 300ms/easeOutQuart. Yeni
+                    // ritimde dalga da "ani cikis, yavas sonme" olmali; eski
+                    // egri baslangicta yavastı ve vurus anini yumusatiyordu.
+                    shockProgress.animateTo(1f, animationSpec = tween(300, easing = EaseOutQuartBoom))
                     shockRows = emptySet()
                     shockCols = emptySet()
                 }
@@ -1487,25 +1738,68 @@ fun BlastTheBlocksGame(
                 // clearedIndices'ten BUYUK sayida parcacik istenebiliyor (kucuk bir
                 // tekli satir sadece 8 hucre saglar) — yerine koyarak (with replacement)
                 // ornekleme yapiliyor ki yogunluk gercekten combo/coklu-satir ile artsin.
+                // Faz 107 (Kademe B-2): parcacik SAYISI degil KALITESI degisti.
+                // Referans olcumu bir sutun temizlemesinde ~15 kup + 2-3 yildiz
+                // gosteriyor, yani mevcut 20-80 araligi zaten dogru — sayiyi
+                // artirmak yanlis olurdu. Degisen: tur cesitliligi (esk. hepsi
+                // daire), yukari yonelim, yercekimi, surtunme, parcacik basina
+                // omur/gecikme/boyut, ve donme.
+                // Tur dagilimi referanstan: ~%51 eskenar dortgen, %15 daire,
+                // %9 serit, %15 kare zerre, %10 dort-uclu yildiz.
                 val clearedList = clearedIndices.toList()
-                val particleCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10).coerceIn(20, 80)
-                particleBurst = List(particleCount) { clearedList[Random.nextInt(clearedList.size)] }.map { index ->
-                    val r = index / gridSize
-                    val c = index % gridSize
+                val burstCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10)
+                    .coerceIn(20, MAX_BLAST_PARTICLES)
+                for (i in 0 until burstCount) {
+                    val index = clearedList[Random.nextInt(clearedList.size)]
+                    val p = particlePool[i]
                     val cellColor = BLOCK_COLORS.getOrElse((board[index] - 1).coerceAtLeast(0)) { NeonCyan }
-                    // Faz 106 (TODO 12): parcaciklarin cogunlugu artik patlamayi
-                    // TETIKLEYEN parcanin rengini tasiyor — satir tek renge donerken
-                    // konfetinin karisik kalmasi ikisini birbirinden kopariyordu.
-                    // Tamami tek renk de yapilmadi: %30 hucrenin kendi rengi kalinca
-                    // patlama tek duze bir renk lekesi olmuyor, doku koruniyor.
-                    BlastParticle(
-                        row = r,
-                        col = c,
-                        angle = Random.nextFloat() * (2f * Math.PI.toFloat()),
-                        distance = 28f + Random.nextFloat() * 36f,
-                        color = if (Random.nextFloat() < 0.7f) clearAccentColor else cellColor
-                    )
+                    val roll = Random.nextFloat()
+                    p.kind = when {
+                        roll < 0.51f -> PK_DIAMOND
+                        roll < 0.66f -> PK_CIRCLE
+                        roll < 0.75f -> PK_STREAK
+                        roll < 0.90f -> PK_MOTE
+                        else -> PK_STAR
+                    }
+                    // Hucre icinde rastgele bir noktadan dogar (tam merkezden
+                    // degil) — hepsi ayni noktadan ciktiginda "sacilma" degil
+                    // "yildiz patlamasi" gorunuyordu.
+                    p.x = (index % gridSize) + 0.15f + Random.nextFloat() * 0.70f
+                    p.y = (index / gridSize) + 0.15f + Random.nextFloat() * 0.70f
+                    // Yatay menzil bilerek dar: efekt katmani grid Card'inin
+                    // ICINDE, yani tahta sinirinda KIRPILIYOR. Referansta konfeti
+                    // tahtanin ~0.6 hucre disina tasiyor ama bizde tasan parcacik
+                    // gorunmeyecegi icin "kesilmis" gorunurdu (bkz. rapor notu).
+                    p.vx = (Random.nextFloat() - 0.5f) * 2.4f
+                    // Yukari yonelim (negatif = yukari).
+                    p.vy = -(2.5f + Random.nextFloat() * 2.2f)
+                    p.rot = Random.nextFloat() * 360f
+                    // Donme sadece dortgen ve seritlerde anlamli; daire/zerrede
+                    // gorsel karsiligi yok, bosuna hesap.
+                    p.spin = if (p.kind == PK_DIAMOND || p.kind == PK_STREAK) {
+                        (Random.nextFloat() - 0.5f) * 520f
+                    } else 0f
+                    p.size = when (p.kind) {
+                        PK_DIAMOND -> 0.20f
+                        PK_CIRCLE -> 0.13f
+                        PK_STREAK -> 0.10f
+                        PK_MOTE -> 0.11f
+                        else -> 0.26f
+                    }
+                    // Hepsi ayni anda dogmaz: 0-300ms rastgele gecikme.
+                    p.delay = Random.nextFloat() * 0.30f
+                    // Kiymik omru 300-600ms.
+                    p.life = 0.30f + Random.nextFloat() * 0.30f
+                    // Faz 106: cogunluk patlamayi TETIKLEYEN parcanin renginde,
+                    // %30 hucrenin kendi renginde (doku korunuyor). Yildizlar
+                    // additive ciziliyor, bu yuzden beyaz.
+                    p.color = when {
+                        p.kind == PK_STAR -> Color.White
+                        Random.nextFloat() < 0.7f -> clearAccentColor
+                        else -> cellColor
+                    }
                 }
+                activeParticles = burstCount
 
                 // Clear cells
                 rowsToClear.forEach { r ->
@@ -1537,21 +1831,46 @@ fun BlastTheBlocksGame(
 
                 dragCoroutineScope.launch {
                     particleProgress.snapTo(0f)
-                    particleProgress.animateTo(1f, animationSpec = tween(500))
+                    // KRITIK: LinearEasing sart. Cizim tarafi bu ilerlemeyi
+                    // GERCEK ZAMAN olarak kullanip fizigi (v*t + 0.5*g*t^2)
+                    // hesapliyor; egrili bir tween zamani bukup yercekimini
+                    // yanlis gosterirdi. Eski kod tween(500) ile varsayilan
+                    // FastOutSlowIn kullaniyordu.
+                    particleProgress.animateTo(
+                        1f,
+                        animationSpec = tween(PARTICLE_WINDOW_MS, easing = LinearEasing)
+                    )
                 }
 
-                // Kombo metni: her patlamada kisa bir "pop" ile buyuyup normale donuyor
+                // Kombo metni: olculen referans girisi ~100ms overshoot'lu.
+                // Eskiden 1.5x'ten yaya birakiliyordu (sadece kuculme). Artik
+                // kucukten overshoot ile GIRIYOR, sonra elastik oturuyor.
+                // Yay: Compose varsayilani stiffness=1500 kutlama icin fazla
+                // keskin — 400/0.5 elastic.easeOut'a cok daha yakin.
                 dragCoroutineScope.launch {
-                    comboTextScale.snapTo(1.5f)
-                    comboTextScale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                    comboTextScale.snapTo(0.62f)
+                    comboTextScale.animateTo(1.12f, animationSpec = tween(100, easing = EaseOutBackBoom))
+                    comboTextScale.animateTo(
+                        1f,
+                        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f)
+                    )
                 }
 
-                // Ekran sarsintisi: sadece buyuk temizlemelerde (coklu satir veya yuksek kombo)
-                if (totalLinesCleared > 1 || comboCount >= 3) {
+                // Faz 107 (urun karari): ekran sarsintisi artik SADECE gercekten
+                // buyuk anlarda. Referansta (Block Blast) sarsinti SIFIR — tahta
+                // paneli 6x zoom'da birebir sabit — ama tamamen kaldirmak yerine
+                // karakterimizi koruyup esigi yukselttik: eskiden 2 satir bile
+                // (totalLinesCleared > 1) sarsiyordu, yani neredeyse her kombo
+                // ekrani titretiyordu. Artik 3+ satir VEYA 3x+ kombo.
+                if (totalLinesCleared >= 3 || comboCount >= 3) {
                     dragCoroutineScope.launch {
-                        // 10f (raw piksel) neredeyse fark edilmiyordu (kullanici geri
-                        // bildirimi: "ekranda titreme falan olmadı") — 24f'ye yukseltildi.
-                        val amplitude = 24f
+                        // Eiserloh modeli: siddet DOGRUSAL degil, trauma^2 ile
+                        // artar — kucuk anlarda neredeyse hissedilmez, buyuk anda
+                        // vurur. Tavan 24f -> 20f'ye cekildi (urun karari: buyuk
+                        // an icin bile "bir tik azalt").
+                        val shakeSteps = maxOf(totalLinesCleared - 2, comboCount - 2).coerceIn(1, 4)
+                        val trauma = shakeSteps / 4f
+                        val amplitude = 20f * (0.35f + 0.65f * trauma * trauma)
                         shakeOffset.snapTo(0f)
                         shakeOffset.animateTo(amplitude, animationSpec = tween(40))
                         shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
@@ -1577,7 +1896,8 @@ fun BlastTheBlocksGame(
         // oyun devam ediyor).
         if (!isEndless && !isLevelComplete && score >= targetScore && totalLinesCleared > 0) {
             isLevelComplete = true
-            SoundManager.playSuccess(soundEnabled)
+            // Ses artik yukaridaki LaunchedEffect'te, ritual bitince calar
+            // (bkz. Faz 107b notu) — patlama sesinin uzerine binmesin.
             onLevelComplete(score, computeStars(score, targetScore))
             return
         }
@@ -1607,6 +1927,9 @@ fun BlastTheBlocksGame(
         // "hafif atmosferik arka plan hareketi"). Cok yavas kayan, dusuk kontrastli
         // iki blob — pil/performans dostu olmasi icin tek paylasilan ambientPhase'e bagli.
         Canvas(modifier = Modifier.fillMaxSize()) {
+            // Zaten cizim lambda'si icinde okunuyordu (dogru desen) — sadece isim
+            // degisti, davranis ayni.
+            val ambientPhase = ambientPhaseState.value
             val twoPi = (2.0 * Math.PI).toFloat()
             val cx1 = size.width * (0.3f + 0.2f * sin(ambientPhase * twoPi))
             val cy1 = size.height * (0.2f + 0.15f * cos(ambientPhase * twoPi * 0.7f))
@@ -1773,7 +2096,19 @@ fun BlastTheBlocksGame(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = palette.textPrimary,
-                            modifier = Modifier.scale(scoreScale.value)
+                            // Faz 1 (performans): `Modifier.scale(v)` degeri
+                            // KOMPOZISYONDA okur; her skor degisiminde yay
+                            // animasyonu boyunca bu Card'in content'i her karede
+                            // yeniden derleniyordu. `Modifier.scale(x, y)` zaten
+                            // `graphicsLayer(scaleX, scaleY, clip = false)`e
+                            // cevriliyor (bytecode'dan dogrulandi) — lambda'li
+                            // surum ayni katmani kurar, sadece degeri cizim
+                            // fazinda okur. Gorsel cikti ayni.
+                            modifier = Modifier.graphicsLayer {
+                                val s = scoreScale.value
+                                scaleX = s
+                                scaleY = s
+                            }
                         )
                     }
                 }
@@ -1792,13 +2127,20 @@ fun BlastTheBlocksGame(
                         .padding(horizontal = 2.dp)
                         .then(
                             if (isOnStreak) {
-                                Modifier.border(
+                                // Faz 1 (performans): eskiden gradyanin renkleri
+                                // `sharedPulse` ile KOMPOZISYONDA uretiliyordu —
+                                // 3+ seri boyunca TUM oyun ekrani (bu modifier
+                                // en dis composable scope'ta) her karede yeniden
+                                // derleniyordu. Artik gradyan bir kez kuruluyor,
+                                // alpha cizim fazinda uygulaniyor. Iki durak da
+                                // AYNI alpha'yi tasidigi icin "renkleri alpha=a
+                                // ile kurulmus gradyan" ile "opak gradyan + paint
+                                // alpha a" ayni sonucu verir.
+                                Modifier.drawPhaseRoundedBorder(
                                     width = 1.5.dp,
-                                    brush = Brush.linearGradient(
-                                        listOf(Color(0xFFFF6B35).copy(alpha = sharedPulse), NeonGold.copy(alpha = sharedPulse))
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
+                                    radius = 12.dp,
+                                    brush = streakCardBorderBrush
+                                ) { sharedPulseState.value }
                             } else {
                                 Modifier
                             }
@@ -2061,7 +2403,17 @@ fun BlastTheBlocksGame(
                                             colorIndex = cellVal,
                                             theme = currentTheme,
                                             modifier = Modifier.fillMaxSize(),
-                                            shimmerPhase = shimmerPhase + (r + c) * 0.4f
+                                            // Faz 1 (performans): BU SATIR baseline'daki
+                                            // "Slow issue draw commands" baskinliginin kok
+                                            // nedeniydi. `shimmerPhase` bir deger olarak
+                                            // gecilince kompozisyonda okunuyordu ve
+                                            // `infiniteRepeatable` hic durmadigi icin —
+                                            // TAHTA BOSKEN BILE — grid Card'inin content
+                                            // lambda'si (64 hucre + tum overlay'ler + kombo
+                                            // banner) saniyede 60 kez yeniden deriliyordu.
+                                            // Artik lambda: deger EmbossedBlockCell'in
+                                            // Canvas draw lambda'sinda okunuyor.
+                                            shimmerPhase = { shimmerPhaseState.value + (r + c) * 0.4f }
                                         )
                                     }
                                     // Faz 22: satir/sutun tam 1 hucre eksikken dolu hucreler
@@ -2070,11 +2422,20 @@ fun BlastTheBlocksGame(
                                         (r * gridSize + c) in nearMissCells &&
                                         (r * gridSize + c) !in glowingClearCells
                                     ) {
+                                        // Faz 1 (performans): `NeonGold.copy(alpha = sharedPulse)`
+                                        // kompozisyonda okunuyordu; near-miss aktifken tum grid
+                                        // alt agaci her karede yeniden derileniyordu. Ayni
+                                        // geometri (bkz. drawPhaseRoundedBorder), alpha artik
+                                        // cizim fazinda.
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .border(1.5.dp, NeonGold.copy(alpha = sharedPulse), RoundedCornerShape(6.dp))
+                                                .drawPhaseRoundedBorder(
+                                                    width = 1.5.dp,
+                                                    radius = 6.dp,
+                                                    brush = nearMissBorderBrush
+                                                ) { sharedPulseState.value }
                                         )
                                     }
                                     if ((r * gridSize + c) in glowingClearCells) {
@@ -2089,8 +2450,31 @@ fun BlastTheBlocksGame(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(clearAccentColor.copy(alpha = glowPulse.value * 0.8f))
-                                                .border(2.dp, Color.White.copy(alpha = glowPulse.value * 0.9f), RoundedCornerShape(6.dp))
+                                                // Faz 107: nabizli beklenti egrisi son
+                                                // segmentte overshoot yapiyor — alpha'nin
+                                                // 1.0'i asmamasi icin coerce.
+                                                // Faz 1 (performans): coerce/carpim ifadeleri
+                                                // AYNEN korundu, sadece cizim lambda'sina
+                                                // tasindi — beklenti glow'u (320/480ms)
+                                                // boyunca artik recomposition degil yeniden
+                                                // cizim oluyor.
+                                                // `Modifier.background(color)` sekil
+                                                // verilmediginde tam olarak `drawRect(color)`
+                                                // + `drawContent()` yapar; drawBehind ayni
+                                                // sirada ayni cagriyi yapiyor (yuvarlatma
+                                                // zaten onceki .clip'ten geliyordu).
+                                                .drawBehind {
+                                                    drawRect(
+                                                        color = clearAccentColor.copy(
+                                                            alpha = (glowPulse.value * 0.8f).coerceIn(0f, 1f)
+                                                        )
+                                                    )
+                                                }
+                                                .drawPhaseRoundedBorder(
+                                                    width = 2.dp,
+                                                    radius = 6.dp,
+                                                    brush = clearGlowBorderBrush
+                                                ) { (glowPulse.value * 0.9f).coerceIn(0f, 1f) }
                                         )
                                         if ((r + c) % 3 == 0) {
                                             Text(
@@ -2098,7 +2482,15 @@ fun BlastTheBlocksGame(
                                                 fontSize = 12.sp,
                                                 modifier = Modifier
                                                     .align(Alignment.TopEnd)
-                                                    .alpha(glowPulse.value)
+                                                    // Faz 1 (performans): `Modifier.alpha(v)`
+                                                    // = `graphicsLayer(alpha = v, clip = true)`
+                                                    // (bytecode'dan dogrulandi) ve degeri
+                                                    // kompozisyonda okur. Lambda'li surum ayni
+                                                    // katmani ayni clip ile kurar.
+                                                    .graphicsLayer {
+                                                        alpha = glowPulse.value.coerceIn(0f, 1f)
+                                                        clip = true
+                                                    }
                                             )
                                         }
                                     }
@@ -2113,16 +2505,14 @@ fun BlastTheBlocksGame(
                                                 .border(1.dp, tint, RoundedCornerShape(6.dp))
                                         )
                                     }
-                                    if ((r * gridSize + c) in recentlyClearedCells && clearFlashAlpha.value > 0f) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(6.dp))
-                                                // Faz 106 (TODO 12): sabit NeonGold degil,
-                                                // patlamayi tetikleyen parcanin rengi.
-                                                .background(clearAccentColor.copy(alpha = clearFlashAlpha.value * 0.85f))
-                                        )
-                                    }
+                                    // Faz 107: "temizlenmis hucre flash'i" ONCEDEN burada,
+                                    // hucre basina bir Box olarak ciziliyordu ve kosulu
+                                    // `clearFlashAlpha.value > 0f` idi — yani animasyon
+                                    // degeri KOMPOZISYON kapsaminda okunuyordu ve flash
+                                    // suresince 64 hucrelik bu alt agac her karede yeniden
+                                    // derleniyordu. Flash artik asagidaki tek Canvas
+                                    // katmaninda, huzme ile ayni yerde ciziliyor (deger
+                                    // sadece draw lambda'sinda okunuyor).
                                 }
                             }
                         }
@@ -2136,7 +2526,7 @@ fun BlastTheBlocksGame(
                         val cell = size.width / gridSize
                         val strokeWidth = 3.dp.toPx()
                         // Faz 106 (TODO 12): cerceve de tetikleyen parcanin rengini alir.
-                        val glowColor = clearAccentColor.copy(alpha = glowPulse.value)
+                        val glowColor = clearAccentColor.copy(alpha = glowPulse.value.coerceIn(0f, 1f))
                         glowingRows.forEach { r ->
                             drawRoundRect(
                                 color = glowColor,
@@ -2192,6 +2582,109 @@ fun BlastTheBlocksGame(
                     }
                 }
 
+                // Faz 107 (Kademe B-1): ISIK HUZMESI + temizlenen hucre flash'i.
+                // Referans olcumu: hucreler tek karede yok oluyor, yerlerinde
+                // ~690ms yasayan bir isik seridi kaliyor — patlamanin asil
+                // gorsel govdesi bu. Iki asama:
+                //   1) ~0-205ms  : dar (~1/3 hucre), keskin, BEYAZ cekirdek (additive)
+                //   2) ~140-690ms: tam hucre genisligine acilan yumusak altin bant
+                // Sifir varlik: sadece transparent->renk->transparent gradyan
+                // dikdortgenler. Modifier.blur KULLANILMIYOR — API 31+ ve
+                // minSdk 24'te sessizce yok sayiliyor; yumusaklik gradyandan geliyor.
+                if (beamRows.isNotEmpty() || beamCols.isNotEmpty()) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        // TUM animasyon degerleri draw lambda'si icinde okunuyor:
+                        // boylece her karede sadece YENIDEN CIZIM olur, recomposition
+                        // olmaz.
+                        val bp = beamProgress.value
+                        if (bp >= 1f) return@Canvas
+                        val cell = size.width / gridSize
+                        // Cekirdek ilk %30'da soner (690ms * 0.30 = ~207ms).
+                        val core = (1f - bp / 0.30f).coerceIn(0f, 1f)
+                        // Bant %18'den itibaren acilir ve sona kadar soner.
+                        val wide = ((bp - 0.18f) / 0.82f).coerceIn(0f, 1f)
+                        val fade = 1f - wide
+                        val bandHalf = cell * (0.34f + 0.66f * wide) * 0.5f
+                        val bandAlpha = fade * fade * 0.55f
+                        val coreHalf = cell * 0.30f * 0.5f
+                        val bandColor = clearAccentColor.copy(alpha = bandAlpha)
+                        val coreColor = Color.White.copy(alpha = core)
+                        val clear = Color.Transparent
+
+                        // Patlama anindaki hucre flash'i (110ms) — eskiden hucre
+                        // basina bir Box'ti, artik burada.
+                        val fa = clearFlashAlpha.value
+                        if (fa > 0f) {
+                            val flashColor = clearAccentColor.copy(alpha = (fa * 0.85f).coerceIn(0f, 1f))
+                            val inset = 1.5.dp.toPx()
+                            val corner = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                            recentlyClearedCells.forEach { index ->
+                                val fr = index / gridSize
+                                val fc = index % gridSize
+                                drawRoundRect(
+                                    color = flashColor,
+                                    topLeft = Offset(fc * cell + inset, fr * cell + inset),
+                                    size = Size(cell - inset * 2, cell - inset * 2),
+                                    cornerRadius = corner
+                                )
+                            }
+                        }
+
+                        beamRows.forEach { r ->
+                            val cy = (r + 0.5f) * cell
+                            if (bandAlpha > 0.004f) {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(clear, bandColor, clear),
+                                        startY = cy - bandHalf,
+                                        endY = cy + bandHalf
+                                    ),
+                                    topLeft = Offset(0f, cy - bandHalf),
+                                    size = Size(size.width, bandHalf * 2f)
+                                )
+                            }
+                            if (core > 0.004f) {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(clear, coreColor, clear),
+                                        startY = cy - coreHalf,
+                                        endY = cy + coreHalf
+                                    ),
+                                    topLeft = Offset(0f, cy - coreHalf),
+                                    size = Size(size.width, coreHalf * 2f),
+                                    blendMode = BlendMode.Plus
+                                )
+                            }
+                        }
+                        beamCols.forEach { c ->
+                            val cx = (c + 0.5f) * cell
+                            if (bandAlpha > 0.004f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(clear, bandColor, clear),
+                                        startX = cx - bandHalf,
+                                        endX = cx + bandHalf
+                                    ),
+                                    topLeft = Offset(cx - bandHalf, 0f),
+                                    size = Size(bandHalf * 2f, size.height)
+                                )
+                            }
+                            if (core > 0.004f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(clear, coreColor, clear),
+                                        startX = cx - coreHalf,
+                                        endX = cx + coreHalf
+                                    ),
+                                    topLeft = Offset(cx - coreHalf, 0f),
+                                    size = Size(coreHalf * 2f, size.height),
+                                    blendMode = BlendMode.Plus
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Faz 51 + Faz 106 (TODO 11): surukleme ONIZLEMESI. Faz 51'de
                 // tamamlanacak satir/sutunun etrafina yalnizca ince bir CERCEVE
                 // ciziliyordu; kullanici Block Blast'ta satirin TAMAMININ, o parcanin
@@ -2209,6 +2702,8 @@ fun BlastTheBlocksGame(
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val cell = size.width / gridSize
                             val strokeWidth = 3.dp.toPx()
+                            // Zaten cizim lambda'si icinde okunuyordu (dogru desen).
+                            val sharedPulse = sharedPulseState.value
                             val previewColor = previewBase.copy(alpha = sharedPulse)
                             val fillColor = previewBase.copy(alpha = 0.20f + sharedPulse * 0.22f)
                             val fillInset = 1.5.dp.toPx()
@@ -2255,6 +2750,20 @@ fun BlastTheBlocksGame(
                 }
 
                 // Faz 50: patlama noktasinda yuzen "+N" puan yazisi.
+                //
+                // Faz 1 (performans) — BILEREK DOKUNULMADI. `popupProgress` burada
+                // hala kompozisyon fazinda okunuyor ve popup yasarken (~700ms) bu
+                // scope her karede yeniden deriliyor. Cizim fazina tasimak GORSEL
+                // DEGISIKLIK yaratirdi:
+                //   - `color = popup.color.copy(alpha = popupAlpha)` sadece GLYPH'i
+                //     soldurur; `style.shadow` (siyah, sabit %60) solmaz. Ayni
+                //     solmayi `Modifier.graphicsLayer { alpha = ... }` ile yapsaydik
+                //     golge de birlikte solardi — mevcut gorunum degisirdi.
+                //   - Sadece `Modifier.offset`i lambda'li surume cevirmek kazanc
+                //     saglamaz; renk okumasi scope'u zaten her karede gecersiz kilar.
+                // Dogru cozumu ayri bir is: popup'lari asagidaki parcacik Canvas'i
+                // gibi tek bir cizim katmaninda (nativeCanvas + golge) cizmek.
+                // Bu, gorsel-esitlik ispati gerektiren bir yeniden yazimdir.
                 if (scorePopups.isNotEmpty()) {
                     val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
                     val riseFraction = popupProgress.value
@@ -2276,25 +2785,86 @@ fun BlastTheBlocksGame(
                     }
                 }
 
-                // Parcacik patlamasi overlay — grid'in tamamini kaplayan, tikanmayan (izin vermeyen) bir Canvas
-                if (particleBurst.isNotEmpty() && particleProgress.value < 1f) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val progress = particleProgress.value
-                        val alpha = (1f - progress).coerceIn(0f, 1f)
-                        val cellSizeCanvas = size.width / gridSize
-                        particleBurst.forEach { particle ->
-                            val originX = (particle.col + 0.5f) * cellSizeCanvas
-                            val originY = (particle.row + 0.5f) * cellSizeCanvas
-                            val dx = cos(particle.angle) * particle.distance * progress
-                            val dy = sin(particle.angle) * particle.distance * progress
-                            drawCircle(
-                                color = particle.color.copy(alpha = alpha),
-                                radius = 4f + 3f * (1f - progress),
-                                center = Offset(originX + dx, originY + dy)
+                // Faz 107 (Kademe B-2): fizikli parcacik katmani.
+                // Onceki hali: `drawCircle(radius = 4f + 3f*(1f-progress))` —
+                // (a) HAM PIKSEL yariçap, S8'in 3.0 yogunlugunda ~1.3-2.3dp,
+                //     yani parcaciklar neredeyse gorunmuyordu (birim hatasi,
+                //     "parcaciklarimiz ilkel" hissinin muhtemelen tek en buyuk
+                //     sebebi); (b) hepsi TEK `progress` paylasiyordu — ayni anda
+                //     dogup ayni anda oluyorlardi; (c) duz cizgi, yercekimi yok,
+                //     donme yok; (d) hepsi daireydi.
+                // Simdi: hucre birimli boyut/hiz, parcacik basina gecikme/omur,
+                // yukari yonelim + yercekimi + surtunme, 5 farkli tur, donme.
+                //
+                // Canvas KOSULSUZ var: eskiden `if (... && particleProgress.value < 1f)`
+                // ile sarilmisti, yani animasyon degeri KOMPOZISYONDA okunuyordu ve
+                // burst boyunca bu Box her karede yeniden derleniyordu. Artik erken
+                // cikis draw lambda'sinin ICINDE.
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val n = activeParticles
+                    if (n == 0) return@Canvas
+                    val t = particleProgress.value * PARTICLE_WINDOW_S
+                    if (t >= PARTICLE_WINDOW_S) return@Canvas
+                    val cell = size.width / gridSize
+                    for (i in 0 until n) {
+                        val p = particlePool[i]
+                        val lt = t - p.delay
+                        if (lt <= 0f || lt >= p.life) continue
+                        val f = lt / p.life
+                        // Ucgen olcek rampasi: t=0.5'te tam boy, t=1'de sifir.
+                        // AYRI bir alpha fade YOK — duz alpha inisinden belirgin
+                        // sekilde daha canli duruyor (juice referansi).
+                        val grow = if (f < 0.5f) f * 2f else (1f - f) * 2f
+                        if (grow <= 0.02f) continue
+                        // Surtunme: yatay hiz omur boyunca sonuyor.
+                        val cx = (p.x + p.vx * lt * (1f - 0.30f * f)) * cell
+                        // Yercekimi: yukari cikip yavaslar, sonra duser.
+                        val cy = (p.y + p.vy * lt + 0.5f * PARTICLE_GRAVITY * lt * lt) * cell
+                        val sz = p.size * grow * cell
+                        if (sz < 0.6f) continue
+                        val center = Offset(cx, cy)
+                        when (p.kind) {
+                            PK_CIRCLE -> drawCircle(p.color, sz * 0.5f, center)
+                            PK_MOTE -> drawRect(
+                                color = p.color,
+                                topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
+                                size = Size(sz, sz)
                             )
+                            PK_DIAMOND -> rotate(p.rot + p.spin * lt, center) {
+                                drawRect(
+                                    color = p.color,
+                                    topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
+                                    size = Size(sz, sz)
+                                )
+                            }
+                            PK_STREAK -> rotate(p.rot + p.spin * lt, center) {
+                                drawRect(
+                                    color = p.color,
+                                    topLeft = Offset(cx - sz * 0.5f, cy - sz * 1.1f),
+                                    size = Size(sz, sz * 2.2f)
+                                )
+                            }
+                            else -> withTransform({
+                                translate(cx, cy)
+                                rotate(p.rot, Offset.Zero)
+                                scale(sz, sz, Offset.Zero)
+                            }) {
+                                // Additive: kivilcim hizla beyaza patlar.
+                                drawPath(sparkStarPath, p.color, blendMode = BlendMode.Plus)
+                            }
                         }
                     }
                 }
+
+                // Faz 107: tahta kenari MARQUEE (2x+ komboda tahtanin cevresinde
+                // yuruyen sari isik noktalari) burada bulunuyordu ve cihazda
+                // dogrulandi — ancak URUN KARARI ile kaldirildi: "gereksiz, goz
+                // yoruyor". Referansta (Block Blast) mevcut olmasi tek basina
+                // gerekce degil; kullanici karari ustundur.
+                // NOT: bunu `nearMissCells` ile KARISTIRMA — o da NeonGold'dur
+                // ama tahta cevresinde DONMEZ, satir/sutun tam 1 hucre eksikken
+                // YERINDE nabiz atar ve dekorasyon degil OYNANIS ipucudur
+                // (bkz. yukaridaki hucre dongusu, Faz 22). O korunuyor.
 
                 // Faz 66: Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor.
                 // Grid'in olcumunu etkilememesi icin (bkz. yukaridaki not) burada, grid'in
@@ -2315,7 +2885,17 @@ fun BlastTheBlocksGame(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = 10.dp)
-                            .scale(comboTextScale.value)
+                            // Faz 1 (performans): `Modifier.scale(v)` degeri
+                            // kompozisyonda okuyordu — kombo banner'inin
+                            // "pop" animasyonu (100ms + geri donus) boyunca
+                            // grid Card'inin TUM content'i her karede yeniden
+                            // derileniyordu. `scale(x, y)` zaten
+                            // `graphicsLayer(scaleX, scaleY, clip = false)`.
+                            .graphicsLayer {
+                                val s = comboTextScale.value
+                                scaleX = s
+                                scaleY = s
+                            }
                     ) {
                         // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
                         // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
@@ -2502,6 +3082,14 @@ fun BlastTheBlocksGame(
             val ghostCellPx = with(density) { ghostCellDp.toPx() }
             val shapeWidthPx = draggedShape.pattern[0].size * ghostCellPx
             val shapeHeightPx = draggedShape.pattern.size * ghostCellPx
+            // Faz 1 (performans) — BILEREK DOKUNULMADI. `dragOffset` surukleme
+            // boyunca kompozisyon fazinda okunuyor, ama bu ZORUNLU: ayni deger
+            // `currentHoverCell()` -> `isCellInDragFootprint()` -> hangi hucrenin
+            // yesil/kirmizi vurgulanacagini ve `isCurrentDropValid()` -> ghost'un
+            // hangi composable'a donecegini belirliyor. Yani surukleme sirasinda
+            // recomposition bir israf degil, oynanisin kendisi. Ayrica surukleme
+            // parmak hiziyla sinirli ve bos tahtada hic calismiyor — baseline'daki
+            // "bos/hareketsiz tahtada 60 fps recomposition" sorunuyla ilgisi yok.
             val pointerAbs = dragPointerStartGlobal + dragOffset.value
             val left = pointerAbs.x - rootOriginPx.x - shapeWidthPx / 2f
             // Faz 95c: kullanici "yatay parçalar için yetiyor ama dikeyler için
@@ -3049,7 +3637,9 @@ fun BlastTheBlocksGame(
 
         // Level Complete Modal
         AnimatedVisibility(
-            visible = isLevelComplete,
+            // Faz 107b: `isLevelComplete` degil `levelCompleteRevealed` — diyalog
+            // patlama rituali bitene kadar beklemeli (bkz. yukaridaki not).
+            visible = levelCompleteRevealed,
             enter = scaleIn(),
             exit = scaleOut()
         ) {
@@ -3059,9 +3649,16 @@ fun BlastTheBlocksGame(
                     .background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (confettiPieces.isNotEmpty() && confettiProgress.value < 1f) {
+                // Faz 1 (performans): kosul eskiden `confettiProgress.value < 1f`
+                // iceriyordu — animasyon degeri KOMPOZISYONDA okunuyordu ve
+                // konfeti suresince (1600ms) bu diyalogun tamami her karede
+                // yeniden derileniyordu. Erken cikis artik draw lambda'sinin
+                // ICINDE (Faz 107'de parcacik katmaninda uygulanan ayni desen);
+                // progress >= 1 iken her iki halde de HICBIR SEY cizilmiyor.
+                if (confettiPieces.isNotEmpty()) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val progress = confettiProgress.value
+                        if (progress >= 1f) return@Canvas
                         confettiPieces.forEach { piece ->
                             val local = ((progress - piece.startDelay) / (1f - piece.startDelay)).coerceIn(0f, 1f)
                             if (local <= 0f) return@forEach
@@ -3139,7 +3736,14 @@ fun EmbossedBlockCell(
     // (ustteki BlastTheBlocksGame'de hesaplanan) her hucreye row/col'a gore kaydirilmis
     // olarak gecirilir, boylece 64 ayri animasyon dongusu acilmadan hafif bir parlaklik
     // dalgasi elde edilir.
-    shimmerPhase: Float = 0f
+    //
+    // Faz 1 (performans): tip `Float` degil `() -> Float`. Duz Float olarak
+    // gecirildiginde cagiran taraf animasyon degerini KOMPOZISYON fazinda okumak
+    // zorunda kaliyordu; `infiniteRepeatable` hic durmadigi icin bu, tahta boşken
+    // bile grid'in tamaminin saniyede 60 kez yeniden derilmesi demekti. Lambda ile
+    // deger asagidaki Canvas'in draw lambda'sinda — yani cizim fazinda — okunuyor:
+    // ayni piksel, recomposition yok.
+    shimmerPhase: () -> Float = { 0f }
 ) {
     val baseColor = if (isHover) {
         NeonCyan.copy(alpha = 0.35f)
@@ -3230,7 +3834,7 @@ fun EmbossedBlockCell(
 
                 // Inner Face Top Shine — shimmerPhase ile alpha yavasca dalgalanir,
                 // bloklara donuk degil hafif "canli" bir his verir.
-                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhase)
+                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhase())
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
