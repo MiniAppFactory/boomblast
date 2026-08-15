@@ -2879,19 +2879,6 @@ fun BlastTheBlocksGame(
                         val screenWidth = size.width
                         val screenHeight = size.height
 
-                        // AMBIENT TOZ: idle / hep gorulur
-                        if (ambientEnabled && ambientParticles.isNotEmpty()) {
-                            ambientParticles.forEach { particle ->
-                                val progress = particle.age / particle.maxAge
-                                // Ilk %50: fully opaque, sonrasi fade out
-                                val alpha = if (progress < 0.5f) 1f else (1f - (progress - 0.5f) * 2f)
-                                drawCircle(
-                                    color = Color.White.copy(alpha = alpha * 0.5f),
-                                    radius = with(drawContext.density) { particle.size.dp.toPx() },
-                                    center = Offset(particle.x * screenWidth, particle.y * screenHeight)
-                                )
-                            }
-                        }
 
                         // RADYAL ISIN: patlama tetiklemesinde gosteriliyor (300-400ms)
                         if (radialFlash != null) {
