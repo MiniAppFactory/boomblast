@@ -60,6 +60,7 @@ import com.miniappfactory.boomblocks.data.EffectIntensity
 import com.miniappfactory.boomblocks.data.flag
 import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.games.boomblocks.BLOCK_THEMES
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -83,12 +84,14 @@ fun SettingsScreen(
     darkMode: Boolean,
     language: AppLanguage,
     skin: BlastSkin = BlastSkin.DEFAULT,
+    currentTheme: String = "CLASSIC",
     onToggleSound: (Boolean) -> Unit,
     onSoundVolumeChange: (Float) -> Unit = {},
     onToggleMusic: (Boolean) -> Unit,
     onToggleHaptics: (Boolean) -> Unit = {},
     onSelectEffectIntensity: (EffectIntensity) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit,
+    onSelectTheme: (String) -> Unit = {},
     onSelectLanguage: (AppLanguage) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
     notificationsEnabled: Boolean = true,
@@ -188,14 +191,203 @@ fun SettingsScreen(
                 )
             }
         }
-        SettingsSwitchRow(
-            icon = "🎵",
-            label = language.pick(tr = "Müzik", en = "Music", it = "Musica", fr = "Musique", es = "Música"),
-            checked = musicEnabled,
-            onCheckedChange = onToggleMusic,
-            testTag = "settings_music_switch",
+
+        // Faz 110c: Tema Dropdown (blok şekil/görünüş seçimi)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = palette.card),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = language.pick(tr = "Tema", en = "Theme", it = "Tema", fr = "Thème", es = "Tema"),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                var themeMenuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Surface(
+                        color = palette.background,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, NeonPurple.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable { themeMenuExpanded = true }
+                            .testTag("settings_theme_dropdown_trigger")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val selectedTheme = BLOCK_THEMES.find { it.id == currentTheme }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = selectedTheme?.icon ?: "❓", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = selectedTheme?.title(language) ?: "Classic",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = palette.textPrimary
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = palette.textSecondary
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = themeMenuExpanded,
+                        onDismissRequest = { themeMenuExpanded = false },
+                        modifier = Modifier.background(palette.card)
+                    ) {
+                        BLOCK_THEMES.forEach { theme ->
+                            val isSelected = theme.id == currentTheme
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = theme.icon, fontSize = 18.sp)
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = theme.title(language),
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) NeonPurple else palette.textPrimary
+                                            )
+                                            Text(
+                                                text = theme.description(language),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Light,
+                                                color = palette.textSecondary
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    onSelectTheme(theme.id)
+                                    themeMenuExpanded = false
+                                },
+                                modifier = Modifier.testTag("settings_theme_${theme.id}")
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Faz 110c: Görünüm (Skin) Dropdown
+        Card(
+            colors = CardDefaults.cardColors(containerColor = palette.card),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = language.pick(tr = "Görünüm", en = "Appearance", it = "Aspetto", fr = "Apparence", es = "Apariencia"),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                var skinMenuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Surface(
+                        color = palette.background,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, NeonPurple.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable { skinMenuExpanded = true }
+                            .testTag("settings_skin_dropdown_trigger")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(skin.swatch)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = skin.label(language),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = palette.textPrimary
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = palette.textSecondary
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = skinMenuExpanded,
+                        onDismissRequest = { skinMenuExpanded = false },
+                        modifier = Modifier.background(palette.card)
+                    ) {
+                        BlastSkin.entries.forEach { candidate ->
+                            val isSelected = candidate == skin
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clip(CircleShape)
+                                                .background(candidate.swatch)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = candidate.label(language),
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) NeonPurple else palette.textPrimary
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    onSelectSkin(candidate)
+                                    skinMenuExpanded = false
+                                },
+                                modifier = Modifier.testTag("settings_skin_${candidate.name}")
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Faz 110c: Dark Mode / Light Mode seçimi (segmented control)
+        SettingsSegmentedRow(
+            icon = "🌓",
+            label = language.pick(tr = "Mod", en = "Mode", it = "Modalità", fr = "Mode", es = "Modo"),
+            options = listOf(true, false),
+            optionLabel = { isDark ->
+                if (isDark) language.pick(tr = "Koyu Mod", en = "Dark Mode", it = "Modalità Scura", fr = "Mode Sombre", es = "Modo Oscuro")
+                else language.pick(tr = "Açık Mod", en = "Light Mode", it = "Modalità Chiara", fr = "Mode Clair", es = "Modo Claro")
+            },
+            selected = darkMode,
+            onSelect = onToggleDarkMode,
+            optionTestTag = { isDark -> "settings_mode_${if (isDark) "dark" else "light"}" },
             palette = palette
         )
+
         // Faz 105: coklu patlama titresimi. Ses/muzik anahtarlarinin hemen
         // altinda — ucu de "oyunun sana verdigi geri bildirim" grubunu olusturuyor,
         // Koyu Mod'dan (gorunum) ve Bildirimler'den (sistem) once geliyor.
@@ -205,35 +397,6 @@ fun SettingsScreen(
             checked = hapticsEnabled,
             onCheckedChange = onToggleHaptics,
             testTag = "settings_haptics_switch",
-            palette = palette
-        )
-        // Faz 109: patlama efekti yogunlugu. Titresimin hemen altinda —
-        // ikisi de "patlama ne kadar hissediliyor" grubunun parcasi. Anahtar
-        // degil UC secenek oldugu icin SettingsSwitchRow yerine kendi
-        // segment kontrolu; kartin gorsel dili Dil/Görünüm kartlariyla ayni
-        // (palette.card, 12dp kose, 14dp ic padding, kalin baslik + altinda kontrol).
-        SettingsSegmentedRow(
-            icon = "✨",
-            label = language.pick(
-                tr = "Efekt Yoğunluğu",
-                en = "Effect Intensity",
-                it = "Intensità Effetti",
-                fr = "Intensité des Effets",
-                es = "Intensidad de Efectos"
-            ),
-            options = EffectIntensity.entries,
-            optionLabel = { it.label(language) },
-            selected = effectIntensity,
-            onSelect = onSelectEffectIntensity,
-            optionTestTag = { "settings_effect_intensity_${it.code}" },
-            palette = palette
-        )
-        SettingsSwitchRow(
-            icon = "🌙",
-            label = language.pick(tr = "Koyu Mod", en = "Dark Mode", it = "Modalità Scura", fr = "Mode Sombre", es = "Modo Oscuro"),
-            checked = darkMode,
-            onCheckedChange = onToggleDarkMode,
-            testTag = "settings_dark_mode_switch",
             palette = palette
         )
         SettingsSwitchRow(
@@ -367,83 +530,6 @@ fun SettingsScreen(
             }
         }
 
-        // Faz 21: gorunum ("skin") galerisi — Block Blast'ta oldugu gibi tum
-        // arayuzun zemin/kart rengini birlikte degistiren, birbirinden bagimsiz
-        // hazir paletler (kullanici geri bildirimi: "Block Blast'ta skin
-        // değiştirebiliyorsun, ayarlardan default'a çevirebiliyorsun").
-        Card(
-            colors = CardDefaults.cardColors(containerColor = palette.card),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = language.pick(tr = "Görünüm", en = "Appearance", it = "Aspetto", fr = "Apparence", es = "Apariencia"),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = palette.textPrimary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(BlastSkin.entries.toList()) { candidate ->
-                        SkinOption(
-                            skinOption = candidate,
-                            label = candidate.label(language),
-                            selected = candidate == skin,
-                            onClick = { onSelectSkin(candidate) },
-                            palette = palette
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SkinOption(
-    skinOption: BlastSkin,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    palette: BlastPalette
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(64.dp)
-            .clickable(onClick = onClick)
-            .testTag("settings_skin_${skinOption.name}")
-    ) {
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(skinOption.swatch)
-                .border(
-                    width = if (selected) 3.dp else 1.dp,
-                    color = if (selected) NeonGreen else palette.cardBorder,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (selected) palette.textPrimary else palette.textSecondary,
-            maxLines = 1
-        )
     }
 }
 

@@ -2103,8 +2103,10 @@ fun BlastTheBlocksGame(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left spacer — Box'u merkeze al
-                Spacer(modifier = Modifier.weight(1f))
+                // Left spacer — sadece Kariyer/Pro'da (isEndless false)
+                if (!isEndless) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
                 // SKOR + Hedef subscript (merkeze hizalanmış)
                 Box(
@@ -2143,7 +2145,7 @@ fun BlastTheBlocksGame(
                     }
                 }
 
-                // Right Spacer — COMBO için yer (veya boş alan)
+                // Right Spacer — daima (Kariyer/Pro'da sağ padding, Sonsuz'da COMBO'nun solunda)
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Faz 22: COMBO (sonsuz mod'da)

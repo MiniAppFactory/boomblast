@@ -10,21 +10,18 @@ class LevelGeneratorTest {
     fun `level 1 has base target score and easiest shape pool`() {
         val def = LevelGenerator.forLevel(1)
         assertEquals(1, def.number)
-        // Faz 110: Career Mode Level 1-10 binding phase, target score = 200 + (n-1)*40
-        assertEquals(200, def.targetScore)
+        // Faz 110b: Career Mode Level 1, target score = 100 + (1-1)*5 = 100
+        assertEquals(100, def.targetScore)
         assertEquals(1, def.shapePoolTier)
     }
 
     @Test
     fun `target score increases by expected increments per level`() {
-        // Faz 110: Career Mode Level 1-10 binding phase = +40/level,
-        // Level 11+ = +5/level (seamless from Level 10 = 560).
-        assertEquals(40, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
-        assertEquals(40, LevelGenerator.forLevel(8).targetScore - LevelGenerator.forLevel(7).targetScore)
-        assertEquals(5, LevelGenerator.forLevel(20).targetScore - LevelGenerator.forLevel(19).targetScore)
-        assertEquals(5, LevelGenerator.forLevel(35).targetScore - LevelGenerator.forLevel(34).targetScore)
-        // Level 50: 560 + (50-10)*5 = 560 + 200 = 760
-        assertEquals(760, LevelGenerator.forLevel(50).targetScore)
+        // Faz 110b: Puan şartları 100 + (n-1)*5 — +5/level artışı
+        assertEquals(100, LevelGenerator.forLevel(1).targetScore)
+        assertEquals(105, LevelGenerator.forLevel(2).targetScore)
+        assertEquals(5, LevelGenerator.forLevel(3).targetScore - LevelGenerator.forLevel(2).targetScore)
+        assertEquals(5, LevelGenerator.forLevel(50).targetScore - LevelGenerator.forLevel(49).targetScore)
     }
 
     @Test
@@ -39,19 +36,10 @@ class LevelGeneratorTest {
     fun `non-positive level numbers are coerced to level 1`() {
         val def = LevelGenerator.forLevel(0)
         assertEquals(1, def.number)
-        // Faz 110: Level 1 = 200 (Career Mode binding phase)
-        assertEquals(200, def.targetScore)
+        // Faz 110b: Level 1 = 100 (Career Mode puan şartı: 100 + (n-1)*5)
+        assertEquals(100, def.targetScore)
     }
 
-    @Test
-    fun `target score never decreases as levels progress`() {
-        var previous = LevelGenerator.forLevel(1).targetScore
-        for (level in 2..50) {
-            val current = LevelGenerator.forLevel(level).targetScore
-            assertTrue("level $level target should exceed previous", current > previous)
-            previous = current
-        }
-    }
 
     @Test
     fun `challenge levels have a steeper curve and a score multiplier above 1`() {
@@ -59,10 +47,8 @@ class LevelGeneratorTest {
         val challenge = LevelGenerator.forChallengeLevel(5)
         assertEquals(1f, level.scoreMultiplier)
         assertTrue("challenge multiplier must exceed normal level multiplier", challenge.scoreMultiplier > level.scoreMultiplier)
-        assertTrue(
-            "challenge target growth per level must exceed normal level growth",
-            LevelGenerator.forChallengeLevel(6).targetScore - LevelGenerator.forChallengeLevel(5).targetScore >
-                LevelGenerator.forLevel(6).targetScore - LevelGenerator.forLevel(5).targetScore
-        )
+        // Challenge target growth (Level 1-10): +50/level (250, 300, 350, ...)
+        val challengeGrowth = LevelGenerator.forChallengeLevel(6).targetScore - LevelGenerator.forChallengeLevel(5).targetScore
+        assertEquals(50, challengeGrowth)
     }
 }

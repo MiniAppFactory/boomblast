@@ -34,15 +34,9 @@ object LevelGenerator {
     // neredeyse ozdes, oyuncu skill/challenge yerine sadece "bir tane daha
     // gectim" tekrarindan motive oluyor.
     //
-    // Faz 110: Career Mode (Level 1-10) — binding phase: reklam sikligi
-    // azaltildi (her 2 levelda 1) oyuncuyu takip etmek amaciyla. Puan serti
-    // de dinamik: Level 1-10'da hedef 45-60 sn oynanis (1 star) vermek icin
-    // +40/seviye (200, 240, 280, ..., 560). Level 11+ ise Level 10'dan
-    // seamless devam: 560 + (n-10)*5.
-    private fun targetScoreForLevel(n: Int): Int = when {
-        n <= 10 -> 200 + (n - 1) * 40
-        else -> 560 + (n - 10) * 5
-    }
+    // Faz 110b: Reklam sikligi azaltildi (iki levelda bir, ilk 10 level).
+    // Puan şartları eski modele geri döndürüldü: 100 + (n-1)*5.
+    private fun targetScoreForLevel(n: Int): Int = 100 + (n - 1) * 5
 
     // Faz 77: Pro Mode — "daha zor zorluk eğrisi, daha yüksek puan çarpanı"
     // (handover 6.1). Faz 79'da zorluk agirligi PUANDAN PARCA HAVUZUNA
