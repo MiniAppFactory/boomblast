@@ -49,8 +49,19 @@ android {
     // Faz 112 (closed testing): 8 -> 9. HUD tam yeniden tasarimi (2x3 harita, ortada
     // SKOR math-based, saga TARGET, soiunda power-ups). Grid kenari 1.5 -> 0.5 dp.
     // Puan sartlari static 100+(n-1)*5. FloatingScoreManager (performance) kaldirilan.
-    versionCode = 9
-    versionName = "1.0.7"
+    // Faz 114 (release): 9 -> 10. vc9/1.0.7 Play'e YUKLENDI (kullanici teyidi;
+    // handover'daki "vc9 hic yuklenmedi" notu yanlisti). Uzerine iki Play
+    // POLITIKA duzeltmesi geldi:
+    //   - gecis reklami siklik siniri (60sn min aralik + 45sn oturum grace).
+    //     Oncesinde zaman bazli hicbir ust sinir yoktu; Pro Mod'da ust uste
+    //     kaybeden oyuncu ~30-60 sn'de bir tam ekran reklam goruyordu
+    //     ("disruptive ads" yaptirim alani).
+    //   - bildirim metinlerinden biri bes dilde de reklam izlemeye cagiriyordu;
+    //     Play bildirimlerin promosyon araci olarak kullanilmasini yasaklar.
+    // versionName 1.0.7 -> 1.0.8: 1.0.7 yayinlandi, ayni ada FARKLI bir build
+    // vermek karisiklik yaratir (bkz. yukarida 1.0.4 -> 1.0.5 ayni gerekce).
+    versionCode = 10
+    versionName = "1.0.8"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

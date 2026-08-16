@@ -1,9 +1,14 @@
 # Boom Blocks Changelog
 
-## [Unreleased] - 2026-08-16 (Faz 114, Play politika uyumu)
+## [1.0.8] - 2026-08-16 (Faz 114, Play politika uyumu)
 
-Production'a çıkmadan kapatılması gereken iki **Play politikası** maddesi.
-Ikisi de reklam gelirini azaltmıyor; yalnızca yaptırım riskini kaldırıyor.
+**versionCode 9 → 10, versionName 1.0.7 → 1.0.8.**
+vc9/1.0.7 Play'e yüklendi (kullanıcı teyidi — handover'daki "vc9 hiç
+yüklenmedi" notu yanlıştı). Yayınlanmış bir versionName'e farklı bir ikili
+vermemek için ad da artırıldı; aynı gerekçe 1.0.4 → 1.0.5'te de uygulanmıştı.
+
+Kapatılan iki **Play politikası** maddesi. İkisi de reklam gelirini
+azaltmıyor; yalnızca yaptırım riskini kaldırıyor.
 
 ### Fixed
 - **Geçiş reklamı sıklık sınırı (TODO madde 1)** — interstitial'in zaman bazlı
@@ -41,8 +46,16 @@ Ikisi de reklam gelirini azaltmıyor; yalnızca yaptırım riskini kaldırıyor.
 
 ### Verified
 - `testDebugUnitTest`: **49 test / 0 hata** (13'ü yeni)
-- `assembleRelease`: BUILD SUCCESSFUL
-- `assembleDebug`: BUILD SUCCESSFUL, S8'e kuruldu (vc9, veri korunarak)
+- `bundleRelease` + `signReleaseBundle`: BUILD SUCCESSFUL
+- `aapt2 dump badging`: `versionCode='10' versionName='1.0.8'` doğrulandı
+- İmza: `CN=Blast the Blocks, OU=AppDeveloper, O=AppDeveloper, L=Istanbul, C=TR`
+- **AAB içeriği doğrulandı** — R8 açık olduğu için sınıf adları obfuscate;
+  bunun yerine obfuscate edilmeyen string literal'lere bakıldı: yeni bildirim
+  metinlerinin **dördü de AAB'de var**, eski "Watch an ad, get a booster" /
+  "Time to grab free tokens" **yok**. `InterstitialFrequencyPolicy` mapping'de
+  görünmüyor çünkü R8 inline etmiş; release `.class` dosyası derleme
+  çıktısında mevcut ve kaynak düzenlemesinden sonraya tarihli.
+- Artefaktlar: AAB 8.9 MB, signed APK 4.71 MB (16-Aug-26 22:15)
 
 ### Denetlendi — sorun bulunmadı
 - `AD_ID` izni SDK'dan otomatik geliyor, Data Safety'deki Advertising ID
