@@ -1,5 +1,65 @@
 # Boom Blocks Changelog
 
+## [Unreleased] - 2026-08-16 (Faz 114, Play politika uyumu)
+
+Production'a çıkmadan kapatılması gereken iki **Play politikası** maddesi.
+Ikisi de reklam gelirini azaltmıyor; yalnızca yaptırım riskini kaldırıyor.
+
+### Fixed
+- **Geçiş reklamı sıklık sınırı (TODO madde 1)** — interstitial'in zaman bazlı
+  hiçbir üst sınırı yoktu. Pro Mod'da üst üste kaybeden oyuncu
+  "YENIDEN BAŞLA"/"HARİTAYA DÖN" döngüsünde ~30-60 saniyede bir tam ekran
+  reklam görüyordu, tavan yoktu. Play'in "disruptive ads" politikasının
+  yaptırım alanı.
+  - Yeni `ads/InterstitialFrequencyPolicy.kt` — saf karar mantığı, Android
+    bağımlılığı yok, JVM'de test edilebilir
+  - `MIN_INTERVAL_MS = 60_000` iki gerçek gösterim arası en kısa süre;
+    `SESSION_GRACE_MS = 45_000` uygulama açılışından sonra reklamsız pencere
+    (ilk oturum tamamen korumasızdı)
+  - Sınır 12 çağrı noktasının her birine değil, hepsinin geçtiği **tek boğaz
+    noktasına** (`InterstitialAdManager`) kondu — yeni çağrı noktası eklenirse
+    otomatik korunur
+  - Cooldown **yalnızca gerçekten gösterilip kapatılan** reklamdan sonra başlar;
+    no-fill (bu projede 36× ölçülmüş) cooldown'ı yakmaz, yoksa üst üste
+    başarısız yüklemeler gerçek gösterimleri sessizce kilitlerdi
+  - Sınır devredeyken oyuncu beklemez, reklam atlanır ve akış aynen sürer
+
+- **Bildirim metni reklam izlemeye çağırıyordu (TODO madde 6)** —
+  `NotificationHelper.kt`'de 3. mesaj beş dilde de "Reklam izle, güçlendirici
+  al" / "Watch an ad, get a booster" diyordu. Play, bildirimlerin
+  reklam/promosyon aracı olarak kullanılmasını ayrıca yasaklar; sıklık
+  ihlalinden farklı olarak bu tek bir bildirimde bile manuel incelemede göze
+  çarpar. Beş dilde de nötr hatırlatmaya çevrildi. Oyuncu oyuna girince
+  rewarded butonunu zaten görüyor — gelir yolu kapanmıyor.
+
+### Added
+- `InterstitialFrequencyPolicyTest` (10 test) — TODO madde 1'deki somut
+  hızlı-ateş senaryosu dahil
+- `NotificationHelperPolicyTest` (3 test) — beş dilde reklam çağrısı arar;
+  metin düzeltmesi kolaydır, asıl risk ileride benzer bir mesajın iyi niyetle
+  geri eklenmesidir
+
+### Verified
+- `testDebugUnitTest`: **49 test / 0 hata** (13'ü yeni)
+- `assembleRelease`: BUILD SUCCESSFUL
+- `assembleDebug`: BUILD SUCCESSFUL, S8'e kuruldu (vc9, veri korunarak)
+
+### Denetlendi — sorun bulunmadı
+- `AD_ID` izni SDK'dan otomatik geliyor, Data Safety'deki Advertising ID
+  beyanıyla tutarlı
+- İzinler: INTERNET, ACCESS_NETWORK_STATE, POST_NOTIFICATIONS, VIBRATE —
+  gereksiz/tehlikeli izin yok
+- Gizlilik politikası canlı ve doğru (`miniappfactory.github.io/boomblast`),
+  iletişim `whatsthisapp@proton.me`, "not designed for children" ibaresi var;
+  hedef kitle 13+ olarak teyit edildi → Families politikası devrede değil
+- App-open reklam yok
+
+### Açık (kod dışı)
+- Mağaza görsellerinde üç maddi hata (`LEVEL`→`CAREER`, olmayan "3 lives",
+  3 görev↔5 görev). Düzeltilmiş `*_v2.png` dosyaları hazır, Play Console'a
+  elle yüklenmeli. Aciliyeti düşük.
+- `screenshot_1_gameplay.png` Faz 112 öncesi HUD'ı gösteriyor.
+
 ## [1.0.7] - 2026-08-16 (Faz 112-113, Closed Testing)
 
 ### Changed

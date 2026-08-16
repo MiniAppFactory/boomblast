@@ -19,6 +19,18 @@ import kotlin.random.Random
 // ara sira, rastgele araliklarla gonderilen "geri gel" hatirlatma bildirimi.
 // Ayarlar'dan kapatilabilir, gonderilmeden once hem izin hem sistem duzeyinde
 // bildirimlerin acik olup olmadigi kontrol edilir.
+//
+// Faz 114 — POLITIKA KURALI, bu listeye mesaj eklerken oku:
+// Bu bildirimler oyuna geri cagri icindir. Play politikasi, bildirimlerin
+// reklam/promosyon araci olarak kullanilmasini ayrica yasaklar. Bu yuzden
+// mesajlarin higbiri REKLAM IZLEMEYE CAGIRMAZ.
+//
+// Faz 114'e kadar 3. mesaj bes dilde de "Reklam izle, güçlendirici al" /
+// "Watch an ad, get a booster" diyordu — yani amaci reklam gosterimi uretmek
+// olan bir push'ti. Siklik ihlalinden farkli olarak bu, TEK bir bildirimde bile
+// manuel incelemede goze carpar. Mesaj, oyuncuyu oyuna cagiran notr bir
+// hatirlatmaya cevrildi; oyuncu oyuna girdiginde rewarded butonunu zaten
+// goruyor, yani gelir yolu kapanmiyor — sadece cagri bildirimden cikiyor.
 object NotificationHelper {
     const val CHANNEL_ID = "blast_reminders"
     private const val NOTIFICATION_ID = 4001
@@ -26,34 +38,40 @@ object NotificationHelper {
     private val messagesTr = listOf(
         "🧩 Eğlenceli bir tur seni bekliyor!" to "Şimdi oyna ve en yüksek skorunu geç 🚀",
         "🔥 Serini kaybetme!" to "Bugün birkaç satır patlatmaya ne dersin?",
-        "🎁 Ücretsiz jeton kazanmanın tam zamanı" to "Reklam izle, güçlendirici al",
+        "🎁 Güçlendiricilerin seni bekliyor" to "Bir sonraki bölümü kolaylaştır",
         "🏆 Haftalık görevlerin seni bekliyor" to "Ödülünü almayı unutma"
     )
     private val messagesEn = listOf(
         "🧩 A fun round is waiting!" to "Play now and beat your high score 🚀",
         "🔥 Don't lose your streak!" to "How about clearing a few lines today?",
-        "🎁 Time to grab free tokens" to "Watch an ad, get a booster",
+        "🎁 Your boosters are waiting" to "Make the next level easier",
         "🏆 Your weekly missions are waiting" to "Don't forget to claim your reward"
     )
     // Faz 35: 5 dile cikarilirken eklendi.
     private val messagesIt = listOf(
         "🧩 Un turno divertente ti aspetta!" to "Gioca ora e batti il tuo record 🚀",
         "🔥 Non perdere la tua serie!" to "Che ne dici di eliminare qualche linea oggi?",
-        "🎁 È ora di prendere token gratis" to "Guarda un annuncio, ottieni un potenziamento",
+        "🎁 I tuoi potenziamenti ti aspettano" to "Rendi più facile il prossimo livello",
         "🏆 Le tue missioni settimanali ti aspettano" to "Non dimenticare di riscuotere la tua ricompensa"
     )
     private val messagesFr = listOf(
         "🧩 Une partie amusante t'attend !" to "Joue maintenant et bats ton record 🚀",
         "🔥 Ne perds pas ta série !" to "Et si tu effaçais quelques lignes aujourd'hui ?",
-        "🎁 C'est le moment de récupérer des jetons gratuits" to "Regarde une pub, obtiens un boost",
+        "🎁 Tes boosts t'attendent" to "Facilite le prochain niveau",
         "🏆 Tes missions hebdomadaires t'attendent" to "N'oublie pas de réclamer ta récompense"
     )
     private val messagesEs = listOf(
         "🧩 ¡Una ronda divertida te espera!" to "Juega ahora y supera tu récord 🚀",
         "🔥 ¡No pierdas tu racha!" to "¿Qué tal si limpias unas líneas hoy?",
-        "🎁 Es hora de conseguir fichas gratis" to "Mira un anuncio, obtén un potenciador",
+        "🎁 Tus potenciadores te esperan" to "Haz más fácil el próximo nivel",
         "🏆 Tus misiones semanales te esperan" to "No olvides reclamar tu recompensa"
     )
+
+    // Faz 114: yukaridaki politika kuralini testin gorebilmesi icin tek liste.
+    // NotificationHelperPolicyTest bunu tarar; yeni bir dil ya da mesaj eklenince
+    // buraya da eklenmeli, yoksa test o mesaji denetlemez.
+    internal val allMessages: List<Pair<String, String>>
+        get() = messagesTr + messagesEn + messagesIt + messagesFr + messagesEs
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

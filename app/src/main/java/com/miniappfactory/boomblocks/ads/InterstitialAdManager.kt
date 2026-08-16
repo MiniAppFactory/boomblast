@@ -63,6 +63,20 @@ object InterstitialAdManager {
     @Volatile
     private var loading = false
 
+    // Faz 114: siklik siniri icin iki zaman damgasi.
+    //
+    // sessionStart: bu object ilk dokunuldugunda, yani pratikte surec
+    // basladiginda sabitlenir. Oyuncu uygulamayi oldurup yeniden acarsa yeni bir
+    // grace penceresi hak eder — bu kasitli: uzun bir aradan sonra donen oyuncu
+    // yine "ilk izlenim" konumundadir.
+    private val sessionStart = SystemClock.elapsedRealtime()
+
+    // SADECE gercekten gosterilip kapatilan reklam icin guncellenir. No-fill ya
+    // da "gosterilemedi" durumu cooldown'i YAKMAZ — yoksa bir dizi basarisiz
+    // yukleme, gercek gosterimleri sessizce kilitlerdi.
+    @Volatile
+    private var lastShownAt = 0L
+
     private fun freshCached(): InterstitialAd? {
         val ad = cached ?: return null
         if (SystemClock.elapsedRealtime() - cachedAt > CACHE_TTL_MS) {
@@ -121,13 +135,27 @@ object InterstitialAdManager {
             return
         }
 
+        // Faz 114: siklik siniri. Sinir devredeyse reklam ISTENMEZ ve oyuncu
+        // hicbir gecikme yasamadan devam eder. Reklamsiz akis her zaman calisan
+        // akistir — burada da oyle.
+        if (!InterstitialFrequencyPolicy.allow(now, lastShownAt, sessionStart)) {
+            // Sinir yuzunden atlanan gosterim, bir sonrakini hazir tutmak icin
+            // iyi bir firsat: preload idempotent.
+            preload(context.applicationContext)
+            onProceed()
+            return
+        }
+
         inFlightSince = now
         var finished = false
         val appContext = context.applicationContext
-        val finish = {
+        // adWasShown: cooldown SADECE gercek bir tam ekran gosterimden sonra
+        // baslar (bkz. lastShownAt aciklamasi).
+        val finish = { adWasShown: Boolean ->
             if (!finished) {
                 finished = true
                 inFlightSince = 0L
+                if (adWasShown) lastShownAt = SystemClock.elapsedRealtime()
                 // Bir sonraki gosterim beklemesin.
                 preload(appContext)
                 onProceed()
@@ -137,8 +165,8 @@ object InterstitialAdManager {
         val attachAndShow = { ad: InterstitialAd ->
             ad.fullScreenContentCallback = object :
                 com.google.android.gms.ads.FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() = finish()
-                override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) = finish()
+                override fun onAdDismissedFullScreenContent() = finish(true)
+                override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) = finish(false)
             }
             ad.show(activity)
         }
@@ -164,7 +192,7 @@ object InterstitialAdManager {
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    finish()
+                    finish(false)
                 }
             }
         )
