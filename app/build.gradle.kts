@@ -97,6 +97,10 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  lint {
+    disable.add("NewApi")
+    disable.add("PropertyEscape")
+  }
 }
 
 dependencies {

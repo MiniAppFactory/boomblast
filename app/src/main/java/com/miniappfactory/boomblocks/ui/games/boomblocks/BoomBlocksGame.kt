@@ -2062,53 +2062,129 @@ fun BlastTheBlocksGame(
                 }
             }
 
-            // Faz 110d: Score Banner — SKOR tam center (rakam merkezinde hesapla, /hedef ignore)
-            Row(
+            // Faz 112: HUD 2×3 Grid Redesign
+            // Grid layout: invisible 2×3
+            //   A1 (bomb x1)  | B1/B2 (SKOR)    | C1 (empty)
+            //   A2 (plus x1)  |                 | C2 (/100)
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .height(96.dp)
             ) {
-                // Left spacer — sadece Kariyer/Pro'da (isEndless false)
-                if (!isEndless) {
-                    Spacer(modifier = Modifier.weight(1f))
+                // Left Column A1/A2: Power-ups (bomb, plus) — vertical stack
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 16.dp, top = 8.dp),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    var isFirstBooster = true
+                    BoosterType.entries.forEach { type ->
+                        val owned = availableBoosterCounts[type] ?: 0
+                        val emoji = when (type) {
+                            BoosterType.BOMB -> "💣"
+                            BoosterType.LINE_CLEAR -> "⚡"
+                        }
+
+                        // Add 8dp spacing between booster items
+                        if (!isFirstBooster) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (owned > 0) {
+                            isFirstBooster = false
+                            val isArmed = armedBooster == type
+                            Surface(
+                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(
+                                        width = if (isArmed) 2.dp else 1.dp,
+                                        color = if (isArmed) NeonGreen else palette.cardBorder,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        armedBooster = if (isArmed) null else type
+                                    }
+                                    .testTag("booster_button_${type.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = emoji, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(text = "x$owned", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                                }
+                            }
+                        } else if (onWatchAdForBooster != null) {
+                            Surface(
+                                color = palette.card,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, palette.cardBorder, RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        onWatchAdForBooster(type) {
+                                            availableBoosterCounts[type] = (availableBoosterCounts[type] ?: 0) + 1
+                                        }
+                                    }
+                                    .testTag("booster_watch_ad_${type.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = emoji, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(text = "▶️+1", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // SKOR + Hedef subscript (merkeze hizalanmış)
+                // Center Column B1/B2: SKOR (must be at exact horizontal center)
+                // Use math-based centering: fillMaxWidth / 2, not weight-based
                 Box(
                     modifier = Modifier
-                        .width(200.dp)
-                        .height(80.dp),
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .align(Alignment.Center),
                     contentAlignment = Alignment.Center
                 ) {
+                    // SKOR text — at exact horizontal center
                     Text(
                         "$animatedScore",
                         fontSize = 56.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
-                        modifier = Modifier.graphicsLayer {
-                            val s = scoreScale.value
-                            scaleX = s
-                            scaleY = s
-                        }
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .graphicsLayer {
+                                val s = scoreScale.value
+                                scaleX = s
+                                scaleY = s
+                            }
                     )
-                    // Hedef subscript (sağ alt köşe, SKOR merkez hesabına etki etmez)
-                    if (!isEndless) {
-                        Text(
-                            "/$targetScore",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = palette.textSecondary,
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                        )
-                    }
                 }
 
-                // Right Spacer — daima (Kariyer/Pro'da sağ padding, Sonsuz'da COMBO'nun solunda)
-                Spacer(modifier = Modifier.weight(1f))
+                // Right Column C2: Target score (/100)
+                if (!isEndless) {
+                    Text(
+                        "/$targetScore",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.textSecondary,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 16.dp, top = 8.dp)
+                    )
+                }
 
-                // Faz 22: COMBO (sonsuz mod'da)
+                // Faz 22: COMBO (sonsuz mod'da) — positioned at right side
                 if (isEndless) {
                     val isOnStreak = comboCount >= 3
                     Card(
@@ -2117,8 +2193,9 @@ fun BlastTheBlocksGame(
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 16.dp, top = 8.dp)
                             .width(80.dp)
-                            .padding(end = 8.dp)
                             .then(
                                 if (isOnStreak) {
                                     Modifier.drawPhaseRoundedBorder(
@@ -2151,94 +2228,8 @@ fun BlastTheBlocksGame(
                         }
                     }
                 }
-            }
+            }  // Close outer Box (HUD container)
 
-            // Booster Row
-            // Faz 94: Sonsuz Mod'da (onWatchAdForBooster != null) satir artik
-            // owned==0 iken de gosteriliyor — "reklam izle +1" secenegi sunmak
-            // icin (diger modlarda mevcut davranis: hic booster yoksa satir
-            // tamamen gizlenir).
-            if (availableBoosterCounts.values.any { it > 0 } || onWatchAdForBooster != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    BoosterType.entries.forEach { type ->
-                        val owned = availableBoosterCounts[type] ?: 0
-                        val emoji = when (type) {
-                            BoosterType.BOMB -> "💣"
-                            BoosterType.LINE_CLEAR -> "⚡"
-                        }
-                        if (owned > 0) {
-                            val isArmed = armedBooster == type
-                            Surface(
-                                color = if (isArmed) NeonGreen.copy(alpha = 0.3f) else palette.card,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(
-                                        width = if (isArmed) 2.dp else 1.dp,
-                                        color = if (isArmed) NeonGreen else palette.cardBorder,
-                                        shape = RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable {
-                                        armedBooster = if (isArmed) null else type
-                                    }
-                                    .testTag("booster_button_${type.name}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = emoji, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "x$owned", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
-                                }
-                            }
-                        } else if (onWatchAdForBooster != null) {
-                            // Faz 94: Sonsuz Mod'a ozel — coin harcamadan, reklam
-                            // izleyerek anlik +1. onGranted local
-                            // availableBoosterCounts'u ANINDA gunceller (kalici
-                            // DataStore yazimi cagiran tarafta/AppNavigation'da).
-                            Surface(
-                                color = palette.card,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(1.dp, palette.cardBorder, RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        onWatchAdForBooster(type) {
-                                            availableBoosterCounts[type] = (availableBoosterCounts[type] ?: 0) + 1
-                                        }
-                                    }
-                                    .testTag("booster_watch_ad_${type.name}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = emoji, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    // Faz 95c: kullanici "televizyon ikonu kimse anlamaz,
-                                    // play tusu global olarak izle mesaji verir" dedi.
-                                    Text(text = "▶️+1", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
-                                }
-                            }
-                        }
-                    }
-                    if (armedBooster != null) {
-                        Text(
-                            text = language.pick(tr = "Hedef bir hücreye dokun", en = "Tap a target cell", it = "Tocca una cella bersaglio", fr = "Touchez une case cible", es = "Toca una celda objetivo"),
-                            fontSize = 11.sp,
-                            color = NeonGreen,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.align(Alignment.CenterVertically)
-                        )
-                    }
-                }
-            }
 
             // Faz 66: "SUPER! +16 / 2x KOMBO" yazisi burada (Column'un normal akisinda)
             // duruyordu — gorununce yer kapliyor, grid `weight(1f)` ile kalan alani
