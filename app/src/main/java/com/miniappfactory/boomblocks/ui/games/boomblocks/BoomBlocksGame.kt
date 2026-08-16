@@ -775,23 +775,16 @@ fun BlastTheBlocksGame(
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
 
-    // Faz 4: Ambient toz + Radyal isín efektleri
-    // Ambient toz idle'da gosteriliyor (arka plan sabiti)
-    var ambientParticles by remember { mutableStateOf<List<AmbientParticle>>(emptyList()) }
-    val ambientEnabled = effectIntensity != EffectIntensity.LOW
-    val ambientParticleCount = when (effectIntensity) {
-        EffectIntensity.LOW -> 0
-        EffectIntensity.NORMAL -> 20
-        EffectIntensity.HIGH -> 30
-    }
-    // Radyal isin flash — patlama aninda tetikleniyor (300-400ms)
+    // Faz 111: SKOR card merkez koordinatı (FloatingScore'un target'ı)
+    var skorCardCenterPx by remember { mutableStateOf(Offset.Zero) }
+    // Faz 111: Grid Box'un (FloatingScore overlay'inin) origin'i — koordinat dönüşümü için
+    var gridBoxOriginPx by remember { mutableStateOf(Offset.Zero) }
+
+    // Faz 4/110c: Radyal isin flash KAPATILDI (havaifişek lazer ışınları)
+    // Kullanıcı isteği: animation ağırlığı seçeneği kaldırıldı, Effect Intensity yaşamadı
     var radialFlash by remember { mutableStateOf<RadialFlashState?>(null) }
     val radialFlashDurationMs = 350
-    val radialBeamCount = when (effectIntensity) {
-        EffectIntensity.LOW -> 0
-        EffectIntensity.NORMAL -> 8
-        EffectIntensity.HIGH -> 12
-    }
+    val radialBeamCount = 0  // Hep kapalı
 
     // Faz 38: sistem geri tusu/jesti artik dogrudan menuye cikmiyor — once
     // "cikmak istedigine emin misin" onay ekranini aciyor (kullanici geri
@@ -1399,50 +1392,6 @@ fun BlastTheBlocksGame(
                 particlePool.update(deltaTimeMs)
                 floatingScoreManager.update(deltaTimeMs)
 
-                // Faz 4: Ambient toz particle'lari guncelle
-                if (ambientEnabled) {
-                    val deltaTimeSec = deltaTimeMs / 1000f
-                    // Eski particle'lari kaldır
-                    val alive = ambientParticles.toMutableList()
-                    alive.removeAll { p -> p.age + deltaTimeSec >= p.maxAge }
-
-                    // Yeni particle'lar spawn et (hedef sayi tutuluncaya kadar)
-                    while (alive.size < ambientParticleCount) {
-                        val x = Random.nextFloat()
-                        val y = -0.1f - Random.nextFloat() * 0.1f  // Ustten baslar
-                        val sineFreq = 1f + Random.nextFloat() * 1f // 1-2 Hz
-                        val vx = sin((sineFreq * 2 * Math.PI * y).toFloat()) * 0.3f
-                        val vy = 0.1f + Random.nextFloat() * 0.2f // Yukaridan asagiya (piksel/saniye degil, fraction)
-                        val lifetime = 3f + Random.nextFloat() * 1.5f
-                        val size = 2f + Random.nextFloat() * 4f
-
-                        alive.add(
-                            AmbientParticle(
-                                x = x,
-                                y = y,
-                                vx = vx,
-                                vy = vy,
-                                age = 0f,
-                                maxAge = lifetime,
-                                sinePhase = Random.nextFloat() * 6.28f,
-                                size = size
-                            )
-                        )
-                    }
-
-                    // Particle'lari guncelle (hareket + yaslandirma)
-                    val updated = alive.map { p ->
-                        val newAge = p.age + deltaTimeSec
-                        val sineWave = sin(p.sinePhase + p.vx * p.age * 2 * Math.PI).toFloat()
-                        p.copy(
-                            x = p.x + sineWave * 0.05f * deltaTimeSec,
-                            y = p.y + p.vy * deltaTimeSec,
-                            age = newAge
-                        )
-                    }
-                    ambientParticles = updated
-                }
-
                 // Faz 4: Radyal flash'i guncelle (progress += delta)
                 if (radialFlash != null) {
                     val flash = radialFlash!!
@@ -1534,7 +1483,9 @@ fun BlastTheBlocksGame(
         // Faz 77: Pro Mode "daha yuksek puan carpani" — varsayilan 1f (Level/
         // Sonsuz Mod degismez), Pro Mode'da >1f verilip TUM puan artislarina
         // uygulanir.
-        score += (placedBlocks * scoreMultiplier).roundToInt()
+        val placeBonus = (placedBlocks * scoreMultiplier).roundToInt()
+        score += placeBonus
+        floatingScoreManager.recordClear(placeBonus, gridSize / 2f, gridSize / 2f)
 
         // Check full rows & columns
         val rowsToClear = mutableListOf<Int>()
@@ -1850,6 +1801,15 @@ fun BlastTheBlocksGame(
                 }
 
                 dragCoroutineScope.launch {
+                    // FloatingScoreManager'dan aktif scores'ları ScorePopup'a dönüştür
+                    scorePopups = floatingScoreManager.getAliveScores().map { fs ->
+                        ScorePopup(
+                            row = fs.y,
+                            col = fs.x,
+                            text = fs.text,
+                            color = fs.color
+                        )
+                    }
                     popupProgress.snapTo(0f)
                     popupProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
                     scorePopups = emptyList()
@@ -2104,20 +2064,11 @@ fun BlastTheBlocksGame(
                     )
                 }
 
-                // Faz 25: geri butonu + baslik + tema/ayarlar/sifirla grubu sabit
-                // genislik varsayan bir SpaceBetween Row'daydi — Level Map'te ayni
-                // desen dar ekranlarda cakismaya yol acmisti (kullanici geri
-                // bildirimi). Baslik artik kalan alani paylasiyor ve gerekirse
-                // ellipsis ile kisaliyor, sag gruptan asla alan calmiyor.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false).padding(start = 4.dp)
-                ) {
+                // Faz 110b: Header yeniden duzenlemeldi — Level/Endless metni orta konuma,
+                // TEMA butonu Settings menüsüne tasindi. [Back] [LEVEL] [Settings]
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (isEndless) {
-                            // Faz 40: "SONSUZ MOD"/"ENDLESS MODE" TEMA piliyle cakisiyordu
-                            // bazi cihazlarda (kullanici geri bildirimi + ekran goruntusu).
-                            // Tek kelimeye kisaltildi, cakisma riski buyuk olcude azaliyor.
                             language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO")
                         } else {
                             language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber")
@@ -2130,156 +2081,98 @@ fun BlastTheBlocksGame(
                     )
                 }
 
-                // Faz 28: kullanici acikca "isim tam gozuksun, kisaltilmasin" ve
-                // "butonlar birbirine yaklassin" dedi — bir onceki gecisimde sadece
-                // TEK bir Spacer'i kucultmustum (iki Spacer'dan biri, comment satirlari
-                // araya girdigi icin diger replace_all eslesmemisti). Bu sefer HER UC
-                // eleman da (TEMA pili + iki IconButton) belirgin sekilde daraltildi:
-                // IconButton'lar varsayilan 48dp dokunma alani yerine 36dp, TEMA pilinin
-                // ic padding'i azaltildi, aralardaki Spacer'lar 0dp'ye indirildi. Boylece
-                // basliga gercekten daha fazla alan kaliyor ve "..." tetiklenmiyor.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Theme Choice Button
-                    Surface(
-                        color = NeonPurple.copy(alpha = 0.25f),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { showThemeDialog = true }
-                            .testTag("block_blast_theme_button")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val activeTheme = BLOCK_THEMES.find { it.id == currentTheme } ?: BLOCK_THEMES.first()
-                            Text(text = activeTheme.icon, fontSize = 13.sp)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text(
-                                text = language.pick(tr = "TEMA", en = "THEME", it = "TEMA", fr = "THÈME", es = "TEMA"),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = NeonPurple
-                            )
-                        }
-                    }
-
-                    // Oyun icindeyken ayarlara (ses/tema/dil) hic erisim yoktu — kullanici
-                    // ses kapatmak/ayar degistirmek icin geri cikmak zorunda kaliyordu, bu da
-                    // Sonsuz Mod'daki mevcut oturumu tamamen sifirliyordu (kullanici geri
-                    // bildirimi). Artik oyun ekranindan dogrudan Ayarlar'a gidilebiliyor.
-                    IconButton(
-                        onClick = { showSettingsDialog = true },
-                        modifier = Modifier.size(36.dp).testTag("block_blast_settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
-                            tint = palette.textPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Faz 99: ust bardaki "sifirla" (Refresh) butonu KALDIRILDI.
-                    // Kullanici bildirdi: bu buton dogrudan resetGame() cagiriyordu —
-                    // onay yok, reklam yok, ceza yok. Oyuncu kaybetmek uzereyken tek
-                    // dokunusla tahtayi bedava sifirlayabiliyordu, yani Faz 96/97'de
-                    // kurulan TUM reklam ekonomisini (Yeniden Başlat esikli
-                    // interstitial, Haritaya Dön reklami, 3 rewarded devam hakki)
-                    // tamamen bypass ediyordu. Sifirlama artik SADECE game-over
-                    // modalindeki (reklamli) yollardan yapilabiliyor.
+                // Settings button — oyun icinde Ayarlar'a (ses/tema/dil) erisim
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier.size(36.dp).testTag("block_blast_settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
+                        tint = palette.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            // Score & Level Banner
-            // Faz 40: dikey padding 4dp->2dp ve kart ic padding'i (yukarida) 8dp->6dp —
-            // reklam banner'i alani sikistirinca grid'e biraz daha pay birakmak icin
-            // (kullanici: "score combo best kutuları da çok geniş, daralabilir").
-            // Faz 95c: kullanici tekrar "üst nav bar çok geniş, tüm modlarda daralsın"
-            // dedi — kart ic padding'i 6dp->4dp, baslik/deger fontlari kucultuldu.
+            // Faz 110d: Score Banner — SKOR tam center (rakam merkezinde hesapla, /hedef ignore)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 0.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = palette.card),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(0.45f)
+                // Left spacer — Box'u merkeze al
+                Spacer(modifier = Modifier.weight(1f))
+
+                // SKOR + Hedef subscript (merkeze hizalanmış)
+                Box(
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(80.dp)
+                        .onGloballyPositioned { coordinates ->
+                            // Faz 111: SKOR box merkezini kaydet — FloatingScore animasyonu buna doğru uçacak
+                            skorCardCenterPx = coordinates.positionInRoot() + Offset(
+                                coordinates.size.width / 2f,
+                                coordinates.size.height / 2f
+                            )
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Text(
+                        "$animatedScore",
+                        fontSize = 56.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        modifier = Modifier.graphicsLayer {
+                            val s = scoreScale.value
+                            scaleX = s
+                            scaleY = s
+                        }
+                    )
+                    // Hedef subscript (sağ alt köşe, SKOR merkez hesabına etki etmez)
+                    if (!isEndless) {
                         Text(
-                            text = language.pick(tr = "🎯 SKOR", en = "🎯 SCORE", it = "🎯 PUNTEGGIO", fr = "🎯 SCORE", es = "🎯 PUNTUACIÓN"),
-                            fontSize = 9.sp,
+                            "/$targetScore",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             color = palette.textSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "$animatedScore",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = palette.textPrimary,
-                            // Faz 1 (performans): `Modifier.scale(v)` degeri
-                            // KOMPOZISYONDA okur; her skor degisiminde yay
-                            // animasyonu boyunca bu Card'in content'i her karede
-                            // yeniden derleniyordu. `Modifier.scale(x, y)` zaten
-                            // `graphicsLayer(scaleX, scaleY, clip = false)`e
-                            // cevriliyor (bytecode'dan dogrulandi) — lambda'li
-                            // surum ayni katmani kurar, sadece degeri cizim
-                            // fazinda okur. Gorsel cikti ayni.
-                            modifier = Modifier.graphicsLayer {
-                                val s = scoreScale.value
-                                scaleX = s
-                                scaleY = s
-                            }
+                            modifier = Modifier.align(Alignment.BottomEnd)
                         )
                     }
                 }
 
-                // Faz 22: seri (streak) 3+ oldugunda kart alevleniyor — mevcut kombo
-                // metni gecici bir banner, bu ise KALICI bir gorsel gosterge (kullanici
-                // geri bildirimi: "kombo kartı seri arttıkça alevlensin").
-                val isOnStreak = isEndless && comboCount >= 3
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isOnStreak) Color(0xFFFF6B35).copy(alpha = 0.16f) else palette.card
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1.1f)
-                        .padding(horizontal = 2.dp)
-                        .then(
-                            if (isOnStreak) {
-                                // Faz 1 (performans): eskiden gradyanin renkleri
-                                // `sharedPulse` ile KOMPOZISYONDA uretiliyordu —
-                                // 3+ seri boyunca TUM oyun ekrani (bu modifier
-                                // en dis composable scope'ta) her karede yeniden
-                                // derleniyordu. Artik gradyan bir kez kuruluyor,
-                                // alpha cizim fazinda uygulaniyor. Iki durak da
-                                // AYNI alpha'yi tasidigi icin "renkleri alpha=a
-                                // ile kurulmus gradyan" ile "opak gradyan + paint
-                                // alpha a" ayni sonucu verir.
-                                Modifier.drawPhaseRoundedBorder(
-                                    width = 1.5.dp,
-                                    radius = 12.dp,
-                                    brush = streakCardBorderBrush
-                                ) { sharedPulseState.value }
-                            } else {
-                                Modifier
-                            }
-                        )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                // Right Spacer — COMBO için yer (veya boş alan)
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Faz 22: COMBO (sonsuz mod'da)
+                if (isEndless) {
+                    val isOnStreak = comboCount >= 3
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isOnStreak) Color(0xFFFF6B35).copy(alpha = 0.16f) else palette.card
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .width(80.dp)
+                            .padding(end = 8.dp)
+                            .then(
+                                if (isOnStreak) {
+                                    Modifier.drawPhaseRoundedBorder(
+                                        width = 1.5.dp,
+                                        radius = 12.dp,
+                                        brush = streakCardBorderBrush
+                                    ) { sharedPulseState.value }
+                                } else {
+                                    Modifier
+                                }
+                            )
                     ) {
-                        if (isEndless) {
-                            // Sonsuz Mod'da sabit bir hedef olmadigi icin ilerleme cubugunun
-                            // anlami yok (kullanici geri bildirimi) — yerine anlik kombo sayaci gosterilir.
+                        Column(
+                            modifier = Modifier.padding(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Text(
                                 text = language.pick(tr = "🔥 KOMBO", en = "🔥 COMBO", it = "🔥 COMBO", fr = "🔥 COMBO", es = "🔥 COMBO"),
                                 fontSize = 10.sp,
@@ -2294,34 +2187,6 @@ fun BlastTheBlocksGame(
                                 color = if (comboCount >= 2) NeonGold else palette.textPrimary
                             )
                         }
-                    }
-                }
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = palette.card),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f).padding(start = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = if (isEndless) {
-                                language.pick(tr = "🏆 EN YÜKSEK", en = "🏆 BEST", it = "🏆 MIGLIORE", fr = "🏆 MEILLEUR", es = "🏆 MEJOR")
-                            } else {
-                                language.pick(tr = "🏁 HEDEF", en = "🏁 TARGET", it = "🏁 OBIETTIVO", fr = "🏁 OBJECTIF", es = "🏁 OBJETIVO")
-                            },
-                            fontSize = 9.sp,
-                            color = palette.textSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (isEndless) "${maxOf(score, bestScore)}" else "$targetScore",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = NeonGold
-                        )
                     }
                 }
             }
@@ -2467,7 +2332,14 @@ fun BlastTheBlocksGame(
                     .border(2.dp, Brush.linearGradient(uiSkin.accentGradient), RoundedCornerShape(16.dp))
                     .padding(6.dp)
             ) {
-              Box(modifier = Modifier.fillMaxSize()) {
+              Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { coords ->
+                        // Faz 111: Grid Box'un origin'i — FloatingScore overlay koordinatları için
+                        gridBoxOriginPx = coords.positionInRoot()
+                    }
+              ) {
                 // Faz 3: Tahta Canvas'i — 64 hucre + glowingRows/Cols + clear glow + sparkles
                 Canvas(
                     modifier = Modifier
@@ -2478,7 +2350,7 @@ fun BlastTheBlocksGame(
                         }
                 ) {
                     val cellSize = size.width / gridSize
-                    val cellPaddingPx = with(drawContext.density) { 1.5.dp.toPx() }
+                    val cellPaddingPx = with(drawContext.density) { 0.5.dp.toPx() }
                     val cornerRadiusPx = with(drawContext.density) { 6.dp.toPx() }
                     val bevelRatio = 0.16f // baseColor'dan sonraki `b = w * 0.16f`
                     val fontSizePx = size.minDimension * 0.6f
@@ -2848,7 +2720,7 @@ fun BlastTheBlocksGame(
                 // redraw (recomposition yok). drawLambda icinden canvas.size.width/height
                 // kullaniyoruz — piksel, hucre degil. Faz 3'ten farkli olarak burada
                 // tahta grid'i yoktur, sadece tam ekran FX.
-                if (ambientEnabled || radialFlash != null) {
+                if (radialFlash != null) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val screenWidth = size.width
                         val screenHeight = size.height
@@ -2982,13 +2854,29 @@ fun BlastTheBlocksGame(
                     }
                 }
 
-                // Faz 5: Floating score — "+puan" animasyonu (Choreographer tabanlı)
-                // Her harita temizlemesinde emit edilen puanlar yukarı uçuyor, 1 saniye içinde fade-out.
+                // Faz 5/111: Floating score — "+puan" animasyonu SKOR'a doğru uçuyor
+                // Her harita temizlemesinde emit edilen puanlar SKOR kartına doğru uçuyor, 1 saniye içinde fade-out.
                 if (floatingScoreManager.getAliveScores().isNotEmpty()) {
                     val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
+
+                    // Faz 111: SKOR card'ının grid cell koordinatlarını hesapla
+                    val skorBoxOriginPx = gridBoxOriginPx
+                    val skorCenterRelativePx = skorCardCenterPx - skorBoxOriginPx
+                    val skorCellX = if (cellSizePx > 0f) skorCenterRelativePx.x / cellSizePx else 4f
+                    val skorCellY = if (cellSizePx > 0f) skorCenterRelativePx.y / cellSizePx else -3f
+
                     floatingScoreManager.getAliveScores().forEach { score ->
-                        // Faz 5: hücre birimine göre offset — yukarı doğru hareket (negatif dy)
-                        val offsetDpValue = with(density) { (score.getOffset() * cellSizePx).toDp() }
+                        // Faz 111: İlk render'da hedef koordinatı set et
+                        if (score.targetX == score.x && score.targetY == score.y) {
+                            score.targetX = skorCellX
+                            score.targetY = skorCellY
+                        }
+
+                        // Faz 111: Bezier interpolasyon ile şu anki pozisyon
+                        val (currentCellX, currentCellY) = score.getPositionAtTime()
+                        val offsetDpX = with(density) { (currentCellX * cellSizePx).toDp() }
+                        val offsetDpY = with(density) { (currentCellY * cellSizePx).toDp() }
+
                         val alpha = score.getAlpha()
                         Text(
                             text = score.text,
@@ -2999,8 +2887,8 @@ fun BlastTheBlocksGame(
                                 shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
                             ),
                             modifier = Modifier.offset(
-                                x = cellDp * score.x - 18.dp,
-                                y = cellDp * score.y - 12.dp + offsetDpValue
+                                x = offsetDpX - 18.dp,
+                                y = offsetDpY - 12.dp
                             )
                         )
                     }

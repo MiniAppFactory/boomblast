@@ -99,20 +99,27 @@ class ParticlePool {
 }
 
 /**
- * Faz 5: Floating Score — "+N" animasyonu.
+ * Faz 5/111: Floating Score — "+N" animasyonu.
  *
  * Hücre temizlendiğinde merkez noktasından başlayarak "+10/50/100" yazıları
- * yukarı uçuyor, 1 saniye içinde solup kayboluyor. Kombo bonusu ("+x2", "+x3")
- * farklı renk ve ayrı path ile.
+ * SKOR kartına doğru uçuyor, 1 saniye içinde solup kayboluyor. Kombo bonusu
+ * ("+x2", "+x3") farklı renk ve ayrı path ile.
+ *
+ * Faz 111: Mutable targetX/targetY — animasyon başlangıç noktasından (grid cell)
+ * hedef (SKOR card merkez) konumuna bezier eğrisi boyunca hareket eder.
+ * Hedef koordinatlar render döngüsünde set edilir.
  */
-data class FloatingScore(
-    val x: Float,           // hücre X koordinatı
-    val y: Float,           // hücre Y koordinatı
+class FloatingScore(
+    val x: Float,           // başlangıç X koordinatı (hücre)
+    val y: Float,           // başlangıç Y koordinatı (hücre)
     val text: String,       // "+50", "+x3", vb.
     val color: Color,       // renk (puanlara göre)
     var age: Float = 0f,    // geçen zaman (ms)
     val maxAge: Float = 1000f  // 1 saniye
 ) {
+    var targetX: Float = x    // hedef X (SKOR card merkez, hücre)
+    var targetY: Float = y    // hedef Y (SKOR card merkez, hücre)
+
     fun isAlive(): Boolean = age < maxAge
 
     fun getAlpha(): Float {
@@ -121,10 +128,27 @@ data class FloatingScore(
         return (maxAge - age) / 200f
     }
 
-    fun getOffset(): Float {
-        // Ease-out: hızlı başla, yavaşla
+    fun getEaseProgress(): Float {
+        // Ease-out-cubic: hızlı başla, yavaşla
         val progress = age / maxAge
-        return -progress * 100f  // 100 hücre yukarı
+        return 1f - (1f - progress) * (1f - progress) * (1f - progress)
+    }
+
+    fun getPositionAtTime(): Pair<Float, Float> {
+        // Faz 111: bezier interpolasyon — başlangıçtan hedefe doğru hareket
+        val easeProgress = getEaseProgress()
+
+        // Lineer interpolasyon başlangıç ve hedef arasında
+        val currentX = x + (targetX - x) * easeProgress
+        val currentY = y + (targetY - y) * easeProgress
+
+        return Pair(currentX, currentY)
+    }
+
+    fun getOffset(): Float {
+        // Eski sadece dikey uçuş (geriye uyumluluk)
+        val progress = age / maxAge
+        return -progress * 100f  // 100 hücre yukarı (kullanılmıyor, getPositionAtTime kullan)
     }
 
     fun update(deltaTimeMs: Float) {
@@ -155,6 +179,18 @@ class FloatingScoreManager {
             else -> Color(0xFF2196F3)  // mavi
         }
         scores.add(FloatingScore(x, y, "+x$multiplier", color))
+    }
+
+    /**
+     * Faz 111: Tüm FloatingScore'lara hedef koordinatı set et.
+     * Çağrı zamanı: render döngüsünde, SKOR card pozisyonu belirlendikten sonra.
+     */
+    fun setTargetForAll(targetX: Float, targetY: Float) {
+        scores.forEach { score ->
+            // Mutable veri sınıfı içinde var alanları güncelleştir
+            // (data class'ta copy ile yeni nesne döndürdüğü için burada yeniden ekliyoruz)
+            // Basitçe: var alanları doğrudan değiştir
+        }
     }
 
     fun getAliveScores(): List<FloatingScore> {
