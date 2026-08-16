@@ -46,8 +46,11 @@ android {
     // korumasi, banner yukseklik rezervasyonu + tepsiden uzaklastirma, UMP
     // gizlilik secenekleri girisi, canRequestAds kapisi). Ayni versionCode ile
     // FARKLI bir ikili uretmemek icin numara artirildi.
-    versionCode = 8
-    versionName = "1.0.6"
+    // Faz 112 (closed testing): 8 -> 9. HUD tam yeniden tasarimi (2x3 harita, ortada
+    // SKOR math-based, saga TARGET, soiunda power-ups). Grid kenari 1.5 -> 0.5 dp.
+    // Puan sartlari static 100+(n-1)*5. FloatingScoreManager (performance) kaldirilan.
+    versionCode = 9
+    versionName = "1.0.7"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
