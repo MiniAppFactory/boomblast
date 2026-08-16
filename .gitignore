@@ -19,3 +19,15 @@ local.properties
 debug.keystore
 *.jks
 signing.properties
+
+# 2026-08-16: app.zip (87.7 MB) Faz 3'te yanlislikla commit'lenmisti ve 121
+# commit boyunca gecmiste tasindi — repo pack'inin %73'u oydu (119.73 MiB).
+# git filter-repo ile TUM gecmisten kazindi. Bir daha girmemesi icin zip/arsiv
+# uzantilari tamamen disarida; kaynak yedegi almak isteyen repo'nun kendisini
+# klonlar, arsivi commit'lemez.
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz
