@@ -775,11 +775,6 @@ fun BlastTheBlocksGame(
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
 
-    // Faz 111: SKOR card merkez koordinatı (FloatingScore'un target'ı)
-    var skorCardCenterPx by remember { mutableStateOf(Offset.Zero) }
-    // Faz 111: Grid Box'un (FloatingScore overlay'inin) origin'i — koordinat dönüşümü için
-    var gridBoxOriginPx by remember { mutableStateOf(Offset.Zero) }
-
     // Faz 4/110c: Radyal isin flash KAPATILDI (havaifişek lazer ışınları)
     // Kullanıcı isteği: animation ağırlığı seçeneği kaldırıldı, Effect Intensity yaşamadı
     var radialFlash by remember { mutableStateOf<RadialFlashState?>(null) }
@@ -906,9 +901,6 @@ fun BlastTheBlocksGame(
     // Faz 5: ParticlePool obje havuzuna geçiş. Eski: Array + activeParticles sayacı.
     // Yeni: ParticlePool sınıfı tüm durumu yönetiyor.
     val particlePool = remember { ParticlePool() }
-
-    // Faz 5: Floating score yönetimi — "+10/50/100" yazıları animasyonu.
-    val floatingScoreManager = remember { FloatingScoreManager() }
 
     // Faz 5: Kullanılmayan (Choreographer callback'inde local değişken)
     // var activeParticles by remember { mutableIntStateOf(0) }
@@ -1390,7 +1382,6 @@ fun BlastTheBlocksGame(
 
                 // Faz 5: Physics güncelleme
                 particlePool.update(deltaTimeMs)
-                floatingScoreManager.update(deltaTimeMs)
 
                 // Faz 4: Radyal flash'i guncelle (progress += delta)
                 if (radialFlash != null) {
@@ -1485,7 +1476,6 @@ fun BlastTheBlocksGame(
         // uygulanir.
         val placeBonus = (placedBlocks * scoreMultiplier).roundToInt()
         score += placeBonus
-        floatingScoreManager.recordClear(placeBonus, gridSize / 2f, gridSize / 2f)
 
         // Check full rows & columns
         val rowsToClear = mutableListOf<Int>()
@@ -1792,29 +1782,6 @@ fun BlastTheBlocksGame(
                 }
                 scorePopups = rowPopups + colPopups
 
-                // Faz 5: Floating score — "+puan" animasyonu
-                rowsToClear.forEach { r ->
-                    floatingScoreManager.recordClear(perLineScore, r + 0.5f, gridSize / 2f)
-                }
-                colsToClear.forEach { c ->
-                    floatingScoreManager.recordClear(perLineScore, gridSize / 2f, c + 0.5f)
-                }
-
-                dragCoroutineScope.launch {
-                    // FloatingScoreManager'dan aktif scores'ları ScorePopup'a dönüştür
-                    scorePopups = floatingScoreManager.getAliveScores().map { fs ->
-                        ScorePopup(
-                            row = fs.y,
-                            col = fs.x,
-                            text = fs.text,
-                            color = fs.color
-                        )
-                    }
-                    popupProgress.snapTo(0f)
-                    popupProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
-                    scorePopups = emptyList()
-                }
-
                 // Parcacik patlamasi: temizlenen hucrelerden bir kismini orneklendirip
                 // rastgele acı/mesafeyle disari firlat — renkler board SIFIRLANMADAN
                 // ONCE okunuyor, aksi halde tum parcaciklar ayni "bos hucre" rengine duser.
@@ -2112,14 +2079,7 @@ fun BlastTheBlocksGame(
                 Box(
                     modifier = Modifier
                         .width(200.dp)
-                        .height(80.dp)
-                        .onGloballyPositioned { coordinates ->
-                            // Faz 111: SKOR box merkezini kaydet — FloatingScore animasyonu buna doğru uçacak
-                            skorCardCenterPx = coordinates.positionInRoot() + Offset(
-                                coordinates.size.width / 2f,
-                                coordinates.size.height / 2f
-                            )
-                        },
+                        .height(80.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -2335,12 +2295,7 @@ fun BlastTheBlocksGame(
                     .padding(6.dp)
             ) {
               Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .onGloballyPositioned { coords ->
-                        // Faz 111: Grid Box'un origin'i — FloatingScore overlay koordinatları için
-                        gridBoxOriginPx = coords.positionInRoot()
-                    }
+                modifier = Modifier.fillMaxSize()
               ) {
                 // Faz 3: Tahta Canvas'i — 64 hucre + glowingRows/Cols + clear glow + sparkles
                 Canvas(
@@ -2851,46 +2806,6 @@ fun BlastTheBlocksGame(
                             modifier = Modifier.offset(
                                 x = cellDp * popup.col - 14.dp,
                                 y = cellDp * popup.row - 10.dp - (16.dp * riseFraction)
-                            )
-                        )
-                    }
-                }
-
-                // Faz 5/111: Floating score — "+puan" animasyonu SKOR'a doğru uçuyor
-                // Her harita temizlemesinde emit edilen puanlar SKOR kartına doğru uçuyor, 1 saniye içinde fade-out.
-                if (floatingScoreManager.getAliveScores().isNotEmpty()) {
-                    val cellDp = if (cellSizePx > 0f) with(density) { cellSizePx.toDp() } else 26.dp
-
-                    // Faz 111: SKOR card'ının grid cell koordinatlarını hesapla
-                    val skorBoxOriginPx = gridBoxOriginPx
-                    val skorCenterRelativePx = skorCardCenterPx - skorBoxOriginPx
-                    val skorCellX = if (cellSizePx > 0f) skorCenterRelativePx.x / cellSizePx else 4f
-                    val skorCellY = if (cellSizePx > 0f) skorCenterRelativePx.y / cellSizePx else -3f
-
-                    floatingScoreManager.getAliveScores().forEach { score ->
-                        // Faz 111: İlk render'da hedef koordinatı set et
-                        if (score.targetX == score.x && score.targetY == score.y) {
-                            score.targetX = skorCellX
-                            score.targetY = skorCellY
-                        }
-
-                        // Faz 111: Bezier interpolasyon ile şu anki pozisyon
-                        val (currentCellX, currentCellY) = score.getPositionAtTime()
-                        val offsetDpX = with(density) { (currentCellX * cellSizePx).toDp() }
-                        val offsetDpY = with(density) { (currentCellY * cellSizePx).toDp() }
-
-                        val alpha = score.getAlpha()
-                        Text(
-                            text = score.text,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = score.color.copy(alpha = alpha),
-                            style = TextStyle(
-                                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
-                            ),
-                            modifier = Modifier.offset(
-                                x = offsetDpX - 18.dp,
-                                y = offsetDpY - 12.dp
                             )
                         )
                     }

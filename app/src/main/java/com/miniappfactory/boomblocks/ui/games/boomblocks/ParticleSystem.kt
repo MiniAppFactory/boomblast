@@ -187,9 +187,8 @@ class FloatingScoreManager {
      */
     fun setTargetForAll(targetX: Float, targetY: Float) {
         scores.forEach { score ->
-            // Mutable veri sınıfı içinde var alanları güncelleştir
-            // (data class'ta copy ile yeni nesne döndürdüğü için burada yeniden ekliyoruz)
-            // Basitçe: var alanları doğrudan değiştir
+            score.targetX = targetX
+            score.targetY = targetY
         }
     }
 
