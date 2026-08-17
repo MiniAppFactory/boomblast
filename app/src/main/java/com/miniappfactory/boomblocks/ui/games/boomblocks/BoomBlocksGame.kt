@@ -828,8 +828,31 @@ fun BlastTheBlocksGame(
     // Sonsuz Mod'da vardi (kullanicinin ilk istegi acikca "sonsuz oyunda"
     // diyordu) — Faz 47'de kullanici "level modunda geri tuşu direkt atıyor,
     // çıkmak istiyor musunuz diye sormuyor" dedi, Seviyeli Mod'a da acildi.
-    BackHandler(enabled = !isGameOver && !isLevelComplete) {
-        showExitConfirmDialog = true
+    //
+    // Faz 116: isGameOver/isLevelComplete iken handler TAMAMEN kapatiliyordu
+    // (enabled = false), yani sistem geri tusu/jesti Compose Navigation'in
+    // varsayilan popBackStack'ine dusuyordu — ekrandaki "HARİTAYA DÖN"/"DEVAM
+    // ET" butonlariyla AYNI ekran, ama interstitial'i sarmalayan onBack/
+    // onLevelCompleteContinue hic cagrilmiyordu (gelir kacagi). Artik handler
+    // HER ZAMAN acik, o an gorunen modalin kendi butonuyla AYNI eylemi tetikler.
+    //
+    // Faz 115e: cikis tek noktadan gecer — geri tusu, cikis onayi ve
+    // level-failed "HARITAYA DON" ayni kurali paylassin diye.
+    //
+    // Kural (kullanici, 2026-08-16): skor 0 ise oyuncu daha hicbir sey
+    // oynamamistir, bedelsiz cikar. Skor > 0 ise oynanmis bir tahta terk
+    // ediliyor demektir; bu bir "bedava reset"tir ve reklam gosterilir.
+    fun exitGame() {
+        val free = onBackWithoutAd
+        if (score <= 0 && free != null) free() else onBack()
+    }
+
+    BackHandler {
+        when {
+            isGameOver -> exitGame()
+            isLevelComplete -> onLevelCompleteContinue()
+            else -> showExitConfirmDialog = true
+        }
     }
 
     val glowPulse = remember { Animatable(0f) }
@@ -1367,17 +1390,6 @@ fun BlastTheBlocksGame(
         onUseBooster(type)
         armedBooster = null
         checkGameOver()
-    }
-
-    // Faz 115e: cikis tek noktadan gecer — geri tusu, cikis onayi ve
-    // level-failed "HARITAYA DON" ayni kurali paylassin diye.
-    //
-    // Kural (kullanici, 2026-08-16): skor 0 ise oyuncu daha hicbir sey
-    // oynamamistir, bedelsiz cikar. Skor > 0 ise oynanmis bir tahta terk
-    // ediliyor demektir; bu bir "bedava reset"tir ve reklam gosterilir.
-    fun exitGame() {
-        val free = onBackWithoutAd
-        if (score <= 0 && free != null) free() else onBack()
     }
 
     fun resetGame() {
