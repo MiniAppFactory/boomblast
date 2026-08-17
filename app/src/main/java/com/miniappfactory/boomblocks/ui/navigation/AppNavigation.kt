@@ -280,6 +280,10 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
                             }
                         },
+                        // Faz 115e: skor 0 iken reklamsiz cikis (bkz. exitGame()).
+                        onBackWithoutAd = {
+                            navController.popBackStack(Routes.LEVEL_MAP, inclusive = false)
+                        },
                         // Faz 96: rewarded hakki tukendikten sonraki duz "TEKRAR DENE" de
                         // artik zorunlu interstitial'a bagli (kullanici: tam simetri istedi).
                         onRetryInterstitial = { onProceed ->
@@ -499,6 +503,10 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
                             }
                         },
+                        // Faz 115e: skor 0 iken reklamsiz cikis (bkz. exitGame()).
+                        onBackWithoutAd = {
+                            navController.popBackStack(Routes.CHALLENGE_MAP, inclusive = false)
+                        },
                         musicEnabled = progress.musicEnabled,
                         soundVolume = progress.soundVolume,
                         onToggleSound = { viewModel.setSoundEnabled(it) },
@@ -702,7 +710,44 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         // envanteri sifirlanmali" dedi — reklamla kazanilanlar o
                         // oturuma ozel, Level/Pro Mode'daki coin ile alinanlar gibi
                         // kalici degil.
+                        // Faz 115e — HATA DUZELTMESI (kullanici: "geri tusuna basip
+                        // oyuna tekrar baslayinca bedava reset haklari var").
+                        //
+                        // Sonsuz Mod'un geri tusu tek basina hicbir sey
+                        // gostermiyordu: oyuncu kaybedince GERI -> tekrar GIR
+                        // yaparak taze bir tahta ve taze devam haklari aliyordu,
+                        // hicbir bedel odemeden. Faz 103 bu "cik-gir bypass"ini
+                        // "TEKRAR DENE" butonu icin kapatmisti ama GERI tusu acik
+                        // kalmisti — Kariyer/Pro'da (bkz. Faz 96, yukaridaki
+                        // onBack) geri tusu zaten zorunlu interstitial gosteriyor,
+                        // yani asimetriydi ve Sonsuz en cok oynanan mod.
+                        //
+                        // Artik ayni davranis. No-fill/riza yok/siklik siniri
+                        // durumlarinda InterstitialAdManager onProceed'i yine
+                        // cagirir — oyuncu ASLA kilitlenmez, sadece reklam atlanir.
                         onBack = {
+                            val activity = context.findActivity()
+                            // Tip ACIKCA () -> Unit: popBackStack() Boolean donduruyor,
+                            // tip cikarimi lambda'yi () -> Boolean yapip onProceed ile
+                            // uyusmuyordu.
+                            val proceed: () -> Unit = {
+                                viewModel.resetEndlessBoosters()
+                                navController.popBackStack()
+                            }
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = proceed
+                                )
+                            } else {
+                                proceed()
+                            }
+                        },
+                        // Faz 115e: skor 0 iken reklamsiz cikis (bkz. exitGame()).
+                        // Guclendirici envanteri yine sifirlanir — o Faz 94 kurali,
+                        // reklamdan bagimsiz.
+                        onBackWithoutAd = {
                             viewModel.resetEndlessBoosters()
                             navController.popBackStack()
                         },

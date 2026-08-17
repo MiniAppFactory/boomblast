@@ -1,6 +1,7 @@
 package com.miniappfactory.boomblocks.ui.levels
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,16 +38,20 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
@@ -237,7 +241,11 @@ private fun LevelMapHeader(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "🪙", fontSize = 14.sp) // 🪙
+                    Image(
+                        painter = painterResource(R.drawable.icon_coin),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${progress.tokens}",
@@ -329,24 +337,53 @@ private fun LevelPathNode(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val nodeY = LEVEL_NODE_CENTER_Y.toPx()
+            val dash = PathEffect.dashPathEffect(floatArrayOf(20f, 16f), 0f)
+            // Acik (unlocked) bolumlerde basit iki-katmanli glow simulasyonu:
+            // ayni cizgiyi once daha kalin+dusuk-alfa "alt katman" olarak, sonra
+            // normal kalinlikta ustune ciziyoruz. Gercek blur/RenderEffect yok,
+            // sadece ışıma hissi.
             if (prevXFraction != null) {
+                val start = Offset(prevXFraction * size.width, 0f)
+                val end = Offset(currXFraction * size.width, nodeY)
+                if (unlocked) {
+                    drawLine(
+                        color = pathColor.copy(alpha = pathColor.alpha * 0.5f),
+                        start = start,
+                        end = end,
+                        strokeWidth = 14f,
+                        cap = StrokeCap.Round,
+                        pathEffect = dash
+                    )
+                }
                 drawLine(
                     color = pathColor,
-                    start = Offset(prevXFraction * size.width, 0f),
-                    end = Offset(currXFraction * size.width, nodeY),
+                    start = start,
+                    end = end,
                     strokeWidth = 6f,
                     cap = StrokeCap.Round,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 16f), 0f)
+                    pathEffect = dash
                 )
             }
             if (!isLastItem) {
+                val start = Offset(currXFraction * size.width, nodeY)
+                val end = Offset(currXFraction * size.width, size.height)
+                if (unlocked) {
+                    drawLine(
+                        color = pathColor.copy(alpha = pathColor.alpha * 0.5f),
+                        start = start,
+                        end = end,
+                        strokeWidth = 14f,
+                        cap = StrokeCap.Round,
+                        pathEffect = dash
+                    )
+                }
                 drawLine(
                     color = pathColor,
-                    start = Offset(currXFraction * size.width, nodeY),
-                    end = Offset(currXFraction * size.width, size.height),
+                    start = start,
+                    end = end,
                     strokeWidth = 6f,
                     cap = StrokeCap.Round,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 16f), 0f)
+                    pathEffect = dash
                 )
             }
         }
@@ -366,18 +403,54 @@ private fun LevelPathNode(
             // okumuyordu. Artik tamamlanan daireler ici tamamen yesil DOLU
             // (kabartma/embossed hissi icin hafif ust-sol acik / alt-sag koyu
             // radial gradient) ve rakam beyaza donuyor.
+            // Faz 43'ten sonra da tamamlanan dugum "duz iki-ton" gradyandan daha
+            // hacimli/parlak hale getirildi (kullanicinin begendigi mockup'taki
+            // gibi): ustte NeonGreen'in beyaza yakin tonu, ortada saf NeonGreen,
+            // altta siyaha yakin tonu — lerp ile uretiliyor.
             val completedFill = Brush.verticalGradient(
-                colors = listOf(NeonGreen, NeonGreen.copy(alpha = 0.8f))
+                colors = listOf(
+                    lerp(NeonGreen, Color.White, 0.55f),
+                    NeonGreen,
+                    lerp(NeonGreen, Color.Black, 0.45f)
+                )
             )
+            // Acik ama tamamlanmamis dugumlerde "aktif/oynanabilir" hissi icin
+            // aksan renginin dusuk-alfali radyal isimasi.
+            val activeGlow = Brush.radialGradient(
+                colors = listOf(accentColor.copy(alpha = 0.35f), Color.Transparent)
+            )
+            // Kilitli dugumlere glow EKLENMIYOR (soluk kalmalari kasitli,
+            // alpha(0.5f) zaten uyguluyor); sadece tamamlanan/acik dugumlerin
+            // arkasina, dis halkadan biraz daha buyuk, hafif bir accent glow.
+            // ONEMLI: glow, dugumun OLCULEN boyutunu (LEVEL_NODE_SIZE) degistirmez
+            // — drawBehind ile kutu sinirlarinin disina, layout'u etkilemeden
+            // ciziliyor. Aksi halde Column'daki dugum LEVEL_NODE_CENTER_Y'nin
+            // varsaydigi konumdan kayar ve Canvas cizgisiyle hizasi bozulur.
             Box(
                 modifier = Modifier
                     .size(LEVEL_NODE_SIZE)
+                    .then(
+                        if (unlocked) {
+                            Modifier.drawBehind {
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(nodeAccent.copy(alpha = 0.30f), Color.Transparent)
+                                    ),
+                                    radius = size.minDimension / 2f + 8.dp.toPx()
+                                )
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
                     .clip(CircleShape)
                     .then(
-                        if (completed) {
-                            Modifier.background(completedFill)
-                        } else {
-                            Modifier.background(if (unlocked) palette.card else palette.cardAlt)
+                        when {
+                            completed -> Modifier.background(completedFill)
+                            unlocked -> Modifier
+                                .background(palette.card)
+                                .background(activeGlow)
+                            else -> Modifier.background(palette.cardAlt)
                         }
                     )
                     .border(2.5.dp, borderBrush, CircleShape),
@@ -391,10 +464,9 @@ private fun LevelPathNode(
                         color = if (completed) Color.White else nodeAccent
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
+                    Image(
+                        painter = painterResource(R.drawable.icon_lock),
                         contentDescription = language.pick(tr = "Kilitli", en = "Locked", it = "Bloccato", fr = "Verrouillé", es = "Bloqueado"),
-                        tint = Color.Gray,
                         modifier = Modifier.size(24.dp)
                     )
                 }

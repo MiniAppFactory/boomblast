@@ -1,6 +1,8 @@
 package com.miniappfactory.boomblocks.ui.games.boomblocks
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.res.painterResource
+import com.miniappfactory.boomblocks.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -28,6 +30,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -648,6 +651,16 @@ fun BlastTheBlocksGame(
     // 1 satir patlasa bile cagriliyor, bu ise sadece coklu patlamada.
     onMultiClear: () -> Unit = {},
     onBack: () -> Unit,
+    // Faz 115e: SKOR 0 iken bedelsiz cikis.
+    //
+    // Kullanicinin koydugu kural: "eger henuz score sifirsa bu dogru yaklasim
+    // ama sifirdan buyukse reklam girmeli". Yani oyuncu daha hicbir sey
+    // oynamadan cikiyorsa reklam gostermek hem gereksiz hem rahatsiz edici;
+    // ama oynanmis bir tahtayi terk edip taze baslamak "bedava reset"tir ve
+    // bedeli olmalidir.
+    //
+    // Verilmezse onBack'e duser, yani eski davranis (her cikista reklam).
+    onBackWithoutAd: (() -> Unit)? = null,
     // Ayarlar navController.navigate() ile ayri bir hedefe gitmiyor — Navigation
     // Compose ekrandan ayrilinca bu composable'i komposizyondan atip geri donunce
     // yeniden olusturuyordu, bu da tum remember durumunu (tahta/skor/tepsi)
@@ -774,6 +787,33 @@ fun BlastTheBlocksGame(
     val beamProgress = remember { Animatable(0f) }
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
+
+    // Faz 115c — HATA DUZELTMESI (kullanici cihazda buldu: "bir satir patlayinca
+    // aldigin puan ekranda takili kaliyor bir sonraki patlamaya kadar").
+    //
+    // Kok sebep: `popupProgress` yaratiliyordu ve cizim tarafinda okunuyordu, ama
+    // ONU SUREN HICBIR KOD YOKTU — tum dosyada yalnizca iki kullanimi vardi:
+    // tanim (burasi) ve `riseFraction = popupProgress.value` okumasi. `animateTo`
+    // hic cagrilmiyordu. Sonuc: deger sonsuza kadar 0f, dolayisiyla
+    //     riseFraction = 0  ->  popupAlpha = 1f - 0 = 1f
+    // yani "+12" yazisi TAM OPAKLIKTA, hic yukselmeden ve hic solmadan asili
+    // kaliyordu; ancak bir sonraki patlama `scorePopups` listesini degistirince
+    // yer degistiriyordu. Animasyonu suren kod bir noktada kaldirilmis, cizim
+    // yolu yerinde birakilmis.
+    //
+    // Duzeltme: liste doldugunda animasyonu bastan baslat, bitince listeyi
+    // TEMIZLE. Listenin temizlenmesi onemli — yoksa yazi %0 alfa ile de olsa
+    // kompozisyonda kalirdi.
+    LaunchedEffect(scorePopups) {
+        if (scorePopups.isNotEmpty()) {
+            popupProgress.snapTo(0f)
+            popupProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+            )
+            scorePopups = emptyList()
+        }
+    }
 
     // Faz 4/110c: Radyal isin flash KAPATILDI (havaifişek lazer ışınları)
     // Kullanıcı isteği: animation ağırlığı seçeneği kaldırıldı, Effect Intensity yaşamadı
@@ -1297,6 +1337,17 @@ fun BlastTheBlocksGame(
         onUseBooster(type)
         armedBooster = null
         checkGameOver()
+    }
+
+    // Faz 115e: cikis tek noktadan gecer — geri tusu, cikis onayi ve
+    // level-failed "HARITAYA DON" ayni kurali paylassin diye.
+    //
+    // Kural (kullanici, 2026-08-16): skor 0 ise oyuncu daha hicbir sey
+    // oynamamistir, bedelsiz cikar. Skor > 0 ise oynanmis bir tahta terk
+    // ediliyor demektir; bu bir "bedava reset"tir ve reklam gosterilir.
+    fun exitGame() {
+        val free = onBackWithoutAd
+        if (score <= 0 && free != null) free() else onBack()
     }
 
     fun resetGame() {
@@ -2019,7 +2070,7 @@ fun BlastTheBlocksGame(
                         if (!isGameOver && !isLevelComplete) {
                             showExitConfirmDialog = true
                         } else {
-                            onBack()
+                            exitGame()
                         }
                     },
                     modifier = Modifier.testTag("block_blast_back_button")
@@ -2082,9 +2133,11 @@ fun BlastTheBlocksGame(
                     var isFirstBooster = true
                     BoosterType.entries.forEach { type ->
                         val owned = availableBoosterCounts[type] ?: 0
-                        val emoji = when (type) {
-                            BoosterType.BOMB -> "💣"
-                            BoosterType.LINE_CLEAR -> "⚡"
+                        // Faz 115f: emoji yerine gercek asset ikonlari
+                        // (drawable-nodpi/icon_bomb.webp, icon_line_clear.webp).
+                        val boosterIconRes = when (type) {
+                            BoosterType.BOMB -> R.drawable.icon_bomb
+                            BoosterType.LINE_CLEAR -> R.drawable.icon_line_clear
                         }
 
                         // Add 8dp spacing between booster items
@@ -2114,7 +2167,11 @@ fun BlastTheBlocksGame(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(text = emoji, fontSize = 12.sp)
+                                    androidx.compose.foundation.Image(
+                                        painter = painterResource(boosterIconRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(text = "x$owned", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                                 }
@@ -2137,7 +2194,11 @@ fun BlastTheBlocksGame(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(text = emoji, fontSize = 12.sp)
+                                    androidx.compose.foundation.Image(
+                                        painter = painterResource(boosterIconRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(text = "▶️+1", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = palette.textSecondary)
                                 }
@@ -2146,8 +2207,16 @@ fun BlastTheBlocksGame(
                     }
                 }
 
-                // Center Column B1/B2: SKOR (must be at exact horizontal center)
-                // Use math-based centering: fillMaxWidth / 2, not weight-based
+                // Faz 115: SKOR — v11 gorsel yonu.
+                //
+                // Faz 112'nin matematiksel merkezlemesi KORUNDU (Box fillMaxWidth +
+                // contentAlignment = Center). O, booster sayisi ya da hedef metni
+                // uzadikca skorun kaymasi sorununu cozmustu; buradaki degisiklik
+                // yalnizca skorun GORUNUMU — konumlandirma mantigina dokunulmadi.
+                //
+                // Degisen: duz beyaz sayi -> altin dikey gradyan + yumusak isima +
+                // altinda kucuk "SCORE" etiketi. Mockup'ta skoru "ekranin kahramani"
+                // yapan sey buydu; ayni sayi, ayni yer, farkli agirlik.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2155,33 +2224,81 @@ fun BlastTheBlocksGame(
                         .align(Alignment.Center),
                     contentAlignment = Alignment.Center
                 ) {
-                    // SKOR text — at exact horizontal center
-                    Text(
-                        "$animatedScore",
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
+                    Column(
                         modifier = Modifier
                             .align(Alignment.Center)
                             .graphicsLayer {
                                 val s = scoreScale.value
                                 scaleX = s
                                 scaleY = s
-                            }
-                    )
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "$animatedScore",
+                            fontSize = 56.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            style = androidx.compose.ui.text.TextStyle(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFFFFF3C4),
+                                        Color(0xFFFFD54F),
+                                        Color(0xFFFFA726)
+                                    )
+                                ),
+                                shadow = Shadow(
+                                    color = Color(0xFFFFB300).copy(alpha = 0.55f),
+                                    offset = Offset(0f, 0f),
+                                    blurRadius = 26f
+                                )
+                            )
+                        )
+                        Text(
+                            text = language.pick(tr = "SKOR", en = "SCORE", it = "PUNTI", fr = "SCORE", es = "PUNTOS"),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            color = NeonCyan.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(top = 1.dp)
+                        )
+                    }
                 }
 
-                // Right Column C2: Target score (/100)
+                // Faz 115: HEDEF — ciplak "/100" yerine gercek bir rozet.
+                // Mockup'ta hedef, skorun rakibi olarak ayri bir kart halinde
+                // duruyor; oyuncu "kac kaldi" bilgisini tek bakista aliyor.
                 if (!isEndless) {
-                    Text(
-                        "/$targetScore",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = palette.textSecondary,
+                    Column(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(end = 16.dp, top = 8.dp)
-                    )
+                            .padding(end = 16.dp, top = 6.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        NeonPurple.copy(alpha = 0.42f),
+                                        NeonPurple.copy(alpha = 0.16f)
+                                    )
+                                )
+                            )
+                            .border(1.dp, NeonPurple.copy(alpha = 0.65f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = language.pick(tr = "HEDEF", en = "TARGET", it = "OBIETTIVO", fr = "OBJECTIF", es = "OBJETIVO"),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                        Text(
+                            text = "$targetScore",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
                 }
 
                 // Faz 22: COMBO (sonsuz mod'da) — positioned at right side
@@ -2296,11 +2413,40 @@ fun BlastTheBlocksGame(
                             gridOriginPx = coords.positionInRoot()
                             cellSizePx = coords.size.width / gridSize.toFloat()
                         }
+                        // Faz 115d — HATA DUZELTMESI (kullanici cihazda buldu:
+                        // "aldigim guclendiriciyi secsem de kullanamiyorum").
+                        //
+                        // Kok sebep: `applyBoosterAt()` tanimliydi ve dogru
+                        // calisiyordu, ama TUM DOSYADA HIC CAGRILMIYORDU — tek
+                        // gecisi kendi tanimiydi. Yani guclendirici butonu
+                        // `armedBooster`i set ediyor, sonra hicbir sey olmuyordu.
+                        //
+                        // Ne zaman kirildi: `c8e6cf2` "Faz 3: Tahta rendering 64
+                        // Compose Box -> Canvas.drawPath tasimasi". O gecis her
+                        // hucrenin ayri Composable Box'ini tek bir Canvas'a
+                        // indirdi; hucrelerin uzerindeki tiklama isleyicileri de
+                        // onlarla birlikte gitti ve cagri yeniden baglanmadi.
+                        // Cizim performansi kazanildi, ozellik sessizce oldu.
+                        //
+                        // pointerInput anahtari `armedBooster`: hicbir
+                        // guclendirici secili degilken bu isleyici dokunmalari
+                        // HIC yakalamaz, yani normal surukleme akisi etkilenmez.
+                        .pointerInput(armedBooster) {
+                            if (armedBooster == null) return@pointerInput
+                            detectTapGestures { offset ->
+                                val cell = size.width / gridSize.toFloat()
+                                if (cell <= 0f) return@detectTapGestures
+                                val col = (offset.x / cell).toInt().coerceIn(0, gridSize - 1)
+                                val row = (offset.y / cell).toInt().coerceIn(0, gridSize - 1)
+                                applyBoosterAt(row, col)
+                            }
+                        }
                 ) {
                     val cellSize = size.width / gridSize
                     val cellPaddingPx = with(drawContext.density) { 0.5.dp.toPx() }
                     val cornerRadiusPx = with(drawContext.density) { 6.dp.toPx() }
-                    val bevelRatio = 0.16f // baseColor'dan sonraki `b = w * 0.16f`
+                    // Faz 115: trapez bevel'ler kaldirildi (bkz. asagida "FASETLI /
+                    // PARLAK BLOK"), bevelRatio artik kullanilmiyor.
                     val fontSizePx = size.minDimension * 0.6f
 
                     // Faz 3: Tum 64 hucre dongusu
@@ -2324,73 +2470,94 @@ fun BlastTheBlocksGame(
                                 )
                             }
 
-                            // 2. Embossed block cell (dolu hucre)
+                            // 2. Faz 115: FASETLI / PARLAK BLOK (v11 gorsel yonu)
+                            //
+                            // Onceki hal: kare `drawRect` govde + DORT trapez `Path`
+                            // (ust/sol/sag/alt bevel) + ic yuz + shimmer. Bloklar
+                            // BITISIKTI ve koseleri keskindi; mockup'ta ise her blok
+                            // kendi basina duran, yuvarlatilmis, camsi bir nesne gibi
+                            // okunuyor. Fark tarif edilebilir dort kuraldan ibaret:
+                            //   a) bloklar arasinda gorunur bosluk (inset)
+                            //   b) govdede dikey gradyan: ust acik -> alt koyu (hacim)
+                            //   c) ust yarida yumusak parlaklik (cam/seker)
+                            //   d) ic kenar ustte isik, altta golge (fasetli kenar)
+                            //   + disarida hafif renkli glow (neon)
+                            //
+                            // PERFORMANS: eskisi hucre basina 7 cizim ve HER KAREDE 4
+                            // adet `Path` nesnesi allocate ediyordu (64 hucre x 60 fps
+                            // = kare basina 256 Path). Yeni hal 4 cizim, SIFIR Path
+                            // allocation. Yani bu degisiklik daha ucuz — Faz 112'de
+                            // performans icin FloatingScoreManager kaldirilmisti, o
+                            // karara ters dusmuyor.
                             if (cellVal > 0) {
                                 val baseColor = BLOCK_COLORS.getOrElse((cellVal - 1).coerceAtLeast(0)) { NeonCyan }
-                                val bevelSize = cellDrawSize * bevelRatio
 
-                                // Background rect
-                                drawRect(
-                                    color = baseColor,
+                                val inset = cellDrawSize * 0.055f
+                                val bx = topLeftX + inset
+                                val by = topLeftY + inset
+                                val bs = (cellDrawSize - 2 * inset).coerceAtLeast(1f)
+                                val br = androidx.compose.ui.geometry.CornerRadius(bs * 0.26f, bs * 0.26f)
+
+                                val faceTop = lerp(baseColor, Color.White, 0.30f)
+                                val faceBottom = lerp(baseColor, Color.Black, 0.34f)
+
+                                // a) dis glow — tek halka. Gercek blur (RenderEffect)
+                                // bu hucre sayisinda pahali; genisletilmis yumusak
+                                // kontur ayni izlenimi bedelsiz veriyor.
+                                drawRoundRect(
+                                    color = baseColor.copy(alpha = 0.18f),
                                     topLeft = Offset(topLeftX, topLeftY),
-                                    size = Size(cellDrawSize, cellDrawSize)
+                                    size = Size(cellDrawSize, cellDrawSize),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(br.x + inset),
+                                    style = Stroke(width = with(drawContext.density) { 2.dp.toPx() })
                                 )
 
-                                // Top Bevel (bright highlight)
-                                val topBevelPath = Path().apply {
-                                    moveTo(topLeftX, topLeftY)
-                                    lineTo(topLeftX + cellDrawSize, topLeftY)
-                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + bevelSize)
-                                    lineTo(topLeftX + bevelSize, topLeftY + bevelSize)
-                                    close()
-                                }
-                                drawPath(topBevelPath, color = Color.White.copy(alpha = 0.45f))
-
-                                // Left Bevel (mid highlight)
-                                val leftBevelPath = Path().apply {
-                                    moveTo(topLeftX, topLeftY)
-                                    lineTo(topLeftX + bevelSize, topLeftY + bevelSize)
-                                    lineTo(topLeftX + bevelSize, topLeftY + cellDrawSize - bevelSize)
-                                    lineTo(topLeftX, topLeftY + cellDrawSize)
-                                    close()
-                                }
-                                drawPath(leftBevelPath, color = Color.White.copy(alpha = 0.25f))
-
-                                // Right Bevel (mid shadow)
-                                val rightBevelPath = Path().apply {
-                                    moveTo(topLeftX + cellDrawSize, topLeftY)
-                                    lineTo(topLeftX + cellDrawSize, topLeftY + cellDrawSize)
-                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + cellDrawSize - bevelSize)
-                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + bevelSize)
-                                    close()
-                                }
-                                drawPath(rightBevelPath, color = Color.Black.copy(alpha = 0.25f))
-
-                                // Bottom Bevel (dark shadow)
-                                val bottomBevelPath = Path().apply {
-                                    moveTo(topLeftX, topLeftY + cellDrawSize)
-                                    lineTo(topLeftX + bevelSize, topLeftY + cellDrawSize - bevelSize)
-                                    lineTo(topLeftX + cellDrawSize - bevelSize, topLeftY + cellDrawSize - bevelSize)
-                                    lineTo(topLeftX + cellDrawSize, topLeftY + cellDrawSize)
-                                    close()
-                                }
-                                drawPath(bottomBevelPath, color = Color.Black.copy(alpha = 0.45f))
-
-                                // Inner face rect
-                                drawRect(
-                                    color = baseColor,
-                                    topLeft = Offset(topLeftX + bevelSize, topLeftY + bevelSize),
-                                    size = Size((cellDrawSize - 2 * bevelSize).coerceAtLeast(0f), (cellDrawSize - 2 * bevelSize).coerceAtLeast(0f))
-                                )
-
-                                // Inner face shimmer
-                                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhaseState.value + (r + c) * 0.4f)
-                                drawRect(
+                                // b) govde — dikey gradyan
+                                drawRoundRect(
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
+                                        colors = listOf(faceTop, baseColor, faceBottom),
+                                        startY = by,
+                                        endY = by + bs
                                     ),
-                                    topLeft = Offset(topLeftX + bevelSize, topLeftY + bevelSize),
-                                    size = Size((cellDrawSize - 2 * bevelSize).coerceAtLeast(0f), ((cellDrawSize - 2 * bevelSize) * 0.45f).coerceAtLeast(0f))
+                                    topLeft = Offset(bx, by),
+                                    size = Size(bs, bs),
+                                    cornerRadius = br
+                                )
+
+                                // c) ust parlaklik. Mevcut shimmer animasyonu KORUNDU
+                                // (Faz'lardan beri suren "canlilik"); yalnizca duz ic
+                                // dikdortgen yerine yuvarlatilmis ve daralmis halde.
+                                val shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhaseState.value + (r + c) * 0.4f)
+                                val glossH = bs * 0.46f
+                                drawRoundRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = shimmerAlpha.coerceIn(0.14f, 0.40f)),
+                                            Color.Transparent
+                                        ),
+                                        startY = by,
+                                        endY = by + glossH
+                                    ),
+                                    topLeft = Offset(bx + bs * 0.08f, by + bs * 0.06f),
+                                    size = Size(bs * 0.84f, glossH),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(br.x * 0.8f)
+                                )
+
+                                // d) ic kenar — ustte isik, altta golge
+                                drawRoundRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.55f),
+                                            Color.White.copy(alpha = 0.05f),
+                                            Color.Black.copy(alpha = 0.30f)
+                                        ),
+                                        startY = by,
+                                        endY = by + bs
+                                    ),
+                                    topLeft = Offset(bx, by),
+                                    size = Size(bs, bs),
+                                    cornerRadius = br,
+                                    style = Stroke(width = with(drawContext.density) { 1.2.dp.toPx() })
                                 )
 
                                 // Tema emoji (FRUIT/SWEETS)
@@ -3478,7 +3645,7 @@ fun BlastTheBlocksGame(
                         Button(
                             onClick = {
                                 showExitConfirmDialog = false
-                                onBack()
+                                exitGame()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
                             shape = RoundedCornerShape(12.dp),
@@ -3798,67 +3965,66 @@ fun EmbossedBlockCell(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val b = w * 0.16f
 
-            drawRect(color = baseColor)
+            if (isHover) {
+                drawRect(color = baseColor)
+            } else {
+                // Faz 115: izgara hucresiyle AYNI recete (bkz. "FASETLI / PARLAK
+                // BLOK"). Tepsi ve tahta ayri kod yollarindan cizildigi icin biri
+                // guncellenip digeri unutulursa parca tepsiden tahtaya
+                // suruklendiginde GORUNUM DEGISIR — Faz 106'da tam bu tur bir
+                // kopukluk kullanici tarafindan yakalanmisti. Ikisi birlikte
+                // degistirildi.
+                val inset = w * 0.055f
+                val bs = (minOf(w, h) - 2 * inset).coerceAtLeast(1f)
+                val bw = (w - 2 * inset).coerceAtLeast(1f)
+                val bh = (h - 2 * inset).coerceAtLeast(1f)
+                val br = androidx.compose.ui.geometry.CornerRadius(bs * 0.26f, bs * 0.26f)
 
-            if (!isHover) {
-                // Top Bevel (Bright Highlight)
-                val topPath = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(w, 0f)
-                    lineTo(w - b, b)
-                    lineTo(b, b)
-                    close()
-                }
-                drawPath(topPath, color = Color.White.copy(alpha = 0.45f))
+                val faceTop = lerp(baseColor, Color.White, 0.30f)
+                val faceBottom = lerp(baseColor, Color.Black, 0.34f)
 
-                // Left Bevel (Mid Highlight)
-                val leftPath = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(b, b)
-                    lineTo(b, h - b)
-                    lineTo(0f, h)
-                    close()
-                }
-                drawPath(leftPath, color = Color.White.copy(alpha = 0.25f))
-
-                // Right Bevel (Mid Shadow)
-                val rightPath = Path().apply {
-                    moveTo(w, 0f)
-                    lineTo(w, h)
-                    lineTo(w - b, h - b)
-                    lineTo(w - b, b)
-                    close()
-                }
-                drawPath(rightPath, color = Color.Black.copy(alpha = 0.25f))
-
-                // Bottom Bevel (Dark Shadow)
-                val bottomPath = Path().apply {
-                    moveTo(0f, h)
-                    lineTo(b, h - b)
-                    lineTo(w - b, h - b)
-                    lineTo(w, h)
-                    close()
-                }
-                drawPath(bottomPath, color = Color.Black.copy(alpha = 0.45f))
-
-                // Inner Face Rect
-                drawRect(
-                    color = baseColor,
-                    topLeft = Offset(b, b),
-                    size = Size((w - 2 * b).coerceAtLeast(0f), (h - 2 * b).coerceAtLeast(0f))
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(faceTop, baseColor, faceBottom),
+                        startY = inset,
+                        endY = inset + bh
+                    ),
+                    topLeft = Offset(inset, inset),
+                    size = Size(bw, bh),
+                    cornerRadius = br
                 )
 
-                // Inner Face Top Shine — shimmerPhase ile alpha yavasca dalgalanir,
-                // bloklara donuk degil hafif "canli" bir his verir.
-                val shimmerAlpha = 0.3f + 0.12f * sin(shimmerPhase())
-                drawRect(
+                val shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhase())
+                val glossH = bh * 0.46f
+                drawRoundRect(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.White.copy(alpha = shimmerAlpha.coerceIn(0.1f, 0.45f)), Color.Transparent)
+                        colors = listOf(
+                            Color.White.copy(alpha = shimmerAlpha.coerceIn(0.14f, 0.40f)),
+                            Color.Transparent
+                        ),
+                        startY = inset,
+                        endY = inset + glossH
                     ),
-                    topLeft = Offset(b, b),
-                    size = Size((w - 2 * b).coerceAtLeast(0f), ((h - 2 * b) * 0.45f).coerceAtLeast(0f))
+                    topLeft = Offset(inset + bw * 0.08f, inset + bh * 0.06f),
+                    size = Size(bw * 0.84f, glossH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(br.x * 0.8f)
+                )
+
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.55f),
+                            Color.White.copy(alpha = 0.05f),
+                            Color.Black.copy(alpha = 0.30f)
+                        ),
+                        startY = inset,
+                        endY = inset + bh
+                    ),
+                    topLeft = Offset(inset, inset),
+                    size = Size(bw, bh),
+                    cornerRadius = br,
+                    style = Stroke(width = with(drawContext.density) { 1.2.dp.toPx() })
                 )
             }
 
