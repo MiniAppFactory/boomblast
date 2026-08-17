@@ -60,8 +60,14 @@ android {
     //     Play bildirimlerin promosyon araci olarak kullanilmasini yasaklar.
     // versionName 1.0.7 -> 1.0.8: 1.0.7 yayinlandi, ayni ada FARKLI bir build
     // vermek karisiklik yaratir (bkz. yukarida 1.0.4 -> 1.0.5 ayni gerekce).
-    versionCode = 10
-    versionName = "1.0.8"
+    // Faz 124 (release): 10 -> 11. vc10/1.0.8 Play Console'da Closed testing ->
+    // Alpha'da CANLI oldugu Play Console ekran goruntusuyle DOGRULANDI (Son
+    // guncelleme: 16 Agu 2026) — Faz 117-124'un tum degisikliklerini (mod karti
+    // renk/boyut duzeltmeleri, interstitial oturum grace 45sn -> 10sn, gercek
+    // geri-tusu-baypas duzeltmesi, gezinen oyun parcalari 4 ekranda) tasiyan bu
+    // build AYNI versionCode ile yuklenemez (Play tekil/artan versionCode ister).
+    versionCode = 11
+    versionName = "1.0.9"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
