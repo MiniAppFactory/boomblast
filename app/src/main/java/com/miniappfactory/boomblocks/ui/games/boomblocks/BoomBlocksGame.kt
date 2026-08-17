@@ -113,7 +113,7 @@ import com.miniappfactory.boomblocks.ui.theme.BlockOrange
 import com.miniappfactory.boomblocks.ui.theme.BlockPink
 import com.miniappfactory.boomblocks.ui.theme.BlockPurple
 import com.miniappfactory.boomblocks.ui.theme.BlockYellow
-import com.miniappfactory.boomblocks.ui.theme.FredokaFamily
+import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -2288,7 +2288,7 @@ fun BlastTheBlocksGame(
                                 // yuzden fontFamily alani bos kalip Android'in sistem
                                 // varsayilanina (Roboto) duşuyordu. Tum uygulamada boyle
                                 // dort yer bulundu, hepsine acikca fontFamily verildi.
-                                fontFamily = FredokaFamily,
+                                fontFamily = AppFontFamily,
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color(0xFFFFD54F),
@@ -3024,7 +3024,7 @@ fun BlastTheBlocksGame(
                             // TextStyle() LocalTextStyle'in yerine geciyor, fontFamily
                             // acikca verilmezse Roboto'ya duşuyordu.
                             style = TextStyle(
-                                fontFamily = FredokaFamily,
+                                fontFamily = AppFontFamily,
                                 shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
                             ),
                             modifier = Modifier.offset(
@@ -3159,7 +3159,7 @@ fun BlastTheBlocksGame(
                             color = comboColor,
                             // Faz 115p: bkz. SCORE duzeltmesi yorumu.
                             style = TextStyle(
-                                fontFamily = FredokaFamily,
+                                fontFamily = AppFontFamily,
                                 shadow = Shadow(
                                     color = Color.Black.copy(alpha = 0.5f),
                                     offset = Offset(2f, 3f),

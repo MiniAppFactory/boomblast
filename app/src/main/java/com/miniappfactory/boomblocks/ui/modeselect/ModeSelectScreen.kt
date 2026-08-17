@@ -51,7 +51,7 @@ import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
-import com.miniappfactory.boomblocks.ui.theme.FredokaFamily
+import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -575,7 +575,7 @@ private fun ModeCard(
                     // verilmezse alan bos kalip Android'in sistem varsayilanina
                     // (Roboto) duşuyordu. Tum uygulamada boyle 4 yer bulundu.
                     style = androidx.compose.ui.text.TextStyle(
-                        fontFamily = FredokaFamily,
+                        fontFamily = AppFontFamily,
                         shadow = androidx.compose.ui.graphics.Shadow(
                             color = accent.copy(alpha = if (locked || isLightCard) 0f else 0.75f),
                             offset = androidx.compose.ui.geometry.Offset(0f, 0f),
