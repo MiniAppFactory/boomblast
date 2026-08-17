@@ -37,10 +37,15 @@ object InterstitialFrequencyPolicy {
      *
      * Ilk oturum tamamen korumasizdi: yeni kurulan uygulamada oyuncu daha ne
      * oynadigini anlamadan tam ekran reklam gorebiliyordu — hem ilk izlenim hem
-     * de tutunma acisindan en pahali yer. 45 sn, oyuncunun en az bir bolumu
-     * bitirmesine yetiyor.
+     * de tutunma acisindan en pahali yer.
+     *
+     * Faz 118: 45sn -> 10sn (kullanici karari, 2026-08-17). 45sn hizli test
+     * akislarinda (ac->oyna->cik) reklami sistematik olarak yiyordu ve
+     * "reklam gelmedi" seklinde yanlis-pozitif bug raporuna yol acti; 10sn
+     * yine de anlik acilis reklamini engelliyor ama gercek gelir kaybini
+     * kucultuyor.
      */
-    const val SESSION_GRACE_MS = 45_000L
+    const val SESSION_GRACE_MS = 10_000L
 
     /**
      * @param nowMs             su anki monotonik zaman (SystemClock.elapsedRealtime)

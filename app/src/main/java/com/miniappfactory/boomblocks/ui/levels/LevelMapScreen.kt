@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
@@ -64,7 +63,7 @@ import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
-import com.miniappfactory.boomblocks.ui.games.boomblocks.BLOCK_COLORS
+import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -147,6 +146,13 @@ fun LevelMapScreen(
                 center = Offset(size.width * 0.9f, size.height * 0.5f)
             )
         }
+        // Faz 124: kullanici "aynısı Pro ve Kariyer modları için de geçerli"
+        // dedi — ModeSelectScreen/TermsAcceptScreen/OnboardingScreen'deki AYNI
+        // gezinen-oyun-parcasi katmani (bkz. `ui/common/WanderingPiecesBackground.kt`).
+        // Bu TEK ekran-seviyesi Canvas, LazyColumn'un ARKASINDA sabit duruyor —
+        // liste kaydikca parcalar ekranda sabit kalir, eski per-dugum statik
+        // tek-kup cizimi (drawMapConfettiCube) buyuzden kaldirildi.
+        WanderingPiecesBackground(modifier = Modifier.fillMaxSize())
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             LevelMapHeader(
                 progress = progress,
@@ -454,45 +460,12 @@ private val LEVEL_NODE_CENTER_Y = 40.dp
 private val CompletedRouteColor = NeonGold
 private val LockedRouteColor = NeonPurple
 
-// Faz 115m: harita zemininde dagilmis, dondurulmus mini kupler — mockup'ta
-// "decorative colored Kaboom blocks" istenmisti ama uygulamada boyle bir PNG
-// asset HIC YOK (bloklar hep Compose'da cizilir, bkz. BLOCK_COLORS). Ayni
-// bevel receteisi (ModeSelectScreen/TermsAcceptScreen/OnboardingScreen'de
-// kullanilan) burada da kullanildi — kaynagi kod, PNG degil.
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMapConfettiCube(
-    center: Offset,
-    sizePx: Float,
-    rotationDeg: Float,
-    color: Color,
-    alpha: Float
-) {
-    rotate(degrees = rotationDeg, pivot = center) {
-        val topLeft = Offset(center.x - sizePx / 2f, center.y - sizePx / 2f)
-        val corner = androidx.compose.ui.geometry.CornerRadius(sizePx * 0.24f)
-        drawRoundRect(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    lerp(color, Color.White, 0.35f),
-                    color,
-                    lerp(color, Color.Black, 0.35f)
-                ),
-                start = topLeft,
-                end = Offset(topLeft.x + sizePx, topLeft.y + sizePx)
-            ),
-            topLeft = topLeft,
-            size = androidx.compose.ui.geometry.Size(sizePx, sizePx),
-            cornerRadius = corner,
-            alpha = alpha
-        )
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.5f * alpha),
-            topLeft = topLeft,
-            size = androidx.compose.ui.geometry.Size(sizePx, sizePx),
-            cornerRadius = corner,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = sizePx * 0.08f)
-        )
-    }
-}
+// Faz 115m: harita zemininde dagilmis, dondurulmus mini kupler kullanilmisti;
+// Faz 124'te kullanici "aynısı Pro ve Kariyer modları için de geçerli" dedi
+// (ModeSelectScreen/TermsAcceptScreen/OnboardingScreen'deki "farklı parçalar +
+// gezinme" istegi) — per-dugum statik tek-kup ciziimi kaldirildi, yerine
+// ekran seviyesinde ortak `WanderingPiecesBackground` eklendi (bkz.
+// LevelMapScreen composable'inin govdesi).
 
 // Faz 115m: yol tek renk+kalinlik degil, 3 katmanli (dis isima / koyu taban /
 // parlak ic hat) — ChatGPT promptunun istedigi "kalin, parlak, mockup gibi
@@ -587,11 +560,6 @@ private fun LevelPathNode(
         listOf(lerp(nodeAccent, Color.White, 0.35f), nodeAccent, nodeAccent.copy(alpha = 0.55f))
     )
 
-    // Faz 115m: dagilmis, dondurulmus dekoratif kupler — her 3 dugumde bir,
-    // dugumun BOS kaldigi tarafa (mockup'ta "never cover nodes" istegi).
-    val showDecor = levelNumber % 3 == 0
-    val decorColors = BLOCK_COLORS
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -617,21 +585,6 @@ private fun LevelPathNode(
                     start = Offset(currXFraction * size.width, nodeY),
                     end = Offset(nextXFraction * size.width, size.height),
                     color = routeColor
-                )
-            }
-            // Dekoratif mini kup: dugumun BOS kaldigi yatay yariya, dikey
-            // aralarin ortasina. Canvas'ta cizildigi icin dokunmayi ASLA
-            // engellemez ve dugumun/etiketin uzerine BINMEZ (ayri bolge).
-            if (showDecor) {
-                val col = decorColors[levelNumber % decorColors.size]
-                val cubeX = if (currXFraction > 0.5f) size.width * 0.15f else size.width * 0.85f
-                val cubeY = size.height * 0.62f
-                drawMapConfettiCube(
-                    center = Offset(cubeX, cubeY),
-                    sizePx = 13.dp.toPx(),
-                    rotationDeg = (levelNumber * 47f) % 360f,
-                    color = col,
-                    alpha = 0.4f
                 )
             }
         }

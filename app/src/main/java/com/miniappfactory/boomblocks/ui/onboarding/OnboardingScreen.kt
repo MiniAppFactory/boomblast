@@ -3,7 +3,6 @@ package com.miniappfactory.boomblocks.ui.onboarding
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
@@ -42,13 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -63,14 +57,12 @@ import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.flag
 import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
-import com.miniappfactory.boomblocks.ui.theme.BlockOrange
-import com.miniappfactory.boomblocks.ui.theme.BlockPink
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
-import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 
 private data class OnboardingStep(
@@ -180,57 +172,13 @@ fun OnboardingScreen(
                 .background(Color.Black.copy(alpha = 0.85f)),
             contentAlignment = Alignment.Center
         ) {
-            // v11 gorsel dilinin dagilmis, dondurulmus "konfeti kupleri"
-            // (ModeSelectScreen.kt ile AYNI recete: dikey/lineer gradyanli
-            // gövde + beyaz kontur). Kart fillMaxWidth(0.85f) oldugu icin
-            // 4 kosede yeterince bosluk var — kupler SADECE kartin DISINDA,
-            // koyu (%85 siyah) zemin uzerinde duruyor. Zemin burada
-            // ModeSelectScreen'den daha koyu oldugundan alpha degerleri
-            // biraz dusuruldu (icerikten dikkat cekmesin diye).
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val w = size.width
-                val h = size.height
-                data class Confetti(val fx: Float, val fy: Float, val sizeDp: Float, val rotation: Float, val color: Color, val alpha: Float)
-                val cubes = listOf(
-                    Confetti(0.05f, 0.06f, 18f, 24f, BlockOrange, 0.55f),
-                    Confetti(0.93f, 0.05f, 15f, -20f, NeonCyan, 0.50f),
-                    Confetti(0.04f, 0.94f, 18f, -15f, NeonGreen, 0.55f),
-                    Confetti(0.94f, 0.945f, 22f, 18f, BlockPink, 0.55f),
-                    Confetti(0.02f, 0.5f, 12f, 32f, NeonGold, 0.45f),
-                    Confetti(0.965f, 0.52f, 13f, -28f, NeonPurple, 0.45f)
-                )
-                for (cube in cubes) {
-                    val cx = w * cube.fx
-                    val cy = h * cube.fy
-                    val s = cube.sizeDp * density
-                    rotate(degrees = cube.rotation, pivot = Offset(cx, cy)) {
-                        val topLeft = Offset(cx - s / 2f, cy - s / 2f)
-                        val corner = CornerRadius(s * 0.24f)
-                        drawRoundRect(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    lerp(cube.color, Color.White, 0.35f),
-                                    cube.color,
-                                    lerp(cube.color, Color.Black, 0.35f)
-                                ),
-                                start = topLeft,
-                                end = Offset(topLeft.x + s, topLeft.y + s)
-                            ),
-                            topLeft = topLeft,
-                            size = Size(s, s),
-                            cornerRadius = corner,
-                            alpha = cube.alpha
-                        )
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.5f * cube.alpha),
-                            topLeft = topLeft,
-                            size = Size(s, s),
-                            cornerRadius = corner,
-                            style = Stroke(width = s * 0.07f)
-                        )
-                    }
-                }
-            }
+            // v11 gorsel dilinin gezinen oyun parcalari (ModeSelectScreen.kt
+            // ile AYNI ortak composable, bkz. `ui/common/WanderingPiecesBackground.kt`;
+            // Faz 124: kullanici "bu ekranda da farklı parçalar + hareket
+            // olsun" dedi). Kart fillMaxWidth(0.85f) oldugu icin 4 kosede
+            // yeterince bosluk var, parcalar kartin DISINDaki koyu zeminde
+            // gezini yor.
+            WanderingPiecesBackground(modifier = Modifier.matchParentSize())
 
             Card(
                 colors = CardDefaults.cardColors(containerColor = palette.card),

@@ -56,12 +56,7 @@ import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
 import com.miniappfactory.boomblocks.ui.theme.NeonPurple
-import com.miniappfactory.boomblocks.ui.theme.BlockOrange
-import com.miniappfactory.boomblocks.ui.theme.BlockPink
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 
 // Oyunun asil giris ekrani: kullanici once "Sonsuz Mod" mu "Seviyeli Mod" mu
@@ -96,63 +91,12 @@ fun ModeSelectScreen(
             .background(palette.background)
             .padding(16.dp)
     ) {
-        // Faz 115h: v11 mockup'taki dagilmis, dondurulmus "konfeti kupleri".
-        // Bunlar resim degil — blok hucrelerindeki AYNI fasetli/parlak recete
-        // (dikey gradyan + isik/golge kenar), kucuk olcekte ve dondurulmus
-        // olarak Canvas'a cizildi. Kartlarin ICINE degil ARKASINA, kenarlara
-        // yakin yerlestirildi ki icerigi (baslik/deger) ortmesin — bu ayni
-        // zamanda mockup'taki gercek kompozisyona da daha yakin: gemler
-        // kartlarin uzerinde degil, ekranin kenar bosluklarinda duruyordu.
-        Canvas(modifier = Modifier.matchParentSize()) {
-            val w = size.width
-            val h = size.height
-            data class Confetti(val fx: Float, val fy: Float, val sizeDp: Float, val rotation: Float, val color: Color, val alpha: Float)
-            // Faz 115h duzeltmesi: ilk denemede ust siradaki kupler header
-            // satirindaki Ayarlar disliyle cakisiyordu (fy=0.03-0.045, header
-            // yaklasik o yukseklikte). Baslik satirinin ("Choose a game mode")
-            // ALTINA, kart grid'inin USTUNE dusen bosluga tasindi.
-            val cubes = listOf(
-                Confetti(0.05f, 0.155f, 20f, 24f, BlockOrange, 0.80f),
-                Confetti(0.93f, 0.145f, 16f, -20f, NeonCyan, 0.75f),
-                Confetti(0.02f, 0.235f, 13f, 40f, NeonPurple, 0.65f),
-                Confetti(0.955f, 0.225f, 15f, -35f, BlockPink, 0.70f),
-                Confetti(0.02f, 0.96f, 20f, -15f, NeonGreen, 0.80f),
-                Confetti(0.95f, 0.965f, 24f, 18f, BlockOrange, 0.85f),
-                Confetti(0.06f, 0.55f, 12f, 30f, NeonGold, 0.55f),
-                Confetti(0.965f, 0.58f, 14f, -28f, NeonPurple, 0.60f)
-            )
-            for (cube in cubes) {
-                val cx = w * cube.fx
-                val cy = h * cube.fy
-                val s = cube.sizeDp * density
-                rotate(degrees = cube.rotation, pivot = Offset(cx, cy)) {
-                    val topLeft = Offset(cx - s / 2f, cy - s / 2f)
-                    val corner = androidx.compose.ui.geometry.CornerRadius(s * 0.24f)
-                    drawRoundRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                lerp(cube.color, Color.White, 0.35f),
-                                cube.color,
-                                lerp(cube.color, Color.Black, 0.35f)
-                            ),
-                            start = topLeft,
-                            end = Offset(topLeft.x + s, topLeft.y + s)
-                        ),
-                        topLeft = topLeft,
-                        size = Size(s, s),
-                        cornerRadius = corner,
-                        alpha = cube.alpha
-                    )
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.5f * cube.alpha),
-                        topLeft = topLeft,
-                        size = Size(s, s),
-                        cornerRadius = corner,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = s * 0.07f)
-                    )
-                }
-            }
-        }
+        // Faz 115h: v11 mockup'taki dagilmis, dondurulmus "konfeti kupleri" ile
+        // basladi. Faz 120-123'te gercek oyun parcasi geometrilerine, donmeyen
+        // gezinme animasyonuna ve 9 parca cesidine evrildi. Faz 124'te
+        // TermsAcceptScreen/OnboardingScreen'de de AYNI istek gelince ortak
+        // composable'a cikarildi — bkz. `ui/common/WanderingPiecesBackground.kt`.
+        WanderingPiecesBackground(modifier = Modifier.matchParentSize())
 
         Column(modifier = Modifier.fillMaxSize()) {
             // Faz 44: logo+isim ve jeton/görevler/ayarlar oncede İKİ AYRI satirdi —
@@ -287,7 +231,13 @@ fun ModeSelectScreen(
                             statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
                             statValue = "$highestChallengeLevel",
                             icon = Icons.Default.LocalFireDepartment,
-                            accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
+                            // Faz 117: kullanici "retronun ikonu mor oldugu icin
+                            // (kart da mor zeminliydi) gözükmüyor" dedi — cozum
+                            // olarak Pro/Retro accent renkleri TAKAS edildi (ikon
+                            // asset'lerine dokunmadan): Pro artik mor, Retro
+                            // eskiden Pro'nun rengi olan turuncu. Boylece morrenkli
+                            // retro ikonu artik turuncu zeminde kontrastli gorunuyor.
+                            accent = NeonPurple,
                             palette = palette,
                             onClick = onOpenChallenge,
                             testTag = "mode_select_challenge_button",
@@ -302,7 +252,9 @@ fun ModeSelectScreen(
                             statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
                             statValue = "$retroHighScore",
                             icon = Icons.Default.SportsEsports,
-                            accent = NeonPurple,
+                            // Faz 117: bkz. yukaridaki Pro Mod notu — bu, Pro'nun
+                            // eski rengiydi.
+                            accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
                             palette = palette,
                             onClick = onOpenRetro,
                             testTag = "mode_select_retro_button",
@@ -500,6 +452,12 @@ private fun ModeCard(
                 verticalArrangement = Arrangement.Center
             ) {
                 // Ikon kuyusu: accent halka + ic isima
+                // Faz 117: kullanici "ikonlar biraz büyümesi" dedi — kuyu 48->54dp
+                // yapilmisti. Faz 119'da kullanici "sayilar kaydi, yuvarlaklar eski
+                // boyuna donmeli, ikon yuvarlak icinde daha cok yer kaplayabilir"
+                // dedi — kuyu 48dp'ye GERI alindi (kart butcesini bozan buydu),
+                // asset ise 30->40dp'ye buyutuldu (kuyunun cogunu dolduruyor,
+                // kenarlik halkasi hala goruluyor).
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -523,7 +481,7 @@ private fun ModeCard(
                         androidx.compose.foundation.Image(
                             painter = painterResource(iconRes),
                             contentDescription = null,
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(40.dp)
                         )
                     } else if (!locked && emoji != null) {
                         Text(text = emoji, fontSize = 24.sp)
@@ -610,7 +568,13 @@ private fun ModeCard(
                             RoundedCornerShape(12.dp)
                         )
                         .padding(vertical = 5.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    // Faz 119: kullanici "yazının altındaki rakamla arasındaki
+                    // boşluk biraz daraltılabilir" dedi — etiket ile deger metni
+                    // arasinda Spacer yoktu, bosluk sadece iki Text'in kendi
+                    // font satir yuksekliginden geliyordu. Kucuk negatif bosluk
+                    // metinleri hafifce yaklastiriyor.
+                    verticalArrangement = Arrangement.spacedBy((-2).dp)
                 ) {
                     Text(
                         text = statLabel,

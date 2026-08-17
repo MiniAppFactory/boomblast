@@ -94,7 +94,9 @@ class InterstitialFrequencyPolicyTest {
     @Test
     fun `sabitler makul araliklarda`() {
         // Yanlislikla 0 veya sacma bir degere cekilirse koruma sessizce olur.
+        // Faz 118: grace alt siniri 15sn -> 5sn (SESSION_GRACE_MS 45sn -> 10sn'ye
+        // cekildi, eski 15sn siniri bu YENI degeri gecersiz kilardi).
         assertTrue(interval >= 30_000L)
-        assertTrue(grace >= 15_000L)
+        assertTrue(grace >= 5_000L)
     }
 }

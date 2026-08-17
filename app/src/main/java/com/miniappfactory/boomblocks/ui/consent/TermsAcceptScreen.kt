@@ -2,7 +2,6 @@ package com.miniappfactory.boomblocks.ui.consent
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,13 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -44,11 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
-import com.miniappfactory.boomblocks.ui.theme.BlockOrange
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
-import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 
 // Faz 63: GitHub hesabi whatsthisapp -> MiniAppFactory olarak yeniden
@@ -79,53 +72,11 @@ fun TermsAcceptScreen(
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        // ModeSelectScreen.kt'deki (Faz 115h) v11 "dondurulmus konfeti kupu"
-        // deseninin AYNISI — sadece burada 4 kup (o ekrandaki 8'in yarisi),
-        // 4 kosede, kartin ARKASINDA/DISINDA kalacak sekilde. Bu ilk acilis
-        // ekrani daha sade kalmali, kart fillMaxWidth() oldugu icin ust/alt
-        // koseler tercih edildi.
-        Canvas(modifier = Modifier.matchParentSize()) {
-            val w = size.width
-            val h = size.height
-            data class Confetti(val fx: Float, val fy: Float, val sizeDp: Float, val rotation: Float, val color: Color, val alpha: Float)
-            val cubes = listOf(
-                Confetti(0.06f, 0.06f, 18f, 22f, NeonCyan, 0.70f),
-                Confetti(0.93f, 0.07f, 15f, -18f, NeonPurple, 0.60f),
-                Confetti(0.05f, 0.94f, 16f, -20f, NeonGreen, 0.70f),
-                Confetti(0.94f, 0.93f, 20f, 16f, BlockOrange, 0.75f)
-            )
-            for (cube in cubes) {
-                val cx = w * cube.fx
-                val cy = h * cube.fy
-                val s = cube.sizeDp * density
-                rotate(degrees = cube.rotation, pivot = Offset(cx, cy)) {
-                    val topLeft = Offset(cx - s / 2f, cy - s / 2f)
-                    val corner = CornerRadius(s * 0.24f)
-                    drawRoundRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                lerp(cube.color, Color.White, 0.35f),
-                                cube.color,
-                                lerp(cube.color, Color.Black, 0.35f)
-                            ),
-                            start = topLeft,
-                            end = Offset(topLeft.x + s, topLeft.y + s)
-                        ),
-                        topLeft = topLeft,
-                        size = Size(s, s),
-                        cornerRadius = corner,
-                        alpha = cube.alpha
-                    )
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.5f * cube.alpha),
-                        topLeft = topLeft,
-                        size = Size(s, s),
-                        cornerRadius = corner,
-                        style = Stroke(width = s * 0.07f)
-                    )
-                }
-            }
-        }
+        // ModeSelectScreen.kt'deki (Faz 115h -> 124) v11 "gezinen oyun parcasi"
+        // deseninin AYNISI — kullanici bu ekranda da "farklı parçalar olsun,
+        // hareket olabiliyorsa çok daha iyi" dedi (Faz 124). Ortak composable,
+        // bkz. `ui/common/WanderingPiecesBackground.kt`.
+        WanderingPiecesBackground(modifier = Modifier.matchParentSize())
 
         Card(
             colors = CardDefaults.cardColors(containerColor = palette.card),
