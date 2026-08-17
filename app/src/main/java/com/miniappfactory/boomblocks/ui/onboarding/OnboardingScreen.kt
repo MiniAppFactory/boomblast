@@ -3,6 +3,7 @@ package com.miniappfactory.boomblocks.ui.onboarding
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material3.Button
@@ -42,8 +42,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -59,12 +65,22 @@ import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.BlockOrange
+import com.miniappfactory.boomblocks.ui.theme.BlockPink
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
+import com.miniappfactory.boomblocks.ui.theme.NeonGreen
+import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 
 private data class OnboardingStep(
     val icon: ImageVector,
+    // Faz 115i: Line Clear adimi icin gercek asset (icon_line_clear.webp) —
+    // bu adim uygulamadaki Line Clear guclendiricisiyle AYNI kavram, o
+    // guclendirici icin zaten gercek bir asset var. Diger iki adim (PARÇALARI
+    // SÜRÜKLE / HEDEFE ULAŞ) icin uygun asset YOK, onlar Icons.Default.* ile
+    // kaliyor — bu yuzden alan opsiyonel (null = jenerik vektor ikon kullanilir).
+    @param:androidx.annotation.DrawableRes val iconRes: Int? = null,
     val accent: Color,
     val titleTr: String,
     val titleEn: String,
@@ -106,7 +122,8 @@ private val onboardingSteps = listOf(
         descriptionEs = "Arrastra un bloque de la bandeja a la cuadrícula"
     ),
     OnboardingStep(
-        icon = Icons.Default.Bolt,
+        icon = Icons.Default.Extension,
+        iconRes = R.drawable.icon_line_clear,
         accent = Color(0xFFFF6B35),
         titleTr = "SATIRI PATLAT",
         titleEn = "CLEAR THE LINE",
@@ -163,13 +180,75 @@ fun OnboardingScreen(
                 .background(Color.Black.copy(alpha = 0.85f)),
             contentAlignment = Alignment.Center
         ) {
+            // v11 gorsel dilinin dagilmis, dondurulmus "konfeti kupleri"
+            // (ModeSelectScreen.kt ile AYNI recete: dikey/lineer gradyanli
+            // gövde + beyaz kontur). Kart fillMaxWidth(0.85f) oldugu icin
+            // 4 kosede yeterince bosluk var — kupler SADECE kartin DISINDA,
+            // koyu (%85 siyah) zemin uzerinde duruyor. Zemin burada
+            // ModeSelectScreen'den daha koyu oldugundan alpha degerleri
+            // biraz dusuruldu (icerikten dikkat cekmesin diye).
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val w = size.width
+                val h = size.height
+                data class Confetti(val fx: Float, val fy: Float, val sizeDp: Float, val rotation: Float, val color: Color, val alpha: Float)
+                val cubes = listOf(
+                    Confetti(0.05f, 0.06f, 18f, 24f, BlockOrange, 0.55f),
+                    Confetti(0.93f, 0.05f, 15f, -20f, NeonCyan, 0.50f),
+                    Confetti(0.04f, 0.94f, 18f, -15f, NeonGreen, 0.55f),
+                    Confetti(0.94f, 0.945f, 22f, 18f, BlockPink, 0.55f),
+                    Confetti(0.02f, 0.5f, 12f, 32f, NeonGold, 0.45f),
+                    Confetti(0.965f, 0.52f, 13f, -28f, NeonPurple, 0.45f)
+                )
+                for (cube in cubes) {
+                    val cx = w * cube.fx
+                    val cy = h * cube.fy
+                    val s = cube.sizeDp * density
+                    rotate(degrees = cube.rotation, pivot = Offset(cx, cy)) {
+                        val topLeft = Offset(cx - s / 2f, cy - s / 2f)
+                        val corner = CornerRadius(s * 0.24f)
+                        drawRoundRect(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    lerp(cube.color, Color.White, 0.35f),
+                                    cube.color,
+                                    lerp(cube.color, Color.Black, 0.35f)
+                                ),
+                                start = topLeft,
+                                end = Offset(topLeft.x + s, topLeft.y + s)
+                            ),
+                            topLeft = topLeft,
+                            size = Size(s, s),
+                            cornerRadius = corner,
+                            alpha = cube.alpha
+                        )
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.5f * cube.alpha),
+                            topLeft = topLeft,
+                            size = Size(s, s),
+                            cornerRadius = corner,
+                            style = Stroke(width = s * 0.07f)
+                        )
+                    }
+                }
+            }
+
             Card(
                 colors = CardDefaults.cardColors(containerColor = palette.card),
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
                     .padding(16.dp)
-                    .border(2.dp, NeonCyan, RoundedCornerShape(20.dp))
+                    .border(
+                        2.dp,
+                        Brush.verticalGradient(
+                            listOf(
+                                lerp(NeonCyan, Color.White, 0.35f),
+                                NeonCyan,
+                                NeonCyan.copy(alpha = 0.55f)
+                            )
+                        ),
+                        RoundedCornerShape(20.dp)
+                    )
             ) {
                 Column(
                     // Faz 104: savunma amacli verticalScroll. Kart sabit yukseklikte degil,
@@ -236,12 +315,20 @@ fun OnboardingScreen(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = step.icon,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(44.dp)
-                            )
+                            if (step.iconRes != null) {
+                                Image(
+                                    painter = painterResource(step.iconRes),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = step.icon,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                            }
                         }
                     }
 
@@ -284,11 +371,21 @@ fun OnboardingScreen(
                     if (currentStep < onboardingSteps.lastIndex) {
                         Button(
                             onClick = { currentStep += 1 },
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            lerp(NeonCyan, Color.White, 0.30f),
+                                            NeonCyan,
+                                            lerp(NeonCyan, Color.Black, 0.25f)
+                                        )
+                                    ),
+                                    RoundedCornerShape(12.dp)
+                                )
                                 .testTag("onboarding_next_button")
                         ) {
                             Text(
@@ -301,11 +398,21 @@ fun OnboardingScreen(
                     } else {
                         Button(
                             onClick = onFinish,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonGold),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            lerp(NeonGold, Color.White, 0.30f),
+                                            NeonGold,
+                                            lerp(NeonGold, Color.Black, 0.25f)
+                                        )
+                                    ),
+                                    RoundedCornerShape(12.dp)
+                                )
                                 .testTag("onboarding_start_button")
                         ) {
                             Text(

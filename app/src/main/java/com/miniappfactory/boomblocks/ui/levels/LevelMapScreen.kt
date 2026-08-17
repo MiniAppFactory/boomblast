@@ -1,5 +1,11 @@
 package com.miniappfactory.boomblocks.ui.levels
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -42,8 +49,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -55,6 +64,7 @@ import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.games.boomblocks.BLOCK_COLORS
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -92,13 +102,52 @@ fun LevelMapScreen(
     val lastLevel = highestUnlockedLevel + 3
     val accentColor = if (isChallengeMode) ProModeOrange else NeonCyan
 
+    // Faz 115l — HATA DUZELTMESI (kullanici gercek cihazda, dark mode'da
+    // gorup "haritanın kotu tasarımı" dedi). Onceki (Faz 115) gecisi kilit
+    // ikonunu ve dugum gradyanini duzeltmisti ama BASKA bir sorunu
+    // KACIRMISTI: `palette.cardAlt` (kilitli dugum dolgusu) ve
+    // `palette.cardBorder` (kilitli dugum KENARLIGI) dark temada AYNI RENK
+    // (#334155) — yani kilitli dugumun kenarligi kendi dolgusunun icinde
+    // KAYBOLUYORDU, ekranda neredeyse gorunmez bir leke olarak kaliyordu.
+    // Ayni sorun kilitli yol cizgisinde de vardi (`cardBorder` alpha 0.35,
+    // zaten koyu bir zeminde neredeyse hicbir sey). Ayrica ekran tamamen
+    // duz `palette.background` — hicbir doku/derinlik yok, dugumler arasi
+    // buyuk bosluklarla birlikte "bos/bitmemis" hissi yaratiyordu.
+    val mapAmbient = Brush.verticalGradient(
+        colors = listOf(
+            lerp(palette.background, accentColor, 0.10f),
+            palette.background,
+            lerp(palette.background, accentColor, 0.05f)
+        )
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(palette.background)
-            .padding(16.dp)
+            .background(mapAmbient)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // Faz 115m: ChatGPT promptunun istedigi "faint radial cyan glow / faint
+        // purple accents / subtle center illumination" — TEK Canvas, ekran
+        // basina bir kez ciziliyor (LazyColumn'un icinde/ogesi DEGIL), yani
+        // sanallastirmaya ya da kaydirma performansina dokunmuyor.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(NeonCyan.copy(alpha = 0.10f), Color.Transparent),
+                    radius = size.width * 0.55f
+                ),
+                radius = size.width * 0.55f,
+                center = Offset(size.width * 0.15f, size.height * 0.10f)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(NeonPurple.copy(alpha = 0.08f), Color.Transparent),
+                    radius = size.width * 0.6f
+                ),
+                radius = size.width * 0.6f,
+                center = Offset(size.width * 0.9f, size.height * 0.5f)
+            )
+        }
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             LevelMapHeader(
                 progress = progress,
                 language = language,
@@ -110,7 +159,20 @@ fun LevelMapScreen(
                 onBack = onBack
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Faz 115n: "X/Y tamamlandi" kesri kaldirildi — Y (lastLevel) gercek
+            // bir toplam degildi, sadece render-zamani dugum sayisiydi (bkz.
+            // CareerProgressCard yorumu). Panel artik sadece ulasilan seviyeyi
+            // gosteriyor.
+            CareerProgressCard(
+                language = language,
+                palette = palette,
+                accentColor = accentColor,
+                currentLevel = highestUnlockedLevel
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Faz 42: onceden duz bir LazyColumn liste kartlari alt alta diziyordu
             // (kullanici: "yıldızların anlamı yok, düz liste gibi... slalomlu eğlenceli
@@ -146,15 +208,21 @@ fun LevelMapScreen(
                     // dugumun rengiyle gosteriliyor. levelStars'ta kayit varsa (recordLevelResult
                     // sadece seviye bitirilince yaziyor) o seviye tamamlanmis demektir.
                     val completed = levelStars[levelNumber] != null
+                    val isLastItem = index == lastLevel - 1
                     LevelPathNode(
                         levelNumber = levelNumber,
                         targetScore = targetScoreForLevel(levelNumber),
                         unlocked = unlocked,
                         completed = completed,
                         accentColor = accentColor,
-                        prevXFraction = if (index == 0) null else pathXFraction(index - 1),
+                        hasPreviousNode = index != 0,
+                        // Faz 115u: bir sonraki dugumun x'i — S-kavisi artik BU
+                        // ogenin KENDI dugumunden bir sonraki ogenin dugumune
+                        // dogru, tum oge yuksekligini kullanarak ciziliyor (bkz.
+                        // LevelPathNode ici aciklama).
+                        nextXFraction = if (isLastItem) null else pathXFraction(index + 1),
                         currXFraction = pathXFraction(index),
-                        isLastItem = index == lastLevel - 1,
+                        isLastItem = isLastItem,
                         language = language,
                         palette = palette,
                         onClick = { if (unlocked) onSelectLevel(levelNumber) }
@@ -287,27 +355,210 @@ private fun LevelMapHeader(
     }
 }
 
-// Faz 42: slalom/zigzag harita — index'e gore 0f..1f arasinda salinan bir x
-// konumu. Komsu ogelerin gercek olculmus pozisyonuna bagli DEGIL (LazyColumn
-// sanallastirmasi hala calisir), sadece index'in kendisinden turetiliyor.
-private fun pathXFraction(index: Int): Float =
-    0.5f + 0.30f * sin(index * 1.05f)
+// Faz 115n — HATA DUZELTMESI (kullanici: "0/4 gözükmesi anlamlı degil").
+// Kok sebep: "Y" olarak kullandigim `lastLevel = highestUnlockedLevel + 3`
+// gercek bir toplam DEGIL — sadece "kac dugum render edilsin" render-zamani
+// sayisi (Kariyer prosedurel/sinirsiz, sabit bir toplam bolum sayisi yok).
+// Onu "toplam" gibi gostermek yanlis veri sunmakti. Kullanicinin istegiyle
+// panel sadelestirildi: tek bilgi, oyuncunun ULASTIGI seviye — kesir yok,
+// ayrica "MEVCUT" sag sutunu da kaldirildi (ayni bilginin tekrariydi).
+@Composable
+private fun CareerProgressCard(
+    language: AppLanguage,
+    palette: BlastPalette,
+    accentColor: Color,
+    currentLevel: Int
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        lerp(palette.card, accentColor, 0.16f),
+                        palette.card
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                Brush.verticalGradient(
+                    listOf(lerp(accentColor, Color.White, 0.3f), accentColor.copy(alpha = 0.4f))
+                ),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(R.drawable.icon_career),
+                contentDescription = null,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = language.pick(
+                        tr = "KARİYER İLERLEMESİ", en = "CAREER PROGRESS", it = "PROGRESSO CARRIERA",
+                        fr = "PROGRESSION DE CARRIÈRE", es = "PROGRESO DE CARRERA"
+                    ),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    color = palette.textSecondary
+                )
+                Text(
+                    text = language.pick(
+                        tr = "SEVİYE $currentLevel",
+                        en = "LEVEL $currentLevel",
+                        it = "LIVELLO $currentLevel",
+                        fr = "NIVEAU $currentLevel",
+                        es = "NIVEL $currentLevel"
+                    ),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    color = palette.textPrimary
+                )
+            }
+        }
+    }
+}
 
-private val LEVEL_PATH_ITEM_HEIGHT = 132.dp
-private val LEVEL_NODE_SIZE = 56.dp
+// Faz 115n — HATA DUZELTMESI (kullanici: "büyük olmak zorunda degil, yuvarlaklar
+// dümdüz inmek zorunda degil"). Faz 115m'de genlik 0.30, frekans 1.05 idi —
+// matematiksel olarak genis (ekranin %60'i) ama sadece ~4-5 gorunur dugumluk
+// bir pencerede (sin periyodu ~6 index) dalga tam bir "S" turu atamiyor,
+// EGIMLI DUZ BIR CIZGI gibi hissettiriyordu (kullanicinin sikayeti dogru).
+// Frekans arttirilinca (1.05 -> 1.7) ayni gorunur pencerede DAHA FAZLA
+// salinim tamamlaniyor — mockup'taki gibi belirgin zigzag.
+// Genlik 0.30'da kaldi (glow ile birlikte kenar guvenlik payi tutuyor);
+// canlilik SADECE frekanstan (1.05 -> 1.7) geliyor.
+private fun pathXFraction(index: Int): Float =
+    0.5f + 0.30f * sin(index * 1.7f)
+
+// Faz 115n: dugum 72dp -> 60dp (kullanici: "bu kadar büyük olmak zorunda
+// degil"). Oge yuksekligi de orantili daraltildi (124dp -> 96dp) — hem daha
+// fazla dugum ekranda gorunuyor hem yukaridaki daha sik dalga formuluyle
+// birlikte gercekten kivrilan bir yol hissi olusuyor.
+private val LEVEL_PATH_ITEM_HEIGHT = 96.dp
+private val LEVEL_NODE_SIZE = 60.dp
 // Dugumun DUSEY merkezi ogenin tepesinden bu kadar asagida — sabit bir dp
 // degeri olarak tutuluyor ki Canvas'taki cizgi ile Column'daki gercek dugum
 // konumu HER ZAMAN birebir ortussun (BiasAlignment ile tahmin degil).
 private val LEVEL_NODE_CENTER_Y = 40.dp
 
-// Faz 42: baglanti cizgisi iki parcaya bolundu — (1) bu dugumden asagi, oge
-// sinirina kadar duz bir "cikis" izi, (2) bir onceki dugumun x'inden gelip BU
-// dugume varan capraz "varis" izi. Boylece her oge SADECE kendi bilgisiyle
-// (prevX, currX, sabit nodeY) cizim yapiyor ama komsu ogelerle tam piksel
-// hassasiyetinde birlesiyor — ilk denemede (sadece "varis" izi, oge tepesinden
-// baslayan) dugum ile cizginin bittigi nokta arasinda gozle gorulur bir bosluk
-// vardi (kullanici: "slalomlu harita" istegi sonrasi ilk halde cizgi dugume
-// hic degmiyordu), kok neden buydu.
+// Faz 115m: 3 durumlu harita rengi. Kullanicinin istegiyle "tamamlandi"
+// YESIL'den ALTIN'a tasindi (mockup'taki gibi), aktif dugum camgobegi,
+// kilitli dugum mor — ChatGPT promptunun istedigi doğrudan bu esleme.
+private val CompletedRouteColor = NeonGold
+private val LockedRouteColor = NeonPurple
+
+// Faz 115m: harita zemininde dagilmis, dondurulmus mini kupler — mockup'ta
+// "decorative colored Kaboom blocks" istenmisti ama uygulamada boyle bir PNG
+// asset HIC YOK (bloklar hep Compose'da cizilir, bkz. BLOCK_COLORS). Ayni
+// bevel receteisi (ModeSelectScreen/TermsAcceptScreen/OnboardingScreen'de
+// kullanilan) burada da kullanildi — kaynagi kod, PNG degil.
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMapConfettiCube(
+    center: Offset,
+    sizePx: Float,
+    rotationDeg: Float,
+    color: Color,
+    alpha: Float
+) {
+    rotate(degrees = rotationDeg, pivot = center) {
+        val topLeft = Offset(center.x - sizePx / 2f, center.y - sizePx / 2f)
+        val corner = androidx.compose.ui.geometry.CornerRadius(sizePx * 0.24f)
+        drawRoundRect(
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    lerp(color, Color.White, 0.35f),
+                    color,
+                    lerp(color, Color.Black, 0.35f)
+                ),
+                start = topLeft,
+                end = Offset(topLeft.x + sizePx, topLeft.y + sizePx)
+            ),
+            topLeft = topLeft,
+            size = androidx.compose.ui.geometry.Size(sizePx, sizePx),
+            cornerRadius = corner,
+            alpha = alpha
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.5f * alpha),
+            topLeft = topLeft,
+            size = androidx.compose.ui.geometry.Size(sizePx, sizePx),
+            cornerRadius = corner,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = sizePx * 0.08f)
+        )
+    }
+}
+
+// Faz 115m: yol tek renk+kalinlik degil, 3 katmanli (dis isima / koyu taban /
+// parlak ic hat) — ChatGPT promptunun istedigi "kalin, parlak, mockup gibi
+// yol" hissi. Kesikli cizgi KALDIRILDI (dolu/solid), promptun acikca
+// istedigi "Do not use the current thin dashed line" talebi.
+//
+// Faz 115t — HATA DUZELTMESI (kullanici: "cizgiler cok dik, grafik gibi,
+// kivrimli olsa iyi olmaz mi"). Kok sebep: duz `drawLine(start, end)` —
+// dugume giren "varis" izi capraz, dugumden cikan "cikis" izi dikeydi, ikisi
+// KESKIN bir kose ile birlesiyordu (cizgi grafigi/finans grafigi gibi
+// duruyordu, mockup'taki yumusak yol gibi degil).
+//
+// Duzeltme: duz cizgi yerine kubik Bezier (S-kavis). Kontrol noktalari
+// start/end ile AYNI X'te, dikey ortada — bu, egrinin start'tan TAM DIKEY
+// cikip end'e TAM DIKEY varmasini saglar. Onemi: bu egri, HEMEN ONCESINDE ve
+// SONRASINDA gelen dikey "cikis" saplarinin (bkz. asagidaki `!isLastItem`
+// cagrisinin cizdigi dumduz dikey parca) yonuyle TAM ORTUSUYOR — yani kesin
+// bir kose yerine kesintisiz, akan bir S harfi olusuyor. `start.x == end.x`
+// oldugunda (dikey cikis izi icin) kontrol noktalari da ayni x'te kalir,
+// egri kendiliginden duz cizgiye doner — fonksiyon iki cagriya da (capraz
+// varis + dikey cikis) DEGISIKLIKSIZ uygulanabilir.
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlowRoute(
+    start: Offset,
+    end: Offset,
+    color: Color
+) {
+    val midY = (start.y + end.y) / 2f
+    val curve = Path().apply {
+        moveTo(start.x, start.y)
+        cubicTo(start.x, midY, end.x, midY, end.x, end.y)
+    }
+    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 26f, cap = StrokeCap.Round)
+    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 13f, cap = StrokeCap.Round)
+    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f, cap = StrokeCap.Round)
+    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f, cap = StrokeCap.Round)
+    // 1) dis isima — genis, dusuk alfa
+    drawPath(curve, color = color.copy(alpha = 0.22f), style = outerGlow)
+    // 2) koyu taban — yolun "govdesi"
+    drawPath(curve, color = lerp(color, Color.Black, 0.45f).copy(alpha = 0.85f), style = darkBase)
+    // 3) parlak ic hat
+    drawPath(curve, color = color.copy(alpha = 0.95f), style = brightCore)
+    // 4) ince parlaklik — yolun ustunde cam hissi
+    drawPath(curve, color = lerp(color, Color.White, 0.6f).copy(alpha = 0.5f), style = gloss)
+}
+
+// Faz 42: baglanti cizgisi iki parcaya bolunuyor. Faz 115u'ya kadar bolunme
+// sekli "duz dikey cikis + capraz varis"ti; capraz kismin TUMU sadece
+// LEVEL_NODE_CENTER_Y (40dp) kadarlik dar bir dikey alana sikisiyordu.
+//
+// Faz 115u — HATA DUZELTMESI (kullanici ekran goruntusuyle gosterdi: yol
+// "ilmek/dugum" gibi kabarip tangled gorunuyordu, ChatGPT mockup'indaki gibi
+// temiz genis bir S degil). Kok sebep MATEMATIKSEL: kubik Bezier'de
+// baslangic/bitis teget YONU dikey olacak sekilde zorlaniyordu (S-kavis icin
+// gerekli) ama bunun icin sadece 40dp dikey alan varken YATAYDA ~genislik*0.30
+// kadar (bazen 90dp+) kaymasi gerekiyordu — bu oran (dar dikey alan + genis
+// yatay kayma + zorunlu dikey teget) kacinilmaz olarak kavis/ilmek yaratiyor.
+//
+// Duzeltme: bolunme noktasi degisti. Artik her oge KENDI dugumunden BIR
+// SONRAKI ogenin dugumune dogru TUM oge yuksekligini (LEVEL_PATH_ITEM_HEIGHT,
+// ~96dp) kullanarak TEK bir S-kavisi ciziyor ("inis" — bkz. asagida). Bu,
+// eskisinden ~2.4 kat fazla dikey alan demek, kavis cok daha yumusak/genis
+// oluyor. Bir SONRAKI oge, kendi tepesinden (bu inis'in TAM ULASTIGI x'e —
+// yani KENDI dugumunun x'ine, cunku nextXFraction = o ogenin currXFraction'i)
+// kendi dugumune kadar KISA, DUZ bir "giris sapi" ciziyor — hizalama
+// `prevXFraction`i eslestirmeye degil, TASARIM GEREGI garantili (inis nereye
+// varirsa, giris sapi zaten oradan baslar).
 @Composable
 private fun LevelPathNode(
     levelNumber: Int,
@@ -315,20 +566,31 @@ private fun LevelPathNode(
     unlocked: Boolean,
     completed: Boolean,
     accentColor: Color,
-    prevXFraction: Float?,
+    hasPreviousNode: Boolean,
+    nextXFraction: Float?,
     currXFraction: Float,
     isLastItem: Boolean,
     language: AppLanguage,
     palette: BlastPalette,
     onClick: () -> Unit
 ) {
-    val nodeAccent = if (completed) NeonGreen else accentColor
-    val borderBrush = when {
-        completed -> Brush.linearGradient(listOf(NeonGreen, NeonGreen))
-        unlocked -> Brush.linearGradient(listOf(accentColor, NeonPurple))
-        else -> Brush.linearGradient(listOf(palette.cardBorder, palette.cardBorder))
+    // Faz 115m: 3 durumlu renk — tamamlandi=ALTIN, aktif/oynanabilir=aksan
+    // (camgobegi Kariyer'de, turuncu Pro'da), kilitli=MOR. Kullanicinin
+    // ChatGPT promptuyla istedigi eslemenin birebir uygulanmasi.
+    val nodeAccent = when {
+        completed -> CompletedRouteColor
+        unlocked -> accentColor
+        else -> LockedRouteColor
     }
-    val pathColor = if (unlocked) nodeAccent.copy(alpha = 0.45f) else palette.cardBorder.copy(alpha = 0.35f)
+    val routeColor = nodeAccent
+    val borderBrush = Brush.verticalGradient(
+        listOf(lerp(nodeAccent, Color.White, 0.35f), nodeAccent, nodeAccent.copy(alpha = 0.55f))
+    )
+
+    // Faz 115m: dagilmis, dondurulmus dekoratif kupler — her 3 dugumde bir,
+    // dugumun BOS kaldigi tarafa (mockup'ta "never cover nodes" istegi).
+    val showDecor = levelNumber % 3 == 0
+    val decorColors = BLOCK_COLORS
 
     Box(
         modifier = Modifier
@@ -337,53 +599,39 @@ private fun LevelPathNode(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val nodeY = LEVEL_NODE_CENTER_Y.toPx()
-            val dash = PathEffect.dashPathEffect(floatArrayOf(20f, 16f), 0f)
-            // Acik (unlocked) bolumlerde basit iki-katmanli glow simulasyonu:
-            // ayni cizgiyi once daha kalin+dusuk-alfa "alt katman" olarak, sonra
-            // normal kalinlikta ustune ciziyoruz. Gercek blur/RenderEffect yok,
-            // sadece ışıma hissi.
-            if (prevXFraction != null) {
-                val start = Offset(prevXFraction * size.width, 0f)
-                val end = Offset(currXFraction * size.width, nodeY)
-                if (unlocked) {
-                    drawLine(
-                        color = pathColor.copy(alpha = pathColor.alpha * 0.5f),
-                        start = start,
-                        end = end,
-                        strokeWidth = 14f,
-                        cap = StrokeCap.Round,
-                        pathEffect = dash
-                    )
-                }
-                drawLine(
-                    color = pathColor,
-                    start = start,
-                    end = end,
-                    strokeWidth = 6f,
-                    cap = StrokeCap.Round,
-                    pathEffect = dash
+            // Faz 115u: "giris sapi" — bir onceki ogenin inis kavisi TAM BURAYA
+            // (kendi x'imize) ulasti, o yuzden burasi HER ZAMAN kisa ve duz
+            // (ayni x, sadece dikey). Yol artik 3 katmanli/dolu (bkz.
+            // drawGlowRoute), kesikli cizgi degil.
+            if (hasPreviousNode) {
+                drawGlowRoute(
+                    start = Offset(currXFraction * size.width, 0f),
+                    end = Offset(currXFraction * size.width, nodeY),
+                    color = routeColor
                 )
             }
-            if (!isLastItem) {
-                val start = Offset(currXFraction * size.width, nodeY)
-                val end = Offset(currXFraction * size.width, size.height)
-                if (unlocked) {
-                    drawLine(
-                        color = pathColor.copy(alpha = pathColor.alpha * 0.5f),
-                        start = start,
-                        end = end,
-                        strokeWidth = 14f,
-                        cap = StrokeCap.Round,
-                        pathEffect = dash
-                    )
-                }
-                drawLine(
-                    color = pathColor,
-                    start = start,
-                    end = end,
-                    strokeWidth = 6f,
-                    cap = StrokeCap.Round,
-                    pathEffect = dash
+            // Faz 115u: "inis" — KENDI dugumumuzden bir SONRAKI ogenin
+            // dugumune, TUM oge yuksekligini kullanan genis/yumusak S-kavisi.
+            if (!isLastItem && nextXFraction != null) {
+                drawGlowRoute(
+                    start = Offset(currXFraction * size.width, nodeY),
+                    end = Offset(nextXFraction * size.width, size.height),
+                    color = routeColor
+                )
+            }
+            // Dekoratif mini kup: dugumun BOS kaldigi yatay yariya, dikey
+            // aralarin ortasina. Canvas'ta cizildigi icin dokunmayi ASLA
+            // engellemez ve dugumun/etiketin uzerine BINMEZ (ayri bolge).
+            if (showDecor) {
+                val col = decorColors[levelNumber % decorColors.size]
+                val cubeX = if (currXFraction > 0.5f) size.width * 0.15f else size.width * 0.85f
+                val cubeY = size.height * 0.62f
+                drawMapConfettiCube(
+                    center = Offset(cubeX, cubeY),
+                    sizePx = 13.dp.toPx(),
+                    rotationDeg = (levelNumber * 47f) % 360f,
+                    color = col,
+                    alpha = 0.4f
                 )
             }
         }
@@ -393,75 +641,87 @@ private fun LevelPathNode(
             modifier = Modifier
                 .align(BiasAlignment(currXFraction * 2f - 1f, -1f))
                 .offset(y = LEVEL_NODE_CENTER_Y - LEVEL_NODE_SIZE / 2)
-                .alpha(if (unlocked) 1f else 0.5f)
+                // Faz 115v — HATA DUZELTMESI (kullanici ekran goruntusuyle
+                // gosterdi: "cizgiler yuvarlaklarin icinde de devam ediyor").
+                // Kok sebep cizgide DEGIL, dugumdeydi: kilitli dugumun TUM
+                // Column'una `.alpha(0.7f)` uygulaniyordu — daire dolgusu +
+                // kenarligi dahil TUM govde SAYDAM composite ediliyordu, bu
+                // yuzden arkasindaki Canvas'taki parlak yol cizgisi saydamligin
+                // ARDINDAN goruluyordu (cizginin kendisi yanlis degildi, onu
+                // ortmesi gereken daire yeterince opak degildi). Alfa
+                // kaldirildi — "kilitli" hissi artik SADECE rengin kendisinden
+                // (soluk/mor-arka plan karisimi gradyan, bkz. `nodeFill`)
+                // geliyor, bu da ChatGPT promptunun "kilitli dugumler hala
+                // premium gorunmeli, neredeyse gorunmez OLMAMALI" istegiyle de
+                // ortusuyor.
                 .clickable(enabled = unlocked, onClick = onClick)
                 .testTag("level_card_$levelNumber")
         ) {
-            // Seviye numarasi/kilit rozeti — dugumun kendisi
-            // Faz 72: tamamlanmis seviyeler eskiden sadece yesil KENARLIKLI, ici
-            // transparan bir daireydi — kullanici bunu "tamamlandi" gibi
-            // okumuyordu. Artik tamamlanan daireler ici tamamen yesil DOLU
-            // (kabartma/embossed hissi icin hafif ust-sol acik / alt-sag koyu
-            // radial gradient) ve rakam beyaza donuyor.
-            // Faz 43'ten sonra da tamamlanan dugum "duz iki-ton" gradyandan daha
-            // hacimli/parlak hale getirildi (kullanicinin begendigi mockup'taki
-            // gibi): ustte NeonGreen'in beyaza yakin tonu, ortada saf NeonGreen,
-            // altta siyaha yakin tonu — lerp ile uretiliyor.
-            val completedFill = Brush.verticalGradient(
-                colors = listOf(
-                    lerp(NeonGreen, Color.White, 0.55f),
-                    NeonGreen,
-                    lerp(NeonGreen, Color.Black, 0.45f)
+            val isCurrent = unlocked && !completed
+
+            // Faz 115m: aktif/oynanabilir dugum yavasca "nefes alir" — mockup'in
+            // "subtle breathing pulse" istegi, sadece TEK dugum (frontier) icin.
+            val pulse = if (isCurrent) {
+                val infinite = rememberInfiniteTransition(label = "nodePulse")
+                infinite.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.06f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(900, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "nodePulseValue"
+                ).value
+            } else 1f
+
+            val nodeFill = when {
+                completed -> Brush.verticalGradient(
+                    listOf(lerp(nodeAccent, Color.White, 0.55f), nodeAccent, lerp(nodeAccent, Color.Black, 0.45f))
                 )
-            )
-            // Acik ama tamamlanmamis dugumlerde "aktif/oynanabilir" hissi icin
-            // aksan renginin dusuk-alfali radyal isimasi.
-            val activeGlow = Brush.radialGradient(
-                colors = listOf(accentColor.copy(alpha = 0.35f), Color.Transparent)
-            )
-            // Kilitli dugumlere glow EKLENMIYOR (soluk kalmalari kasitli,
-            // alpha(0.5f) zaten uyguluyor); sadece tamamlanan/acik dugumlerin
-            // arkasina, dis halkadan biraz daha buyuk, hafif bir accent glow.
-            // ONEMLI: glow, dugumun OLCULEN boyutunu (LEVEL_NODE_SIZE) degistirmez
-            // — drawBehind ile kutu sinirlarinin disina, layout'u etkilemeden
-            // ciziliyor. Aksi halde Column'daki dugum LEVEL_NODE_CENTER_Y'nin
-            // varsaydigi konumdan kayar ve Canvas cizgisiyle hizasi bozulur.
+                unlocked -> Brush.verticalGradient(
+                    listOf(lerp(nodeAccent, Color.White, 0.30f), palette.card, lerp(nodeAccent, Color.Black, 0.20f))
+                )
+                // Faz 115l/m: duz tek renk yerine hafif dikey gradyan — ama mor
+                // aksanla, ChatGPT promptunun "hala premium/cazip gorunmeli,
+                // neredeyse gorunmez olmamali" istegi.
+                else -> Brush.verticalGradient(
+                    listOf(
+                        lerp(LockedRouteColor, palette.background, 0.55f),
+                        lerp(LockedRouteColor, palette.background, 0.72f),
+                        lerp(LockedRouteColor, Color.Black, 0.35f)
+                    )
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .size(LEVEL_NODE_SIZE)
-                    .then(
-                        if (unlocked) {
-                            Modifier.drawBehind {
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(nodeAccent.copy(alpha = 0.30f), Color.Transparent)
-                                    ),
-                                    radius = size.minDimension / 2f + 8.dp.toPx()
-                                )
-                            }
-                        } else {
-                            Modifier
-                        }
-                    )
+                    .graphicsLayer { scaleX = pulse; scaleY = pulse }
+                    // Glow, dugumun OLCULEN boyutunu (LEVEL_NODE_SIZE) DEGISTIRMEZ —
+                    // drawBehind ile kutu sinirlarinin disina, layout'u etkilemeden
+                    // ciziliyor. Aksi halde Column'daki dugum LEVEL_NODE_CENTER_Y'nin
+                    // varsaydigi konumdan kayar ve Canvas'taki yolla hizasi bozulur.
+                    .drawBehind {
+                        val glowAlpha = if (isCurrent) 0.45f else 0.28f
+                        val glowPad = if (isCurrent) 14.dp.toPx() else 8.dp.toPx()
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(nodeAccent.copy(alpha = glowAlpha), Color.Transparent)
+                            ),
+                            radius = size.minDimension / 2f + glowPad
+                        )
+                    }
                     .clip(CircleShape)
-                    .then(
-                        when {
-                            completed -> Modifier.background(completedFill)
-                            unlocked -> Modifier
-                                .background(palette.card)
-                                .background(activeGlow)
-                            else -> Modifier.background(palette.cardAlt)
-                        }
-                    )
-                    .border(2.5.dp, borderBrush, CircleShape),
+                    .background(nodeFill)
+                    .border(3.dp, borderBrush, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (unlocked) {
                     Text(
                         text = "$levelNumber",
-                        fontSize = 20.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.Black,
-                        color = if (completed) Color.White else nodeAccent
+                        color = if (completed) Color(0xFF3D2300) else Color.White
                     )
                 } else {
                     Image(
@@ -470,26 +730,61 @@ private fun LevelPathNode(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+
+                // Faz 115m: tamamlanma rozeti — ChatGPT promptu "stars YOK,
+                // completion checkmark" diyor (bkz. yukaridaki dosya-basi not:
+                // Faz 43'te yildiz sistemi TAMAMEN kaldirilmisti, geri
+                // getirilmiyor). Kucuk, kosede, beyaz zeminde koyu tik.
+                if (completed) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 1.dp, y = 1.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.5.dp, lerp(nodeAccent, Color.Black, 0.25f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = lerp(nodeAccent, Color.Black, 0.35f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                // Faz 72: oynanis kurali artik "hedef puan + en az 1 satir/sutun
-                // patlatma" — haritadaki etiket bu kurali acikca yansitiyor,
-                // aksi halde kullanici hedefi gecince neden bitmedigini anlamaz.
-                text = language.pick(
-                    tr = "HEDEF: $targetScore + 1 satır",
-                    en = "TARGET: $targetScore + 1 row",
-                    it = "OBIETTIVO: $targetScore + 1 riga",
-                    fr = "OBJECTIF : $targetScore + 1 ligne",
-                    es = "OBJETIVO: $targetScore + 1 fila"
-                ),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                color = palette.textSecondary,
-                textAlign = TextAlign.Center
-            )
+            // Faz 115m: "HEDEF: X + 1 satır" artik ciplak metin degil, kucuk
+            // koyu-lacivert bir levha (mockup'taki "small target plaque"),
+            // dugumun renginde ince bir kenarligi var.
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0F172A).copy(alpha = 0.85f))
+                    .border(1.dp, nodeAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    // Faz 72: oynanis kurali artik "hedef puan + en az 1 satir/sutun
+                    // patlatma" — etiket bu kurali acikca yansitiyor, aksi halde
+                    // kullanici hedefi gecince neden bitmedigini anlamaz.
+                    text = language.pick(
+                        tr = "HEDEF: $targetScore + 1 satır",
+                        en = "TARGET: $targetScore + 1 row",
+                        it = "OBIETTIVO: $targetScore + 1 riga",
+                        fr = "OBJECTIF : $targetScore + 1 ligne",
+                        es = "OBJETIVO: $targetScore + 1 fila"
+                    ),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

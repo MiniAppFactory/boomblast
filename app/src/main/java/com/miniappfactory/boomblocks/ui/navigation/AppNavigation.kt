@@ -868,6 +868,12 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         darkMode = progress.darkMode,
                         language = progress.language,
                         skin = skin,
+                        // Faz 115q — HATA DUZELTMESI: bu rota da (ana mod secim
+                        // ekranindaki disli ikonundan acilan bagimsiz Ayarlar) ayni
+                        // hatayi tasiyordu — currentTheme/onSelectTheme hic
+                        // gecirilmemis, dropdown'da tiklama no-op'a duşuyordu.
+                        currentTheme = progress.blockTheme,
+                        onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onToggleSound = { viewModel.setSoundEnabled(it) },
                         onSoundVolumeChange = { viewModel.setSoundVolume(it) },
                         onToggleMusic = { viewModel.setMusicEnabled(it) },

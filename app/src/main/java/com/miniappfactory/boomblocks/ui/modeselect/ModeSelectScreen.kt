@@ -51,6 +51,7 @@ import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.FredokaFamily
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -567,7 +568,14 @@ private fun ModeCard(
                         isLightCard -> lerp(accent, Color.Black, 0.35f)
                         else -> lerp(accent, Color.White, 0.45f)
                     },
+                    // Faz 115p — HATA DUZELTMESI (kullanici: "mode secim kartlarini
+                    // guncellememissin"). Kok sebep: `Text()`e DOGRUDAN bir `TextStyle(...)`
+                    // verildiginde bu, `LocalTextStyle.current`in (Fredoka'nin aktigi
+                    // yer) YERINE geciyor, ustune merge OLMUYOR — fontFamily acikca
+                    // verilmezse alan bos kalip Android'in sistem varsayilanina
+                    // (Roboto) duşuyordu. Tum uygulamada boyle 4 yer bulundu.
                     style = androidx.compose.ui.text.TextStyle(
+                        fontFamily = FredokaFamily,
                         shadow = androidx.compose.ui.graphics.Shadow(
                             color = accent.copy(alpha = if (locked || isLightCard) 0f else 0.75f),
                             offset = androidx.compose.ui.geometry.Offset(0f, 0f),

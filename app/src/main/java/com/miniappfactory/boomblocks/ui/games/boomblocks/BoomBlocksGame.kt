@@ -113,6 +113,7 @@ import com.miniappfactory.boomblocks.ui.theme.BlockOrange
 import com.miniappfactory.boomblocks.ui.theme.BlockPink
 import com.miniappfactory.boomblocks.ui.theme.BlockPurple
 import com.miniappfactory.boomblocks.ui.theme.BlockYellow
+import com.miniappfactory.boomblocks.ui.theme.FredokaFamily
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -936,6 +937,35 @@ fun BlastTheBlocksGame(
     val maxEndlessContinues = 4
     val shakeOffset = remember { Animatable(0f) }
     val comboTextScale = remember { Animatable(1f) }
+    val comboTextAlpha = remember { Animatable(1f) }
+
+    // Faz 115j — HATA DUZELTMESI (kullanici cihazda buldu, ekran goruntusuyle
+    // dogruladi: "GÜZEL! +12" yazisi ekranda takili kaliyor).
+    //
+    // Bu, `scorePopups`/`popupProgress` (Faz 115c'de duzeltilen, satirin
+    // KENDI uzerinde yuzen "+N" yazisi) ile KARISTIRILMAMALI — tamamen ayri
+    // bir mekanizma: `lastClearedText` ("Combo Text Banner", tahtanin USTUNDE
+    // ortalanmis "GÜZEL!"/"SÜPER!"/"PATLAMA!" + puan). Kok sebep FARKLI: bu
+    // metnin HICBIR zaman-tabanli temizleme kodu yoktu — yalnizca (a) tam
+    // sifirlamada veya (b) OYUNCU PATLAMASIZ BIR HAMLE YAPINCA ("else" dali,
+    // asagida `lastClearedText = ""`) temizleniyordu. Yani patlamadan sonra
+    // oyuncu bosta bir hamle yapmadigi surece yazi SONSUZA KADAR asili
+    // kaliyordu — ekran goruntusundeki "SKOR 211" altindaki "GÜZEL! +12"
+    // tam bu.
+    //
+    // Duzeltme: banner gorununce bir sure sonra KENDILIGINDEN solup kaybolur,
+    // oyuncunun ayrica bosta hamle yapmasina gerek kalmaz. `lastClearedText`
+    // her degistiginde (yeni bir patlama METNI degismis demektir, ayni yazi
+    // tekrar atansa bile State esitligi sayesinde LaunchedEffect yeniden
+    // TETIKLENMEZ — bu KASITLI, ayni metin ust uste gelirse suresi uzamaz).
+    LaunchedEffect(lastClearedText) {
+        if (lastClearedText.isNotEmpty()) {
+            comboTextAlpha.snapTo(1f)
+            delay(900)
+            comboTextAlpha.animateTo(0f, animationSpec = tween(300, easing = LinearEasing))
+            lastClearedText = ""
+        }
+    }
     // Faz 107: sabit boyutlu parcacik HAVUZU — patlama basina `List.map` ile
     // yeni nesne uretmek yerine ayni nesneler yeniden doldurulur (GC duraklamasi
     // Faz 5: ParticlePool obje havuzuna geçiş. Eski: Array + activeParticles sayacı.
@@ -2238,18 +2268,38 @@ fun BlastTheBlocksGame(
                             "$animatedScore",
                             fontSize = 56.sp,
                             fontWeight = FontWeight.ExtraBold,
+                            // Faz 115k — HATA DUZELTMESI (kullanici: "açık modda skor
+                            // okunmuyor rahat bir sekilde"). Kok sebep: en ust gradyan
+                            // durağı neredeyse beyaza yakindi (#FFF3C4) ve golge SICAK/
+                            // ALTIN renkteydi (#FFB300) — koyu lacivert zeminde iyi
+                            // calisiyordu ama oyun ici acik-pastel gradyan zeminlerde
+                            // (bu ekran gorunumunun sebebi) acik-uzerine-acik'e cok
+                            // yakindi. Gradyan durağı doygunlastirildi (hicbir durak
+                            // beyaza yakin degil) ve golge SICAK'tan KOYU/kontrast
+                            // saglayan bir tona cevrildi, kucuk bir offset'le "gercek"
+                            // bir golge gibi zemine oturuyor — hem acik hem koyu
+                            // arka planda calisir.
                             style = androidx.compose.ui.text.TextStyle(
+                                // Faz 115p — HATA DUZELTMESI (kullanici: "mode secim
+                                // kartlarini guncellememissin" — ayni hata burada da
+                                // vardi). Kok sebep: `Text()`e DOGRUDAN bir `TextStyle(...)`
+                                // verildiginde bu, `LocalTextStyle.current`in (Fredoka'nin
+                                // aktigi yer) YERINE geciyor, ustune merge OLMUYOR — o
+                                // yuzden fontFamily alani bos kalip Android'in sistem
+                                // varsayilanina (Roboto) duşuyordu. Tum uygulamada boyle
+                                // dort yer bulundu, hepsine acikca fontFamily verildi.
+                                fontFamily = FredokaFamily,
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        Color(0xFFFFF3C4),
                                         Color(0xFFFFD54F),
-                                        Color(0xFFFFA726)
+                                        Color(0xFFFFB300),
+                                        Color(0xFFE65100)
                                     )
                                 ),
                                 shadow = Shadow(
-                                    color = Color(0xFFFFB300).copy(alpha = 0.55f),
-                                    offset = Offset(0f, 0f),
-                                    blurRadius = 26f
+                                    color = Color(0xFF4A2600).copy(alpha = 0.55f),
+                                    offset = Offset(0f, 2f),
+                                    blurRadius = 8f
                                 )
                             )
                         )
@@ -2447,7 +2497,19 @@ fun BlastTheBlocksGame(
                     val cornerRadiusPx = with(drawContext.density) { 6.dp.toPx() }
                     // Faz 115: trapez bevel'ler kaldirildi (bkz. asagida "FASETLI /
                     // PARLAK BLOK"), bevelRatio artik kullanilmiyor.
-                    val fontSizePx = size.minDimension * 0.6f
+                    // Faz 115s — HATA DUZELTMESI (kullanici ekran goruntusuyle
+                    // gosterdi: Meyve/Sekerleme temasi secilince emoji'ler DEV
+                    // boyutta, birden fazla hucreyi kaplayip capraz tasiyordu).
+                    // Kok sebep: bu Canvas TUM TAHTAYI kapliyor (`size` = butun
+                    // izgaranin boyutu, tek hucrenin degil) — `size.minDimension`
+                    // burada tahtanin kenar uzunlugu demek, tek hucrenin degil.
+                    // Onceden bu satir `size.minDimension * 0.6f` idi, yani
+                    // "tahtanin %60'i" buyuklugunde font — TEPSI onizlemesindeki
+                    // (EmbossedBlockCell) AYNI GORUNEN satirla karistirilmis
+                    // olmali, orada Canvas gercekten TEK hucreye ozgu oldugu icin
+                    // dogru calisiyordu. Burada dogrusu hucre boyutunun (`cellSize`,
+                    // hemen yukarida) %60'i.
+                    val fontSizePx = cellSize * 0.6f
 
                     // Faz 3: Tum 64 hucre dongusu
                     for (r in 0 until gridSize) {
@@ -2958,7 +3020,11 @@ fun BlastTheBlocksGame(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Black,
                             color = popup.color.copy(alpha = popupAlpha),
+                            // Faz 115p: bkz. yukaridaki SCORE duzeltmesi yorumu — dogrudan
+                            // TextStyle() LocalTextStyle'in yerine geciyor, fontFamily
+                            // acikca verilmezse Roboto'ya duşuyordu.
                             style = TextStyle(
+                                fontFamily = FredokaFamily,
                                 shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), offset = Offset(1f, 2f), blurRadius = 3f)
                             ),
                             modifier = Modifier.offset(
@@ -3080,6 +3146,7 @@ fun BlastTheBlocksGame(
                                 val s = comboTextScale.value
                                 scaleX = s
                                 scaleY = s
+                                alpha = comboTextAlpha.value
                             }
                     ) {
                         // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
@@ -3090,7 +3157,9 @@ fun BlastTheBlocksGame(
                             fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
                             fontWeight = FontWeight.Bold,
                             color = comboColor,
+                            // Faz 115p: bkz. SCORE duzeltmesi yorumu.
                             style = TextStyle(
+                                fontFamily = FredokaFamily,
                                 shadow = Shadow(
                                     color = Color.Black.copy(alpha = 0.5f),
                                     offset = Offset(2f, 3f),
@@ -3449,6 +3518,18 @@ fun BlastTheBlocksGame(
                     darkMode = darkMode,
                     language = language,
                     skin = uiSkin,
+                    // Faz 115q — HATA DUZELTMESI (kullanici: "ayarlarda dropdownda
+                    // gozukuyor ama seçilmiyor"). Kok sebep: bu OYUN ICI Ayarlar
+                    // overlay'i `SettingsScreen`'i cagirirken `currentTheme` ve
+                    // `onSelectTheme`'i HIC GECIRMIYORDU — ikisi de sessizce
+                    // varsayilana duşuyordu: `currentTheme` hep "CLASSIC" (baslik
+                    // asla degismiyordu), `onSelectTheme` ise BOS bir no-op
+                    // lambda `{}` (tiklama gercekten hicbir sey yapmiyordu).
+                    // `BoomBlocksGame`'in KENDI parametreleri olarak zaten mevcuttu
+                    // (tahta cizimi zaten currentTheme kullaniyor) — sadece ic ice
+                    // cagriya aktarilmamis.
+                    currentTheme = currentTheme,
+                    onSelectTheme = onSelectTheme,
                     onToggleSound = onToggleSound,
                     onSoundVolumeChange = onSoundVolumeChange,
                     onToggleMusic = onToggleMusic,
