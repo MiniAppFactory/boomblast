@@ -87,10 +87,17 @@ android {
     // yuklenebilir bir versionCode gerekiyordu (1.0.4->1.0.5 gibi bir "farkli
     // build, ayni ad" durumu YOK, bu gercekten ayni surum).
     //
-    // DERS (bu projede ucuncu kez): Play Console durumu canli olarak
-    // dogrulanmadan varsayilmamali. Bir sonraki release'de once Play'deki en
-    // yuksek versionCode kontrol edilmeli.
-    versionCode = 13
+    // Faz 148: 13 -> 14. vc13 de yuklenmeye calisildi ve tukendi.
+    //
+    // KURAL (bu projede DORDUNCU kez ayni hata yapildi, artik varsayim degil):
+    // Play'e YUKLEMESI DENENEN her versionCode tukenir — yukleme yarida
+    // kesilse, iptal edilse, taslakta kalsa bile. "Yayinlanmadi" ile
+    // "kullanilmadi" ayni sey DEGIL.
+    // Bu yuzden yeni bir release AAB'si uretmeden ONCE kullaniciya sorulmali:
+    // "bu versionCode'u Play'e yuklemeyi denedin mi?" Emin olunamiyorsa
+    // dogrudan bir sonraki sayiya cikilmali — versionCode ucuz, reddedilen
+    // yukleme pahali.
+    versionCode = 14
     versionName = "1.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
