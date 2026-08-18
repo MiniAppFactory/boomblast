@@ -80,7 +80,17 @@ android {
     // (Kolay Mod, Retro'nun yerine), 7 yeni blok temasi, yeni gorunum
     // (Seker Pembesi), Pro Mode zorluk egrisi duzeltmesi ve reklam/jeton
     // ekonomisinin yeniden dengelenmesi.
-    versionCode = 12
+    // Faz 143 (release): 12 -> 13. Play Console vc12'yi "zaten kullanilmis"
+    // olarak reddetti — vc12 AAB'si yuklenmeye baslanmis, yukleme yarida
+    // durdurulmus olsa bile Play o versionCode'u tuketilmis sayiyor.
+    // versionName 1.1.0 AYNEN KALIYOR: icerik ayni surum, sadece yeniden
+    // yuklenebilir bir versionCode gerekiyordu (1.0.4->1.0.5 gibi bir "farkli
+    // build, ayni ad" durumu YOK, bu gercekten ayni surum).
+    //
+    // DERS (bu projede ucuncu kez): Play Console durumu canli olarak
+    // dogrulanmadan varsayilmamali. Bir sonraki release'de once Play'deki en
+    // yuksek versionCode kontrol edilmeli.
+    versionCode = 13
     versionName = "1.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

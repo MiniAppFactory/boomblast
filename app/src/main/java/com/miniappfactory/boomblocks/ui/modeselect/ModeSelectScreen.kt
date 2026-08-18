@@ -28,11 +28,18 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.R
+import com.miniappfactory.boomblocks.data.AD_TOKEN_REWARD
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
@@ -83,9 +91,68 @@ fun ModeSelectScreen(
     onOpenChallenge: () -> Unit,
     onOpenComfort: () -> Unit,
     onOpenMissions: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    // Faz 145: jeton rozetine basinca odullu reklam. isWatchAdLoading rozette
+    // spinner gosterir (reklam yuklemesi 3-8 sn surebiliyor).
+    isWatchAdLoading: Boolean = false,
+    onWatchAdForTokens: () -> Unit = {}
 ) {
     val palette = blastPalette(skin, darkMode)
+    // Faz 145: rozete dokununca once onay — reklam dogrudan acilmiyor.
+    var showWatchAdDialog by remember { mutableStateOf(false) }
+
+    if (showWatchAdDialog) {
+        AlertDialog(
+            onDismissRequest = { showWatchAdDialog = false },
+            containerColor = palette.card,
+            title = {
+                Text(
+                    text = language.pick(
+                        tr = "Reklam izle, jeton kazan",
+                        en = "Watch an ad, earn tokens",
+                        it = "Guarda un annuncio, guadagna token",
+                        fr = "Regarde une pub, gagne des jetons",
+                        es = "Mira un anuncio, gana fichas"
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary
+                )
+            },
+            text = {
+                Text(
+                    // Miktar AD_TOKEN_REWARD'dan geliyor — odul degisirse metin de degisir.
+                    text = language.pick(
+                        tr = "Kısa bir video açılacak. Sonunda $AD_TOKEN_REWARD jeton kazanacaksın.",
+                        en = "A short video will open. You'll earn $AD_TOKEN_REWARD tokens at the end.",
+                        it = "Si aprirà un breve video. Alla fine guadagnerai $AD_TOKEN_REWARD token.",
+                        fr = "Une courte vidéo va s'ouvrir. Tu gagneras $AD_TOKEN_REWARD jetons à la fin.",
+                        es = "Se abrirá un vídeo corto. Ganarás $AD_TOKEN_REWARD fichas al final."
+                    ),
+                    color = palette.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showWatchAdDialog = false
+                    onWatchAdForTokens()
+                }) {
+                    Text(
+                        text = language.pick(tr = "İZLE", en = "WATCH", it = "GUARDA", fr = "REGARDER", es = "VER"),
+                        color = NeonGold,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWatchAdDialog = false }) {
+                    Text(
+                        text = language.pick(tr = "VAZGEÇ", en = "CANCEL", it = "ANNULLA", fr = "ANNULER", es = "CANCELAR"),
+                        color = palette.textSecondary
+                    )
+                }
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -153,6 +220,8 @@ fun ModeSelectScreen(
                 ModeSelectHeaderActions(
                     language = language,
                     tokens = tokens,
+                    isWatchAdLoading = isWatchAdLoading,
+                    onTokenPillClick = { showWatchAdDialog = true },
                     palette = palette,
                     onOpenMissions = onOpenMissions,
                     onOpenSettings = onOpenSettings
@@ -280,6 +349,8 @@ private fun ModeSelectHeaderActions(
     language: AppLanguage,
     tokens: Int,
     palette: BlastPalette,
+    isWatchAdLoading: Boolean = false,
+    onTokenPillClick: () -> Unit = {},
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -291,18 +362,31 @@ private fun ModeSelectHeaderActions(
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
+                // Faz 145: rozet artik bir buton — dokununca odullu reklam onayi
+                // aciliyor. Reklam yuklenirken tekrar basilamiyor.
+                .clickable(enabled = !isWatchAdLoading) { onTokenPillClick() }
                 .testTag("mode_select_token_pill")
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Faz 115i: emoji yerine gercek asset (icon_coin.webp).
-                androidx.compose.foundation.Image(
-                    painter = painterResource(com.miniappfactory.boomblocks.R.drawable.icon_coin),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
+                if (isWatchAdLoading) {
+                    // Faz 43'teki ders: reklam yuklemesi 3-8 sn surebiliyor ve
+                    // sessiz bekleme "buton bozuk" hissi veriyor.
+                    CircularProgressIndicator(
+                        color = NeonGold,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(14.dp)
+                    )
+                } else {
+                    // Faz 115i: emoji yerine gercek asset (icon_coin.webp).
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(com.miniappfactory.boomblocks.R.drawable.icon_coin),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = "$tokens",

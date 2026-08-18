@@ -155,6 +155,10 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(1f)) {
+                        // Faz 145: jeton rozetinden odullu reklam. Odul yalnizca
+                        // GERCEK tamamlamada (onRewardEarned) veriliyor; erken
+                        // kapatan almiyor, no-fill'de toast cikiyor.
+                        var isTokenAdLoading by remember { mutableStateOf(false) }
                         ModeSelectScreen(
                             language = progress.language,
                             darkMode = progress.darkMode,
@@ -169,7 +173,21 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             onOpenChallenge = { navController.navigate(Routes.CHALLENGE_MAP) },
                             onOpenComfort = { navController.navigate(Routes.COMFORT_MAP) },
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
-                            onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                            onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                            isWatchAdLoading = isTokenAdLoading,
+                            onWatchAdForTokens = {
+                                val activity = context.findActivity()
+                                if (activity != null && !isTokenAdLoading) {
+                                    isTokenAdLoading = true
+                                    RewardedAdManager.loadAndShow(
+                                        context = context,
+                                        activity = activity,
+                                        onRewardEarned = { viewModel.watchAdForTokens() },
+                                        onFailure = { showAdUnavailableToast(context, progress.language) },
+                                        onAdClosed = { isTokenAdLoading = false }
+                                    )
+                                }
+                            }
                         )
                     }
                     if (adsConsentResolved) {

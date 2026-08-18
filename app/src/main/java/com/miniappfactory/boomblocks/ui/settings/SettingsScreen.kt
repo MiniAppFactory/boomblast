@@ -261,7 +261,10 @@ fun SettingsScreen(
                         // telefonun geri tusunu kullanmak zorunda kaliyordu).
                         modifier = Modifier
                             .background(palette.card)
-                            .heightIn(max = 340.dp)
+                            // Faz 144: aciklama kalkinca satir ~34dp'ye dustu.
+                            // 300dp, 10 satirin son birini YARIM gosteriyor —
+                            // "asagisi var" ipucunu kendiliginden veriyor.
+                            .heightIn(max = 300.dp)
                     ) {
                         BLOCK_THEMES.forEach { theme ->
                             val isSelected = theme.id == currentTheme
@@ -301,14 +304,6 @@ fun SettingsScreen(
                                                     },
                                                     // Faz 142: tek satir — aciklamalar iki
                                                     // satira tasip listeyi uzatiyordu.
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = theme.description(language),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Light,
-                                                    color = palette.textSecondary,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )

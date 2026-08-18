@@ -391,7 +391,11 @@ private fun WatchAdCard(
                     ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonGold
+                    // Faz 147: sabit NeonGold acik temada beyaza yakin zeminde
+                    // okunmuyordu. palette.textPrimary acik temada koyu, koyu
+                    // temada beyaz — iki temada da calisir (duz siyah yazmak
+                    // koyu temayi bozardi).
+                    color = palette.textPrimary
                 )
                 Text(
                     text = language.pick(tr = "Ücretsiz bonus token kazan", en = "Earn free bonus tokens", it = "Ottieni token bonus gratis", fr = "Gagnez des jetons bonus gratuits", es = "Gana fichas bonus gratis"),
@@ -400,13 +404,17 @@ private fun WatchAdCard(
                 )
             }
 
+            // Faz 146: onceden NeonGold %20 alfa zemin + NeonGold yazi idi;
+            // acik temada bu tam olarak DEVRE DISI butonun gorunumuydu
+            // (kullanici tablette bildirdi). Artik yanindaki "SATIN AL" ile
+            // AYNI recete: dolu accent zemin + siyah yazi.
             Surface(
-                color = NeonGold.copy(alpha = 0.2f),
+                color = NeonGold,
                 shape = RoundedCornerShape(10.dp)
             ) {
                 if (isLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
-                        color = NeonGold,
+                        color = Color.Black,
                         strokeWidth = 2.dp,
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 10.dp)
@@ -416,9 +424,9 @@ private fun WatchAdCard(
                     Text(
                         text = language.pick(tr = "İZLE", en = "WATCH", it = "GUARDA", fr = "REGARDER", es = "VER"),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NeonGold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
                 }
             }
