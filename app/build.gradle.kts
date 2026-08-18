@@ -66,8 +66,22 @@ android {
     // renk/boyut duzeltmeleri, interstitial oturum grace 45sn -> 10sn, gercek
     // geri-tusu-baypas duzeltmesi, gezinen oyun parcalari 4 ekranda) tasiyan bu
     // build AYNI versionCode ile yuklenemez (Play tekil/artan versionCode ister).
-    versionCode = 11
-    versionName = "1.0.9"
+    // Faz 135 (release): 11 -> 12, 1.0.9 -> 1.1.0.
+    // NEDEN vc11 TEKRAR KULLANILMADI: vc11/1.0.9 AAB'si 17 Agu 2026'da uretildi
+    // ama Play Console'a HIC YUKLENMEDI (handover kaydi). Yani teknik olarak
+    // vc11 hala bos olabilir. Yine de artirildi, iki gerekceyle:
+    //   1. Play Console durumu canli olarak DOGRULANMADI. Bu projede "Play'de ne
+    //      var" varsayimi daha once IKI KEZ yanlis cikti (bkz. handover §2).
+    //      vc12 her iki senaryoda da calisir, vc11 yalnizca biri dogruysa.
+    //   2. O AAB'nin icerigi ile bu build arasinda Faz 125-134 var — ayni
+    //      versionName altinda iki farkli build dolasmasi karisiklik yaratir
+    //      (bkz. yukarida 1.0.4 -> 1.0.5 ve 1.0.7 -> 1.0.8 ayni gerekce).
+    // versionName 1.0.9 -> 1.1.0 (yama degil MINOR): yeni bir oyun modu
+    // (Kolay Mod, Retro'nun yerine), 7 yeni blok temasi, yeni gorunum
+    // (Seker Pembesi), Pro Mode zorluk egrisi duzeltmesi ve reklam/jeton
+    // ekonomisinin yeniden dengelenmesi.
+    versionCode = 12
+    versionName = "1.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
