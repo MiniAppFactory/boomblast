@@ -212,10 +212,6 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 var themeMenuExpanded by remember { mutableStateOf(false) }
-                // Faz 140 (F3): iki dokunuslu satin alma onayi. Bu menu
-                // kaydirilabilir oldugu icin kaydirma jestinin tap'e donmesi
-                // gercek bir senaryo — tek dokunusla 300 jeton gitmesin.
-                var armedThemeId by remember { mutableStateOf<String?>(null) }
                 Box {
                     Surface(
                         color = palette.background,
@@ -270,20 +266,11 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Column {
                                             Text(
-                                                text = when {
-                                                    !isLocked -> theme.title(language)
-                                                    armedThemeId == theme.id && canAfford ->
-                                                        "${theme.title(language)}  \u2014 " + language.pick(tr = "SATIN AL?", en = "BUY?", it = "COMPRARE?", fr = "ACHETER ?", es = "\u00bfCOMPRAR?")
-                                                    armedThemeId == theme.id ->
-                                                        "${theme.title(language)}  \u2014 " + language.pick(tr = "YETERSİZ", en = "NOT ENOUGH", it = "INSUFFICIENTE", fr = "INSUFFISANT", es = "INSUFICIENTE")
-                                                    canAfford -> "${theme.title(language)}  ${theme.tokenPrice} \uD83E\uDE99"
-                                                    else -> "${theme.title(language)}  \uD83D\uDD12 ${theme.tokenPrice} \uD83E\uDE99"
-                                                },
+                                                // Faz 141: fiyat basliktan cikip butona tasindi.
+                                                text = theme.title(language),
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                                 color = when {
-                                                    isLocked && armedThemeId == theme.id && canAfford -> NeonGreen
-                                                    isLocked && !canAfford -> palette.textSecondary
-                                                    isLocked -> NeonGold
+                                                    isLocked -> palette.textSecondary
                                                     isSelected -> NeonPurple
                                                     else -> palette.textPrimary
                                                 }
@@ -297,21 +284,43 @@ fun SettingsScreen(
                                         }
                                     }
                                 },
+                                // Faz 141: kilitli satirin govdesi is yapmiyor —
+                                // satin alma yalnizca trailingIcon'daki "AC" butonundan.
                                 onClick = {
-                                    if (isLocked) {
-                                        // Faz 140 (F3): ilk dokunus kurar, ikinci alir.
-                                        when {
-                                            armedThemeId != theme.id -> armedThemeId = theme.id
-                                            canAfford -> {
-                                                onUnlockTheme(theme.id, theme.tokenPrice)
-                                                armedThemeId = null
-                                                themeMenuExpanded = false
-                                            }
-                                        }
-                                    } else {
-                                        armedThemeId = null
+                                    if (!isLocked) {
                                         onSelectTheme(theme.id)
                                         themeMenuExpanded = false
+                                    }
+                                },
+                                trailingIcon = if (!isLocked) null else {
+                                    {
+                                        Surface(
+                                            color = if (canAfford) NeonGreen else palette.cardAlt,
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.clickable(enabled = canAfford) {
+                                                onUnlockTheme(theme.id, theme.tokenPrice)
+                                                themeMenuExpanded = false
+                                            }
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (canAfford) language.pick(tr = "AÇ", en = "UNLOCK", it = "SBLOCCA", fr = "OUVRIR", es = "ABRIR") else "\uD83D\uDD12",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = if (canAfford) Color.Black else palette.textSecondary
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "${theme.tokenPrice} \uD83E\uDE99",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (canAfford) Color.Black else palette.textSecondary
+                                                )
+                                            }
+                                        }
                                     }
                                 },
                                 modifier = Modifier.testTag("settings_theme_${theme.id}")

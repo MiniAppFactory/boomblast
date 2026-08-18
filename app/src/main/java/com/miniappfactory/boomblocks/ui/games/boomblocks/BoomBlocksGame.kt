@@ -1302,9 +1302,6 @@ fun BlastTheBlocksGame(
     var lastClearedText by remember { mutableStateOf("") }
     var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
-    // Faz 140 (F3): satin almadan once iki dokunuslu onay. Ilk dokunus
-    // satiri kurar, ikinci dokunus satin alir. Bkz. tema dialogu.
-    var armedThemeId by remember { mutableStateOf<String?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     // Faz 38: kullanici "sonsuz oyunda geri tusuna basinca hemen ana menuye
     // cikmasin, teyit alsin" dedi — Sonsuz Mod'da hem sistem geri tusu/jesti
@@ -3979,7 +3976,7 @@ fun BlastTheBlocksGame(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.8f))
-                    .clickable { armedThemeId = null; showThemeDialog = false },
+                    .clickable { showThemeDialog = false },
                 contentAlignment = Alignment.Center
             ) {
                 Card(
@@ -4054,30 +4051,14 @@ fun BlastTheBlocksGame(
                                             color = if (isSelected) NeonPurple else palette.cardBorder,
                                             shape = RoundedCornerShape(12.dp)
                                         )
-                                        .clickable {
-                                            if (isLocked) {
-                                                // Faz 140 (F3): iki dokunuslu onay.
-                                                // Yetersiz bakiyede satir yine de
-                                                // kuruluyor ki dokunus sessiz olmasin —
-                                                // rozet "eksik" bilgisini gosteriyor.
-                                                when {
-                                                    armedThemeId != theme.id -> {
-                                                        SoundManager.playBeep(soundEnabled)
-                                                        armedThemeId = theme.id
-                                                    }
-                                                    canAfford -> {
-                                                        SoundManager.playBeep(soundEnabled)
-                                                        onUnlockTheme(theme.id, theme.tokenPrice)
-                                                        armedThemeId = null
-                                                        showThemeDialog = false
-                                                    }
-                                                }
-                                            } else {
-                                                SoundManager.playBeep(soundEnabled)
-                                                armedThemeId = null
-                                                onSelectTheme(theme.id)
-                                                showThemeDialog = false
-                                            }
+                                        // Faz 141: kilitli satirin GOVDESI tiklanamaz —
+                                        // satin alma yalnizca asagidaki "AC" butonundan.
+                                        // Boylece kaydirma jestinin tap'e donmesi para
+                                        // harcamiyor ve iki dokunuslu onaya gerek kalmiyor.
+                                        .clickable(enabled = !isLocked) {
+                                            SoundManager.playBeep(soundEnabled)
+                                            onSelectTheme(theme.id)
+                                            showThemeDialog = false
                                         }
                                         .testTag("select_block_theme_${theme.id}")
                                 ) {
@@ -4102,37 +4083,36 @@ fun BlastTheBlocksGame(
                                             )
                                         }
                                         if (isLocked) {
-                                            // Faz 137: fiyat rozeti. Bakiye yetiyorsa altin
-                                            // ve kilit yok; yetmiyorsa soluk ve kilitli —
-                                            // oyuncu neden basamadigini rozete bakinca anliyor.
+                                            // Faz 141: acik "AC" butonu + fiyat. Bakiye
+                                            // yetiyorsa yesil ve tiklanabilir; yetmiyorsa
+                                            // gri, kilitli ve tiklanamaz.
                                             Surface(
-                                                color = when {
-                                                    armedThemeId == theme.id && canAfford -> NeonGreen.copy(alpha = 0.28f)
-                                                    armedThemeId == theme.id -> NeonMagenta.copy(alpha = 0.22f)
-                                                    canAfford -> NeonGold.copy(alpha = 0.18f)
-                                                    else -> palette.textSecondary.copy(alpha = 0.18f)
-                                                },
-                                                shape = RoundedCornerShape(6.dp)
+                                                color = if (canAfford) NeonGreen else palette.cardAlt,
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.clickable(enabled = canAfford) {
+                                                    SoundManager.playBeep(soundEnabled)
+                                                    onUnlockTheme(theme.id, theme.tokenPrice)
+                                                    showThemeDialog = false
+                                                }
                                             ) {
-                                                Text(
-                                                    text = when {
-                                                        armedThemeId == theme.id && canAfford ->
-                                                            language.pick(tr = "SATIN AL?", en = "BUY?", it = "COMPRARE?", fr = "ACHETER ?", es = "\u00bfCOMPRAR?")
-                                                        armedThemeId == theme.id ->
-                                                            language.pick(tr = "YETERSİZ", en = "NOT ENOUGH", it = "INSUFFICIENTE", fr = "INSUFFISANT", es = "INSUFICIENTE")
-                                                        canAfford -> "${theme.tokenPrice} \uD83E\uDE99"
-                                                        else -> "\uD83D\uDD12 ${theme.tokenPrice}"
-                                                    },
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = when {
-                                                        armedThemeId == theme.id && canAfford -> NeonGreen
-                                                        armedThemeId == theme.id -> NeonMagenta
-                                                        canAfford -> NeonGold
-                                                        else -> palette.textSecondary
-                                                    },
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (canAfford) language.pick(tr = "AÇ", en = "UNLOCK", it = "SBLOCCA", fr = "OUVRIR", es = "ABRIR") else "\uD83D\uDD12",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = if (canAfford) Color.Black else palette.textSecondary
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "${theme.tokenPrice} \uD83E\uDE99",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (canAfford) Color.Black else palette.textSecondary
+                                                    )
+                                                }
                                             }
                                         } else if (isSelected) {
                                             Surface(
