@@ -64,6 +64,13 @@ data class PlayerProgress(
     // yolu aciktı. Kullanici karari: "her bir guclendirici kendi bucket'ini
     // kullansin, ortak kullanan hicbir mod kalmasin." Artik dort modun dordu ayri.
     val comfortOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
+    // Faz 137: jetonla acilan blok temalari. Klasik her zaman ucretsiz (fiyat 0),
+    // Meyve ve Sekerleme 100 jeton, Faz 132-134'te gelen 7 yeni tema 300 jeton.
+    // NOT: Meyve/Sekerleme v1.0.8'de ucretsizdi. Kullanici karari: uygulama
+    // henuz kapali testte oldugu icin eski oyuncu korumasi (tek seferlik
+    // migrasyon) EKLENMEDI. Acik yayindan sonra bir tema paraliya cevrilirse
+    // o koruma gerekli olur.
+    val unlockedThemes: Set<String> = emptySet(),
     val soundEnabled: Boolean = true,
     val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,

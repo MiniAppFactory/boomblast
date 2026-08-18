@@ -65,6 +65,7 @@ import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
+import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 
@@ -92,6 +93,10 @@ fun SettingsScreen(
     onSelectEffectIntensity: (EffectIntensity) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit,
     onSelectTheme: (String) -> Unit = {},
+    // Faz 137: tema dukkani (bkz. BoomBlocksGame'deki ayni ucluyu tasiyan blok).
+    tokens: Int = 0,
+    unlockedThemes: Set<String> = emptySet(),
+    onUnlockTheme: (themeId: String, price: Int) -> Unit = { _, _ -> },
     onSelectLanguage: (AppLanguage) -> Unit,
     onSelectSkin: (BlastSkin) -> Unit = {},
     notificationsEnabled: Boolean = true,
@@ -207,6 +212,10 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 var themeMenuExpanded by remember { mutableStateOf(false) }
+                // Faz 140 (F3): iki dokunuslu satin alma onayi. Bu menu
+                // kaydirilabilir oldugu icin kaydirma jestinin tap'e donmesi
+                // gercek bir senaryo — tek dokunusla 300 jeton gitmesin.
+                var armedThemeId by remember { mutableStateOf<String?>(null) }
                 Box {
                     Surface(
                         color = palette.background,
@@ -225,6 +234,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Faz 140 (F2): bakiye satin alma aninda gorunur olmali.
                             val selectedTheme = BLOCK_THEMES.find { it.id == currentTheme }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = selectedTheme?.icon ?: "❓", fontSize = 20.sp)
@@ -250,6 +260,9 @@ fun SettingsScreen(
                     ) {
                         BLOCK_THEMES.forEach { theme ->
                             val isSelected = theme.id == currentTheme
+                            // Faz 137: oyun ici dialogla AYNI kural.
+                            val isLocked = theme.tokenPrice > 0 && theme.id !in unlockedThemes
+                            val canAfford = tokens >= theme.tokenPrice
                             DropdownMenuItem(
                                 text = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -257,9 +270,23 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Column {
                                             Text(
-                                                text = theme.title(language),
+                                                text = when {
+                                                    !isLocked -> theme.title(language)
+                                                    armedThemeId == theme.id && canAfford ->
+                                                        "${theme.title(language)}  \u2014 " + language.pick(tr = "SATIN AL?", en = "BUY?", it = "COMPRARE?", fr = "ACHETER ?", es = "\u00bfCOMPRAR?")
+                                                    armedThemeId == theme.id ->
+                                                        "${theme.title(language)}  \u2014 " + language.pick(tr = "YETERSİZ", en = "NOT ENOUGH", it = "INSUFFICIENTE", fr = "INSUFFISANT", es = "INSUFICIENTE")
+                                                    canAfford -> "${theme.title(language)}  ${theme.tokenPrice} \uD83E\uDE99"
+                                                    else -> "${theme.title(language)}  \uD83D\uDD12 ${theme.tokenPrice} \uD83E\uDE99"
+                                                },
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) NeonPurple else palette.textPrimary
+                                                color = when {
+                                                    isLocked && armedThemeId == theme.id && canAfford -> NeonGreen
+                                                    isLocked && !canAfford -> palette.textSecondary
+                                                    isLocked -> NeonGold
+                                                    isSelected -> NeonPurple
+                                                    else -> palette.textPrimary
+                                                }
                                             )
                                             Text(
                                                 text = theme.description(language),
@@ -271,8 +298,21 @@ fun SettingsScreen(
                                     }
                                 },
                                 onClick = {
-                                    onSelectTheme(theme.id)
-                                    themeMenuExpanded = false
+                                    if (isLocked) {
+                                        // Faz 140 (F3): ilk dokunus kurar, ikinci alir.
+                                        when {
+                                            armedThemeId != theme.id -> armedThemeId = theme.id
+                                            canAfford -> {
+                                                onUnlockTheme(theme.id, theme.tokenPrice)
+                                                armedThemeId = null
+                                                themeMenuExpanded = false
+                                            }
+                                        }
+                                    } else {
+                                        armedThemeId = null
+                                        onSelectTheme(theme.id)
+                                        themeMenuExpanded = false
+                                    }
                                 },
                                 modifier = Modifier.testTag("settings_theme_${theme.id}")
                             )

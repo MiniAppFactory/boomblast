@@ -66,6 +66,8 @@ class GameStateRepository(private val context: Context) {
         val ENDLESS_OWNED_BOOSTERS = stringPreferencesKey("endless_owned_boosters")
         // Faz 131: Kolay Mod artik Kariyer ile ortak kova kullanmiyor.
         val COMFORT_OWNED_BOOSTERS = stringPreferencesKey("comfort_owned_boosters")
+        // Faz 137: jetonla acilmis tema id'leri, virgulle ayrilmis.
+        val UNLOCKED_THEMES = stringPreferencesKey("unlocked_themes")
     }
 
     val playerProgress: Flow<PlayerProgress> = context.gameDataStore.data.map { prefs ->
@@ -104,7 +106,8 @@ class GameStateRepository(private val context: Context) {
             proRestartsSinceInterstitial = prefs[Keys.PRO_RESTARTS_SINCE_INTERSTITIAL] ?: 0,
             challengeOwnedBoosters = decodeBoosterMap(prefs[Keys.CHALLENGE_OWNED_BOOSTERS]),
             endlessOwnedBoosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS]),
-            comfortOwnedBoosters = decodeBoosterMap(prefs[Keys.COMFORT_OWNED_BOOSTERS])
+            comfortOwnedBoosters = decodeBoosterMap(prefs[Keys.COMFORT_OWNED_BOOSTERS]),
+            unlockedThemes = decodeStringSet(prefs[Keys.UNLOCKED_THEMES])
         )
     }
 
@@ -137,10 +140,15 @@ class GameStateRepository(private val context: Context) {
         return success
     }
 
-    suspend fun recordLevelResult(level: Int, stars: Int) {
+    // Faz 139: Kariyer
+    // Donen deger = bu bolum ILK KEZ mi gecildi. Jeton odulu buna
+    // bagli (bkz. BlastViewModel) - tekrar oynamak jeton vermez.
+    suspend fun recordLevelResult(level: Int, stars: Int): Boolean {
+        var firstClear = false
         context.gameDataStore.edit { prefs ->
             val currentHighest = prefs[Keys.HIGHEST_LEVEL] ?: 1
             if (level >= currentHighest) {
+                firstClear = true
                 prefs[Keys.HIGHEST_LEVEL] = level + 1
             }
             val starsMap = decodeIntMap(prefs[Keys.LEVEL_STARS]).toMutableMap()
@@ -148,6 +156,7 @@ class GameStateRepository(private val context: Context) {
             starsMap[level] = best
             prefs[Keys.LEVEL_STARS] = encodeIntMap(starsMap)
         }
+        return firstClear
     }
 
     suspend fun addBooster(type: BoosterType, count: Int = 1) {
@@ -370,10 +379,15 @@ class GameStateRepository(private val context: Context) {
 
     // --- Pro Mode (Challenge) ---
 
-    suspend fun recordChallengeLevelResult(level: Int, stars: Int) {
+    // Faz 139: Pro
+    // Donen deger = bu bolum ILK KEZ mi gecildi. Jeton odulu buna
+    // bagli (bkz. BlastViewModel) - tekrar oynamak jeton vermez.
+    suspend fun recordChallengeLevelResult(level: Int, stars: Int): Boolean {
+        var firstClear = false
         context.gameDataStore.edit { prefs ->
             val currentHighest = prefs[Keys.CHALLENGE_HIGHEST_LEVEL] ?: 1
             if (level >= currentHighest) {
+                firstClear = true
                 prefs[Keys.CHALLENGE_HIGHEST_LEVEL] = level + 1
             }
             val starsMap = decodeIntMap(prefs[Keys.CHALLENGE_LEVEL_STARS]).toMutableMap()
@@ -381,16 +395,46 @@ class GameStateRepository(private val context: Context) {
             starsMap[level] = best
             prefs[Keys.CHALLENGE_LEVEL_STARS] = encodeIntMap(starsMap)
         }
+        return firstClear
+    }
+
+    // Faz 137: tema satin alma. Jeton dusme ve acma AYNI `edit` blogunda —
+    // ikisi tek atomik islem, "jeton gitti ama tema acilmadi" (ya da tersi)
+    // durumu olusamaz. Zaten acik bir temayi tekrar satin almaz, true doner.
+    // Yetersiz jetonda hicbir sey degistirmez ve false doner; cagiran taraf
+    // (BlastViewModel.unlockTheme) ancak true'da temayi secili hale getirir,
+    // boylece "odenmemis tema secili" durumu da olusamaz.
+    suspend fun unlockTheme(themeId: String, price: Int): Boolean {
+        var ok = false
+        context.gameDataStore.edit { prefs ->
+            val unlocked = decodeStringSet(prefs[Keys.UNLOCKED_THEMES])
+            if (themeId in unlocked) {
+                ok = true
+                return@edit
+            }
+            val current = prefs[Keys.TOKENS] ?: 150
+            if (current >= price) {
+                prefs[Keys.TOKENS] = current - price
+                prefs[Keys.UNLOCKED_THEMES] = (unlocked + themeId).joinToString(",")
+                ok = true
+            }
+        }
+        return ok
     }
 
     // --- Comfort Mode (Kolay Mod) ---
 
     // Faz 128: recordChallengeLevelResult ile BIREBIR ayni desen, sadece ayri
     // anahtarlar. Uc modun ilerlemesi (Kariyer / Pro / Kolay) birbirinden bagimsiz.
-    suspend fun recordComfortLevelResult(level: Int, stars: Int) {
+    // Faz 139: Kolay Mod
+    // Donen deger = bu bolum ILK KEZ mi gecildi. Jeton odulu buna
+    // bagli (bkz. BlastViewModel) - tekrar oynamak jeton vermez.
+    suspend fun recordComfortLevelResult(level: Int, stars: Int): Boolean {
+        var firstClear = false
         context.gameDataStore.edit { prefs ->
             val currentHighest = prefs[Keys.COMFORT_HIGHEST_LEVEL] ?: 1
             if (level >= currentHighest) {
+                firstClear = true
                 prefs[Keys.COMFORT_HIGHEST_LEVEL] = level + 1
             }
             val starsMap = decodeIntMap(prefs[Keys.COMFORT_LEVEL_STARS]).toMutableMap()
@@ -398,6 +442,7 @@ class GameStateRepository(private val context: Context) {
             starsMap[level] = best
             prefs[Keys.COMFORT_LEVEL_STARS] = encodeIntMap(starsMap)
         }
+        return firstClear
     }
 
     // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) — Pro Mode

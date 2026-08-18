@@ -124,6 +124,17 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.addComfortBooster(type) }
     }
 
+    // Faz 137: tema satin alma. Tema ancak jeton GERCEKTEN dustuyse secili hale
+    // geliyor (repository.unlockTheme atomik, bkz. oradaki not) — yetersiz
+    // bakiyede hicbir sey olmuyor, arayuz zaten fiyat rozetini soluk gosteriyor.
+    fun unlockTheme(themeId: String, price: Int) {
+        viewModelScope.launch {
+            if (repository.unlockTheme(themeId, price)) {
+                repository.setBlockTheme(themeId)
+            }
+        }
+    }
+
     fun resetEndlessBoosters() {
         viewModelScope.launch { repository.resetEndlessBoosters() }
     }
@@ -134,8 +145,8 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
 
     fun recordLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
-            repository.recordLevelResult(level, stars)
-            repository.addTokens(5)
+            // Faz 139: jeton SADECE ilk gecerde (bkz. repository notu).
+            if (repository.recordLevelResult(level, stars)) repository.addTokens(5)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()
@@ -150,8 +161,15 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
 
     fun recordChallengeLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
-            repository.recordChallengeLevelResult(level, stars)
-            repository.addTokens(5)
+            // Faz 139: jeton SADECE ilk gecerde (bkz. repository notu).
+            val firstClear = repository.recordChallengeLevelResult(level, stars)
+            // Faz 138: Pro odulu 5 -> 10. Gerekce: bir Pro bolumu Kariyer/Kolay
+            // bolumunden cok daha uzun suruyor (hedef puan 250+ ve +50/bolum,
+            // 1x1 parca yok, tam havuz bolum 9'da acik) — ayni 5 jetonu odemek
+            // dakika basina en dusuk odul demekti. 10'da bile Pro, dakika basina
+            // Kolay Mod'dan daha az kazandiriyor, yani "en verimli jeton yolu"
+            // haline GELMIYOR; sadece adil oluyor.
+            if (firstClear) repository.addTokens(10)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             // recordLevelComplete'teki ile ayni sayaci artiriyor — AppNavigation'daki
@@ -170,8 +188,8 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     // jeton kazanimi zaten dogal olarak daha yuksek, ustune carpan verilmedi.
     fun recordComfortLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
-            repository.recordComfortLevelResult(level, stars)
-            repository.addTokens(5)
+            // Faz 139: jeton SADECE ilk gecerde (bkz. repository notu).
+            if (repository.recordComfortLevelResult(level, stars)) repository.addTokens(5)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()

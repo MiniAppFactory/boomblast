@@ -42,8 +42,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -592,6 +595,22 @@ private val ENDLESS_POOL_STEPS = listOf(6, 10, 16, 22, 26, 30)
 // Android 7.0 ile geldiler. minSdk 24 = Android 7.0, yani uygulamanin calistigi
 // HER cihazda render olurlar. Diger dordu Unicode 6.0. "MIXED" (zar) temasi
 // vaktinde tam bu font destegi sorunu yuzunden kaldirilmisti, tekrarlanmadi.
+// Faz 140 (F1): kayitli tema kilitliyse guvenli varsayilana duser.
+//
+// Kok neden: `blockTheme` ile `unlockedThemes` birbirinden bagimsiz iki kayit
+// ve hicbir yerde capraz dogrulama yoktu. v1.0.8'de Meyve secmis bir oyuncu
+// guncelledigine: oyun Meyve'yi cizmeye devam ediyor (100 jetonluk tema
+// bedava), AMA tema secici ayni temayi KILITLI gosteriyor ("SEÇİLİ" rozeti
+// yerine fiyat rozeti) ve bakiye yetiyorsa ustune ikinci kez para aliyordu —
+// jeton gidiyor, tahtada hicbir sey degismiyor.
+//
+// Artik cizim ve secim TEK kaynaktan besleniyor: AppNavigation her cagri
+// yerinde bu fonksiyonun sonucunu geciriyor.
+fun effectiveBlockTheme(saved: String, unlocked: Set<String>): String {
+    val theme = BLOCK_THEMES.find { it.id == saved } ?: return "CLASSIC"
+    return if (theme.tokenPrice > 0 && theme.id !in unlocked) "CLASSIC" else theme.id
+}
+
 fun themeEmoji(theme: String, colorIndex: Int): String = when (theme.uppercase()) {
     "FRUIT" -> when (colorIndex % 6) {
         1 -> "\uD83C\uDF49"
@@ -933,6 +952,9 @@ private fun DrawScope.drawThemedBlock(
 
 data class BlockThemeOption(
     val id: String,
+    // Faz 137: 0 = her zaman ucretsiz. >0 ise jetonla acilir; acilanlar
+    // PlayerProgress.unlockedThemes'te tutulur.
+    val tokenPrice: Int = 0,
     val titleTr: String,
     val titleEn: String,
     val titleIt: String,
@@ -969,6 +991,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "FRUIT",
+        tokenPrice = 100,
         titleTr = "Meyve Küpleri",
         titleEn = "Fruit Cubes",
         titleIt = "Cubi di Frutta",
@@ -983,6 +1006,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "SWEETS",
+        tokenPrice = 100,
         titleTr = "Şekerleme & Tatlı",
         titleEn = "Sweets & Donuts",
         titleIt = "Dolci & Ciambelle",
@@ -1000,6 +1024,7 @@ val BLOCK_THEMES = listOf(
     // destegi riski YOK — "MIXED" (zar) temasi tam o yuzden kaldirilmisti. ---
     BlockThemeOption(
         id = "ANIMALS",
+        tokenPrice = 300,
         titleTr = "Hayvanlar",
         titleEn = "Animals",
         titleIt = "Animali",
@@ -1014,6 +1039,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "SPORTS",
+        tokenPrice = 300,
         titleTr = "Spor Topları",
         titleEn = "Sports Balls",
         titleIt = "Palloni Sportivi",
@@ -1028,6 +1054,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "PRINCESS",
+        tokenPrice = 300,
         titleTr = "Prenses Masalı",
         titleEn = "Princess Tale",
         titleIt = "Fiaba della Principessa",
@@ -1042,6 +1069,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "PIXEL",
+        tokenPrice = 300,
         titleTr = "Piksel 8-bit",
         titleEn = "8-bit Pixel",
         titleIt = "Pixel 8-bit",
@@ -1056,6 +1084,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "JELLY",
+        tokenPrice = 300,
         titleTr = "Jöle",
         titleEn = "Jelly",
         titleIt = "Gelatina",
@@ -1070,6 +1099,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "NEON",
+        tokenPrice = 300,
         titleTr = "Neon Cam",
         titleEn = "Neon Glass",
         titleIt = "Vetro Neon",
@@ -1084,6 +1114,7 @@ val BLOCK_THEMES = listOf(
     ),
     BlockThemeOption(
         id = "WOOD",
+        tokenPrice = 300,
         titleTr = "Ahşap Oyuncak",
         titleEn = "Wooden Toy",
         titleIt = "Giocattolo di Legno",
@@ -1159,6 +1190,11 @@ fun BlastTheBlocksGame(
     bestScore: Int = 0,
     initialBoosterCounts: Map<BoosterType, Int> = emptyMap(),
     onSelectTheme: (String) -> Unit = {},
+    // Faz 137: tema dukkani. tokens ve unlockedThemes yalnizca tema
+    // seciciyi cizmek icin; satin alma karari ViewModel'de veriliyor.
+    tokens: Int = 0,
+    unlockedThemes: Set<String> = emptySet(),
+    onUnlockTheme: (themeId: String, price: Int) -> Unit = { _, _ -> },
     onUseBooster: (BoosterType) -> Unit = {},
     // Faz 94: sadece Sonsuz Mod'da dolu geçirilir — coin'den bagimsiz, reklam
     // izleyerek anlik +1 booster alma. onGranted, bu composable'in local
@@ -1266,6 +1302,9 @@ fun BlastTheBlocksGame(
     var lastClearedText by remember { mutableStateOf("") }
     var lastClearWasCelebration by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    // Faz 140 (F3): satin almadan once iki dokunuslu onay. Ilk dokunus
+    // satiri kurar, ikinci dokunus satin alir. Bkz. tema dialogu.
+    var armedThemeId by remember { mutableStateOf<String?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     // Faz 38: kullanici "sonsuz oyunda geri tusuna basinca hemen ana menuye
     // cikmasin, teyit alsin" dedi — Sonsuz Mod'da hem sistem geri tusu/jesti
@@ -3940,7 +3979,7 @@ fun BlastTheBlocksGame(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.8f))
-                    .clickable { showThemeDialog = false },
+                    .clickable { armedThemeId = null; showThemeDialog = false },
                 contentAlignment = Alignment.Center
             ) {
                 Card(
@@ -3970,11 +4009,39 @@ fun BlastTheBlocksGame(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        // Faz 140 (F2): bakiye satin alma aninda ekranda degildi —
+                        // oyuncu "300'e ne kadar eksigim" bilgisine tam da karar
+                        // verdigi anda sahip olamiyordu.
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            color = NeonGold.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "$tokens \uD83E\uDE99",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonGold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Faz 140 (F4): 10 tema kaydirilamiyordu; kucuk ekranda veya
+                        // buyuk yazi tipinde en alttaki iki tema (NEON, WOOD — ikisi
+                        // de 300 jeton) ve kapat butonu kirpiliyor, erisilemiyordu.
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
                             BLOCK_THEMES.forEach { theme ->
                                 val isSelected = currentTheme == theme.id
+                                // Faz 137: kilitli = ucretli VE henuz acilmamis.
+                                val isLocked = theme.tokenPrice > 0 && theme.id !in unlockedThemes
+                                val canAfford = tokens >= theme.tokenPrice
                                 Card(
                                     colors = CardDefaults.cardColors(
                                         containerColor = if (isSelected) NeonPurple.copy(alpha = 0.25f) else palette.background
@@ -3988,9 +4055,29 @@ fun BlastTheBlocksGame(
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
-                                            SoundManager.playBeep(soundEnabled)
-                                            onSelectTheme(theme.id)
-                                            showThemeDialog = false
+                                            if (isLocked) {
+                                                // Faz 140 (F3): iki dokunuslu onay.
+                                                // Yetersiz bakiyede satir yine de
+                                                // kuruluyor ki dokunus sessiz olmasin —
+                                                // rozet "eksik" bilgisini gosteriyor.
+                                                when {
+                                                    armedThemeId != theme.id -> {
+                                                        SoundManager.playBeep(soundEnabled)
+                                                        armedThemeId = theme.id
+                                                    }
+                                                    canAfford -> {
+                                                        SoundManager.playBeep(soundEnabled)
+                                                        onUnlockTheme(theme.id, theme.tokenPrice)
+                                                        armedThemeId = null
+                                                        showThemeDialog = false
+                                                    }
+                                                }
+                                            } else {
+                                                SoundManager.playBeep(soundEnabled)
+                                                armedThemeId = null
+                                                onSelectTheme(theme.id)
+                                                showThemeDialog = false
+                                            }
                                         }
                                         .testTag("select_block_theme_${theme.id}")
                                 ) {
@@ -4014,7 +4101,40 @@ fun BlastTheBlocksGame(
                                                 color = palette.textSecondary
                                             )
                                         }
-                                        if (isSelected) {
+                                        if (isLocked) {
+                                            // Faz 137: fiyat rozeti. Bakiye yetiyorsa altin
+                                            // ve kilit yok; yetmiyorsa soluk ve kilitli —
+                                            // oyuncu neden basamadigini rozete bakinca anliyor.
+                                            Surface(
+                                                color = when {
+                                                    armedThemeId == theme.id && canAfford -> NeonGreen.copy(alpha = 0.28f)
+                                                    armedThemeId == theme.id -> NeonMagenta.copy(alpha = 0.22f)
+                                                    canAfford -> NeonGold.copy(alpha = 0.18f)
+                                                    else -> palette.textSecondary.copy(alpha = 0.18f)
+                                                },
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = when {
+                                                        armedThemeId == theme.id && canAfford ->
+                                                            language.pick(tr = "SATIN AL?", en = "BUY?", it = "COMPRARE?", fr = "ACHETER ?", es = "\u00bfCOMPRAR?")
+                                                        armedThemeId == theme.id ->
+                                                            language.pick(tr = "YETERSİZ", en = "NOT ENOUGH", it = "INSUFFICIENTE", fr = "INSUFFISANT", es = "INSUFICIENTE")
+                                                        canAfford -> "${theme.tokenPrice} \uD83E\uDE99"
+                                                        else -> "\uD83D\uDD12 ${theme.tokenPrice}"
+                                                    },
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = when {
+                                                        armedThemeId == theme.id && canAfford -> NeonGreen
+                                                        armedThemeId == theme.id -> NeonMagenta
+                                                        canAfford -> NeonGold
+                                                        else -> palette.textSecondary
+                                                    },
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        } else if (isSelected) {
                                             Surface(
                                                 color = NeonGreen.copy(alpha = 0.2f),
                                                 shape = RoundedCornerShape(6.dp)
@@ -4053,6 +4173,9 @@ fun BlastTheBlocksGame(
         if (showSettingsDialog) {
             Box(modifier = Modifier.fillMaxSize().zIndex(30f)) {
                 SettingsScreen(
+                    tokens = tokens,
+                    unlockedThemes = unlockedThemes,
+                    onUnlockTheme = onUnlockTheme,
                     soundEnabled = soundEnabled,
                     soundVolume = soundVolume,
                     musicEnabled = musicEnabled,

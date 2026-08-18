@@ -28,6 +28,7 @@ import com.miniappfactory.boomblocks.ads.BannerAdView
 import com.miniappfactory.boomblocks.ads.InterstitialAdManager
 import com.miniappfactory.boomblocks.ads.RewardedAdManager
 import com.miniappfactory.boomblocks.data.BoosterType
+import com.miniappfactory.boomblocks.ui.games.boomblocks.effectiveBlockTheme
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.game.LevelGenerator
@@ -276,7 +277,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         levelNumber = level,
                         targetScore = definition.targetScore,
                         shapePoolTier = definition.shapePoolTier,
-                        currentTheme = progress.blockTheme,
+                        // Faz 140 (F1): kayitli tema kilitliyse CLASSIC'e duser —
+                        // odenmemis tema ne cizilir ne "secili" gorunur.
+                        currentTheme = effectiveBlockTheme(progress.blockTheme, progress.unlockedThemes),
+                        // Faz 137: tema dukkani (jetonla acma).
+                        tokens = progress.tokens,
+                        unlockedThemes = progress.unlockedThemes,
+                        onUnlockTheme = { id, price -> viewModel.unlockTheme(id, price) },
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
@@ -506,7 +513,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                                 onProceed()
                             }
                         },
-                        currentTheme = progress.blockTheme,
+                        // Faz 140 (F1): kayitli tema kilitliyse CLASSIC'e duser —
+                        // odenmemis tema ne cizilir ne "secili" gorunur.
+                        currentTheme = effectiveBlockTheme(progress.blockTheme, progress.unlockedThemes),
+                        // Faz 137: tema dukkani (jetonla acma).
+                        tokens = progress.tokens,
+                        unlockedThemes = progress.unlockedThemes,
+                        onUnlockTheme = { id, price -> viewModel.unlockTheme(id, price) },
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
@@ -691,7 +704,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         targetScore = definition.targetScore,
                         shapePoolTier = definition.shapePoolTier,
                         isComfortMode = true,
-                        currentTheme = progress.blockTheme,
+                        // Faz 140 (F1): kayitli tema kilitliyse CLASSIC'e duser —
+                        // odenmemis tema ne cizilir ne "secili" gorunur.
+                        currentTheme = effectiveBlockTheme(progress.blockTheme, progress.unlockedThemes),
+                        // Faz 137: tema dukkani (jetonla acma).
+                        tokens = progress.tokens,
+                        unlockedThemes = progress.unlockedThemes,
+                        onUnlockTheme = { id, price -> viewModel.unlockTheme(id, price) },
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
@@ -813,7 +832,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         targetScore = Int.MAX_VALUE,
                         isEndless = true,
                         bestScore = progress.endlessHighScore,
-                        currentTheme = progress.blockTheme,
+                        // Faz 140 (F1): kayitli tema kilitliyse CLASSIC'e duser —
+                        // odenmemis tema ne cizilir ne "secili" gorunur.
+                        currentTheme = effectiveBlockTheme(progress.blockTheme, progress.unlockedThemes),
+                        // Faz 137: tema dukkani (jetonla acma).
+                        tokens = progress.tokens,
+                        unlockedThemes = progress.unlockedThemes,
+                        onUnlockTheme = { id, price -> viewModel.unlockTheme(id, price) },
                         language = progress.language,
                         soundEnabled = progress.soundEnabled,
                         hapticsEnabled = progress.hapticsEnabled,
@@ -980,7 +1005,13 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         // ekranindaki disli ikonundan acilan bagimsiz Ayarlar) ayni
                         // hatayi tasiyordu — currentTheme/onSelectTheme hic
                         // gecirilmemis, dropdown'da tiklama no-op'a duşuyordu.
-                        currentTheme = progress.blockTheme,
+                        // Faz 140 (F1): kayitli tema kilitliyse CLASSIC'e duser —
+                        // odenmemis tema ne cizilir ne "secili" gorunur.
+                        currentTheme = effectiveBlockTheme(progress.blockTheme, progress.unlockedThemes),
+                        // Faz 137: tema dukkani (jetonla acma).
+                        tokens = progress.tokens,
+                        unlockedThemes = progress.unlockedThemes,
+                        onUnlockTheme = { id, price -> viewModel.unlockTheme(id, price) },
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onToggleSound = { viewModel.setSoundEnabled(it) },
                         onSoundVolumeChange = { viewModel.setSoundVolume(it) },
