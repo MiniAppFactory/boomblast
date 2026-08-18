@@ -1,5 +1,6 @@
 package com.miniappfactory.boomblocks.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -252,7 +256,12 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = themeMenuExpanded,
                         onDismissRequest = { themeMenuExpanded = false },
-                        modifier = Modifier.background(palette.card)
+                        // Faz 142: 10 tema menuyu ekranin tamamina yayiyordu;
+                        // disina basip kapatacak bos alan kalmiyordu (kullanici
+                        // telefonun geri tusunu kullanmak zorunda kaliyordu).
+                        modifier = Modifier
+                            .background(palette.card)
+                            .heightIn(max = 340.dp)
                     ) {
                         BLOCK_THEMES.forEach { theme ->
                             val isSelected = theme.id == currentTheme
@@ -260,67 +269,89 @@ fun SettingsScreen(
                             val isLocked = theme.tokenPrice > 0 && theme.id !in unlockedThemes
                             val canAfford = tokens >= theme.tokenPrice
                             DropdownMenuItem(
+                                // Faz 142: satirlar cercevesizdi, 10 temalik liste
+                                // gozu yoruyordu. Her satir artik kendi kartinda ve
+                                // "AC" butonu da o kartin ICINDE (kullanici istegi).
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(text = theme.icon, fontSize = 18.sp)
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                // Faz 141: fiyat basliktan cikip butona tasindi.
-                                                text = theme.title(language),
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = when {
-                                                    isLocked -> palette.textSecondary
-                                                    isSelected -> NeonPurple
-                                                    else -> palette.textPrimary
+                                    Surface(
+                                        color = if (isSelected) NeonPurple.copy(alpha = 0.14f) else palette.background,
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) NeonPurple else palette.cardBorder
+                                        ),
+                                        modifier = Modifier.width(300.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(text = theme.icon, fontSize = 18.sp)
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = theme.title(language),
+                                                    fontSize = 14.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = when {
+                                                        isLocked -> palette.textSecondary
+                                                        isSelected -> NeonPurple
+                                                        else -> palette.textPrimary
+                                                    },
+                                                    // Faz 142: tek satir — aciklamalar iki
+                                                    // satira tasip listeyi uzatiyordu.
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = theme.description(language),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Light,
+                                                    color = palette.textSecondary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            if (isLocked) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Surface(
+                                                    color = if (canAfford) NeonGreen else palette.cardAlt,
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.clickable(enabled = canAfford) {
+                                                        onUnlockTheme(theme.id, theme.tokenPrice)
+                                                        themeMenuExpanded = false
+                                                    }
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (canAfford) language.pick(tr = "AÇ", en = "UNLOCK", it = "SBLOCCA", fr = "OUVRIR", es = "ABRIR") else "\uD83D\uDD12",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Black,
+                                                            color = if (canAfford) Color.Black else palette.textSecondary
+                                                        )
+                                                        Spacer(modifier = Modifier.width(5.dp))
+                                                        Text(
+                                                            text = "${theme.tokenPrice} \uD83E\uDE99",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (canAfford) Color.Black else palette.textSecondary
+                                                        )
+                                                    }
                                                 }
-                                            )
-                                            Text(
-                                                text = theme.description(language),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Light,
-                                                color = palette.textSecondary
-                                            )
+                                            }
                                         }
                                     }
                                 },
                                 // Faz 141: kilitli satirin govdesi is yapmiyor —
-                                // satin alma yalnizca trailingIcon'daki "AC" butonundan.
+                                // satin alma yalnizca karttaki "AC" butonundan.
                                 onClick = {
                                     if (!isLocked) {
                                         onSelectTheme(theme.id)
                                         themeMenuExpanded = false
-                                    }
-                                },
-                                trailingIcon = if (!isLocked) null else {
-                                    {
-                                        Surface(
-                                            color = if (canAfford) NeonGreen else palette.cardAlt,
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.clickable(enabled = canAfford) {
-                                                onUnlockTheme(theme.id, theme.tokenPrice)
-                                                themeMenuExpanded = false
-                                            }
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (canAfford) language.pick(tr = "AÇ", en = "UNLOCK", it = "SBLOCCA", fr = "OUVRIR", es = "ABRIR") else "\uD83D\uDD12",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    color = if (canAfford) Color.Black else palette.textSecondary
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${theme.tokenPrice} \uD83E\uDE99",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (canAfford) Color.Black else palette.textSecondary
-                                                )
-                                            }
-                                        }
                                     }
                                 },
                                 modifier = Modifier.testTag("settings_theme_${theme.id}")
