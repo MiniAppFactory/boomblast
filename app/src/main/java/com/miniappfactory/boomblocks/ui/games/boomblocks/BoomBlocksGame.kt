@@ -583,9 +583,15 @@ private val ENDLESS_POOL_STEPS = listOf(6, 10, 16, 22, 26, 30)
 // unutmak kacinilmazdi. Not: sadece Unicode 6.0 (2010) karakterleri kullaniliyor
 // — "MIXED" (zar) temasi tam bu yuzden kaldirilmisti, zar yuzleri bazi
 // cihazlarda hic render olmuyordu (kullanici: "hic gozukmuyor").
-// ANIMALS setinde emojiler blogun RENGIYLE eslesiyor (kaplan turuncu, balina
-// mavi, kurbaga yesil, domuz pembe, civciv sari, ahtapot mor) — FRUIT/SWEETS
-// setlerinde bu eslesme yok, yeni set onlardan daha okunakli.
+// ANIMALS setinde emojiler blogun RENGIYLE eslesiyor: aslan turuncu (yele),
+// balina mavi, kurbaga yesil, domuz pembe, tavsan sari, tek boynuzlu at mor
+// (yele/boynuz moru) — FRUIT/SWEETS setlerinde bu eslesme yok.
+// Faz 133: kullanici setin icerigini sectiği icin guncellendi (eski set:
+// kaplan/balina/kurbaga/domuz/civciv/ahtapot).
+// FONT DESTEGI: aslan (U+1F981) ve tek boynuzlu at (U+1F984) Unicode 8.0'dir,
+// Android 7.0 ile geldiler. minSdk 24 = Android 7.0, yani uygulamanin calistigi
+// HER cihazda render olurlar. Diger dordu Unicode 6.0. "MIXED" (zar) temasi
+// vaktinde tam bu font destegi sorunu yuzunden kaldirilmisti, tekrarlanmadi.
 fun themeEmoji(theme: String, colorIndex: Int): String = when (theme.uppercase()) {
     "FRUIT" -> when (colorIndex % 6) {
         1 -> "\uD83C\uDF49"
@@ -606,12 +612,53 @@ fun themeEmoji(theme: String, colorIndex: Int): String = when (theme.uppercase()
         else -> ""
     }
     "ANIMALS" -> when (colorIndex % 6) {
-        1 -> "\uD83D\uDC2F"
+        1 -> "\uD83E\uDD81"
         2 -> "\uD83D\uDC33"
         3 -> "\uD83D\uDC38"
         4 -> "\uD83D\uDC37"
-        5 -> "\uD83D\uDC25"
-        0 -> "\uD83D\uDC19"
+        5 -> "\uD83D\uDC30"
+        0 -> "\uD83E\uDD84"
+        else -> ""
+    }
+    // Faz 134: spor toplari. Renk eslesmesi: basketbol turuncu (birebir),
+    // voleybol mavi, tenis topu yesil-sari, boks eldiveni kirmizi/pembe.
+    // Iki zayif eslesme var ve bilincli: amerikan futbolu kahverengi (sari
+    // bloga en yakin kalan), futbol topu beyaz-siyah (notr oldugu icin mor
+    // bloga kondu, her zeminde okunuyor).
+    // FONT DESTEGI: boks eldiveni (U+1F94A) Unicode 9.0, voleybol (U+1F3D0)
+    // Unicode 8.0 — ikisi de Android 7.0 ile geldi, minSdk 24 oldugu icin
+    // guvenli. Futbol topu (U+26BD) Unicode 5.2, en eskisi.
+    "SPORTS" -> when (colorIndex % 6) {
+        1 -> "\uD83C\uDFC0"
+        2 -> "\uD83C\uDFD0"
+        3 -> "\uD83C\uDFBE"
+        4 -> "\uD83E\uDD4A"
+        5 -> "\uD83C\uDFC8"
+        0 -> "\u26BD"
+        else -> ""
+    }
+    // Faz 134: prenses masali. Kullanici hedefi: "5-6 yasinda bir cocuk bakinca
+    // pembe emojilerin baskin oldugu" bir set, icinde unicorn/pony olsun.
+    //
+    // BURADA RENK ESLESMESI BILINCLI OLARAK FEDA EDILDI. Diger emoji
+    // temalarinda (ANIMALS, SPORTS) emoji blogun rengiyle eslesiyor; burada
+    // altidan BESI pembe tonlu, cunku istenen sey "pembe baskin" gorunmesi.
+    // Oynanis bundan zarar gormuyor: blogu birbirinden ayiran sey zaten
+    // ALTINDAKI govde rengi (bkz. drawThemedBlock), emoji dekoratif bir katman.
+    // Tek pembe olmayan 👑 taci: "prenses" fikri onsuz kurulmuyor.
+    //
+    // FONT DESTEGI: tek boynuzlu at (U+1F984) Unicode 8.0, Android 7.0 ile
+    // geldi — minSdk 24 oldugu icin guvenli. Diger besi Unicode 6.0.
+    // Kasitli olarak KULLANILMAYANLAR: peri (U+1F9DA) Unicode 10.0 / Android 8,
+    // sihirli deynek (U+1FA84) Unicode 13.0 / Android 11 — ikisi de eski
+    // cihazlarda bos kutu olarak cikardi ("MIXED"/zar temasinin basina gelen).
+    "PRINCESS" -> when (colorIndex % 6) {
+        1 -> "\uD83D\uDC51"
+        2 -> "\uD83D\uDC96"
+        3 -> "\uD83C\uDF80"
+        4 -> "\uD83D\uDC78"
+        5 -> "\uD83C\uDF38"
+        0 -> "\uD83E\uDD84"
         else -> ""
     }
     else -> ""
@@ -958,12 +1005,40 @@ val BLOCK_THEMES = listOf(
         titleIt = "Animali",
         titleFr = "Animaux",
         titleEs = "Animales",
-        icon = "\uD83D\uDC2F",
-        descriptionTr = "Kaplan, balina, kurbağa ve dostları",
-        descriptionEn = "Tiger, whale, frog and friends",
-        descriptionIt = "Tigre, balena, rana e amici",
-        descriptionFr = "Tigre, baleine, grenouille et amis",
-        descriptionEs = "Tigre, ballena, rana y amigos"
+        icon = "\uD83E\uDD84",
+        descriptionTr = "Tek boynuzlu at, aslan, tavşan ve dostları",
+        descriptionEn = "Unicorn, lion, rabbit and friends",
+        descriptionIt = "Unicorno, leone, coniglio e amici",
+        descriptionFr = "Licorne, lion, lapin et amis",
+        descriptionEs = "Unicornio, león, conejo y amigos"
+    ),
+    BlockThemeOption(
+        id = "SPORTS",
+        titleTr = "Spor Topları",
+        titleEn = "Sports Balls",
+        titleIt = "Palloni Sportivi",
+        titleFr = "Ballons de Sport",
+        titleEs = "Balones Deportivos",
+        icon = "\uD83C\uDFC0",
+        descriptionTr = "Basketbol, voleybol, tenis, boks ve futbol",
+        descriptionEn = "Basketball, volleyball, tennis, boxing, football",
+        descriptionIt = "Basket, pallavolo, tennis, boxe e calcio",
+        descriptionFr = "Basket, volley, tennis, boxe et football",
+        descriptionEs = "Baloncesto, voleibol, tenis, boxeo y fútbol"
+    ),
+    BlockThemeOption(
+        id = "PRINCESS",
+        titleTr = "Prenses Masalı",
+        titleEn = "Princess Tale",
+        titleIt = "Fiaba della Principessa",
+        titleFr = "Conte de Princesse",
+        titleEs = "Cuento de Princesa",
+        icon = "\uD83D\uDC78",
+        descriptionTr = "Prenses, tek boynuzlu at, taç ve kurdele",
+        descriptionEn = "Princess, unicorn, crown and ribbon",
+        descriptionIt = "Principessa, unicorno, corona e fiocco",
+        descriptionFr = "Princesse, licorne, couronne et ruban",
+        descriptionEs = "Princesa, unicornio, corona y lazo"
     ),
     BlockThemeOption(
         id = "PIXEL",
