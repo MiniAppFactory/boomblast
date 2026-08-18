@@ -27,16 +27,13 @@ import com.miniappfactory.boomblocks.ads.AdsConsent
 import com.miniappfactory.boomblocks.ads.BannerAdView
 import com.miniappfactory.boomblocks.ads.InterstitialAdManager
 import com.miniappfactory.boomblocks.ads.RewardedAdManager
+import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.game.LevelGenerator
 import com.miniappfactory.boomblocks.ui.BlastViewModel
 import com.miniappfactory.boomblocks.ui.consent.TermsAcceptScreen
 import com.miniappfactory.boomblocks.ui.games.boomblocks.BlastTheBlocksGame
-import com.miniappfactory.boomblocks.ui.games.retro.RetroGameScreen
-import com.miniappfactory.boomblocks.ui.games.retro.RetroHighScoreScreen
-import com.miniappfactory.boomblocks.ui.games.retro.RetroMenuScreen
-import com.miniappfactory.boomblocks.ui.games.retro.RetroSettingsScreen
 import com.miniappfactory.boomblocks.ui.help.HowToPlayScreen
 import com.miniappfactory.boomblocks.ui.levels.LevelMapScreen
 import com.miniappfactory.boomblocks.ui.missions.MissionsScreen
@@ -46,7 +43,6 @@ import com.miniappfactory.boomblocks.ui.retro.RetroViewModel
 import com.miniappfactory.boomblocks.ui.settings.SettingsScreen
 import com.miniappfactory.boomblocks.ui.shop.LoadoutScreen
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
-import com.miniappfactory.boomblocks.ui.theme.retro.getThemePalette
 import com.miniappfactory.boomblocks.utils.SoundManager
 
 object Routes {
@@ -66,18 +62,20 @@ object Routes {
     const val CHALLENGE_LOADOUT = "challenge_loadout/{level}"
     const val CHALLENGE_GAME = "challenge_game/{level}"
 
-    // Faz 78: Retro Modu — AI Studio'da uretilen bagimsiz Tetris motoru/UI'sinin
-    // Boom Blocks'a route olarak entegrasyonu (kendi ic ScreenState/Crossfade
-    // navigasyonu yerine).
-    const val RETRO_MENU = "retro_menu"
-    const val RETRO_GAME = "retro_game"
-    const val RETRO_HIGH_SCORES = "retro_high_scores"
-    const val RETRO_SETTINGS = "retro_settings"
+    // Faz 128: Comfort Mode (TR "KOLAY MOD") — Retro Modu'nun yerini aldi.
+    // Retro'nun rotalari kaldirildi; ekran/motor dosyalari repoda duruyor ama
+    // hicbir yerden cagrilmiyor (kullanici karari: "menuden kaldir, dosyalar
+    // dursun"). Release build'de R8 erisilemeyen kodu zaten atiyor.
+    const val COMFORT_MAP = "comfort_map"
+    const val COMFORT_LOADOUT = "comfort_loadout/{level}"
+    const val COMFORT_GAME = "comfort_game/{level}"
 
     fun loadout(level: Int) = "loadout/$level"
     fun game(level: Int) = "game/$level"
     fun challengeLoadout(level: Int) = "challenge_loadout/$level"
     fun challengeGame(level: Int) = "challenge_game/$level"
+    fun comfortLoadout(level: Int) = "comfort_loadout/$level"
+    fun comfortGame(level: Int) = "comfort_game/$level"
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -106,13 +104,39 @@ private fun showAdUnavailableToast(context: Context, language: AppLanguage) {
     ).show()
 }
 
+// Faz 130: "oyun ici reklam izle, +1 guclendirici". Faz 94'te SADECE Sonsuz
+// Mod'da vardi; kullanici karariyla Kariyer, Pro ve Kolay Mod'a da acildi
+// ("sonsuzluk modundaki gibi oyun ici reklam izleyerek guclendirici alma
+// firsati olsun"). Buton yalnizca o guclendiriciden 0 tane varken gorunur
+// (bkz. BoomBlocksGame.kt) — yani stoklanamaz: izle, kullan, tekrar izle.
+// Modlarin envanterleri AYRI oldugu icin odulun hangi kovaya yazilacagi
+// `grant` ile disaridan veriliyor.
+private fun watchAdForBooster(
+    context: Context,
+    language: AppLanguage,
+    grant: (BoosterType) -> Unit
+): (BoosterType, () -> Unit) -> Unit = { type, onGranted ->
+    val activity = context.findActivity()
+    if (activity != null) {
+        RewardedAdManager.loadAndShow(
+            context = context,
+            activity = activity,
+            onRewardEarned = { grant(type); onGranted() },
+            onFailure = { showAdUnavailableToast(context, language) }
+        )
+    }
+}
+
+// Faz 128: retroViewModel parametresi KORUNDU (MainActivity hala olusturuyor ve
+// geciriyor) ama artik hicbir route onu kullanmiyor — Retro Modu menuden
+// kaldirildi. Ekran/motor dosyalari repoda duruyor; mod geri getirilmek
+// istenirse rotalar ve mod karti tek fazda geri baglanabilir.
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, adsConsentResolved: Boolean) {
     val navController = rememberNavController()
     val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
-    val retroHighScoreState by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
-    val retroHighScore = retroHighScoreState ?: 0
     val context = LocalContext.current
     val skin = BlastSkin.fromId(progress.uiSkin)
     val onSelectSkin: (BlastSkin) -> Unit = { viewModel.setUiSkin(it.name) }
@@ -138,11 +162,11 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             endlessBestScore = progress.endlessHighScore,
                             highestUnlockedLevel = progress.highestUnlockedLevel,
                             highestChallengeLevel = progress.challengeHighestUnlockedLevel,
-                            retroHighScore = retroHighScore,
+                            comfortHighestLevel = progress.comfortHighestUnlockedLevel,
                             onOpenLevels = { navController.navigate(Routes.LEVEL_MAP) },
                             onOpenEndless = { navController.navigate(Routes.ENDLESS_GAME) },
                             onOpenChallenge = { navController.navigate(Routes.CHALLENGE_MAP) },
-                            onOpenRetro = { navController.navigate(Routes.RETRO_MENU) },
+                            onOpenComfort = { navController.navigate(Routes.COMFORT_MAP) },
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                         )
@@ -261,6 +285,9 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         initialBoosterCounts = progress.ownedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
+                        // Faz 130: bkz. watchAdForBooster — ANA envantere (ownedBoosters)
+                        // yaziliyor, loadout'tan satin alinanlarla ayni kova.
+                        onWatchAdForBooster = watchAdForBooster(context, progress.language) { viewModel.grantBoosterFromAd(it) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
                         // Faz 96: "Haritaya Dön" (level-icindeki geri buton, exit-confirm
@@ -487,6 +514,9 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         initialBoosterCounts = progress.challengeOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeChallengeBoosterFromInventory(type) },
+                        // Faz 130: bkz. watchAdForBooster — Pro'nun KENDI envanterine
+                        // (challengeOwnedBoosters) yaziliyor.
+                        onWatchAdForBooster = watchAdForBooster(context, progress.language) { viewModel.grantChallengeBoosterFromAd(it) },
                         onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
                         onMultiClear = { viewModel.recordMultiClear() },
                         // Faz 96: bkz. Routes.GAME'deki ayni yorumu — "Haritaya Dön" artik
@@ -570,28 +600,76 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             }
         }
 
-        // Faz 78: Retro Modu — AI Studio'da uretilen Tetris motoru/UI'si.
-        // retroViewModel Activity-omurlu TEK instance (bkz. MainActivity),
-        // route'lar arasi state (motor/ayarlar) burada KAYBOLMUYOR.
-        composable(Routes.RETRO_MENU) {
-            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
-            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
-            val retroPalette = getThemePalette(retroSettings.theme)
+        // Faz 128: COMFORT MODE (TR "KOLAY MOD") — Retro Modu'nun yerini aldi.
+        // Kariyer'in AYNI uc ekranini (LevelMapScreen / LoadoutScreen /
+        // BlastTheBlocksGame) kullanir; farklari yalnizca sunlar:
+        //   1. Kendi ilerlemesi (comfortHighestUnlockedLevel / comfortLevelStars)
+        //   2. Kendi hedef egrisi (LevelGenerator.forComfortLevel — 100, +1/bolum)
+        //   3. isComfortMode=true -> tahta-farkindali pozitif onyargi
+        //   4. Kendi reklam temposu (ilk 3 bolum reklamsiz, sonra her bolum)
+        // Parca havuzu ve agirlik tablosu Kariyer'in AYNISI (kasitli).
+        composable(Routes.COMFORT_MAP) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    RetroMenuScreen(
-                        settings = retroSettings,
-                        highestScoreEver = retroHighest ?: 0,
-                        palette = retroPalette,
+                    LevelMapScreen(
+                        progress = progress,
+                        highestUnlockedLevel = progress.comfortHighestUnlockedLevel,
+                        levelStars = progress.comfortLevelStars,
+                        targetScoreForLevel = { level -> LevelGenerator.forComfortLevel(level).targetScore },
+                        isComfortMode = true,
                         language = progress.language,
-                        onStartGame = {
-                            retroViewModel.startNewGame()
-                            navController.navigate(Routes.RETRO_GAME)
+                        darkMode = progress.darkMode,
+                        skin = skin,
+                        onSelectLevel = { level -> navController.navigate(Routes.comfortLoadout(level)) },
+                        onOpenMissions = { navController.navigate(Routes.MISSIONS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                if (adsConsentResolved) {
+                    BannerAdView()
+                }
+            }
+        }
+
+        composable(
+            Routes.COMFORT_LOADOUT,
+            arguments = listOf(navArgument("level") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val level = backStackEntry.arguments?.getInt("level") ?: 1
+            val definition = LevelGenerator.forComfortLevel(level)
+            // Faz 43: RewardedAd.load() 3-8 saniye surebiliyor, kullanici "watch
+            // butonuna tıklayamadım" dedi — aslinda tiklama calisiyordu ama sessiz
+            // bekleme suresi butonu bozuk gosteriyordu. Artik yukleme durumu
+            // LoadoutScreen'e bildirilip buton bir spinner'a donusuyor.
+            var isWatchAdLoading by remember { mutableStateOf(false) }
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    LoadoutScreen(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        tokens = progress.tokens,
+                        ownedBoosters = progress.comfortOwnedBoosters,
+                        language = progress.language,
+                        darkMode = progress.darkMode,
+                        skin = skin,
+                        onBuyBooster = { type -> viewModel.buyComfortBooster(type) },
+                        isWatchAdLoading = isWatchAdLoading,
+                        onWatchAdForTokens = {
+                            val activity = context.findActivity()
+                            if (activity != null && !isWatchAdLoading) {
+                                isWatchAdLoading = true
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { viewModel.watchAdForTokens() },
+                                    onFailure = { showAdUnavailableToast(context, progress.language) },
+                                    onAdClosed = { isWatchAdLoading = false }
+                                )
+                            }
                         },
-                        onSelectDifficulty = { diff -> retroViewModel.updateSettings(retroSettings.copy(difficultyPreset = diff)) },
-                        onOpenHighScores = { navController.navigate(Routes.RETRO_HIGH_SCORES) },
-                        onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) },
-                        onQuitToMain = { navController.popBackStack() }
+                        onStartLevel = { navController.navigate(Routes.comfortGame(level)) },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {
@@ -600,92 +678,132 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
             }
         }
 
-        composable(Routes.RETRO_GAME) {
-            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
-            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
-            val retroPalette = getThemePalette(retroSettings.theme)
-            // Faz 90'da denendi, kullanici geri aldi: banner Retro'nun kompakt
-            // tahta+kontrol duzenini bozuyor. Banner sadece RETRO_MENU'de kalir.
-            Box(modifier = Modifier.fillMaxSize()) {
-                RetroGameScreen(
-                    gameEngine = retroViewModel.gameEngine,
-                    settings = retroSettings,
-                    palette = retroPalette,
-                    highestScoreEver = retroHighest ?: 0,
-                    language = progress.language,
-                    onSaveHighScore = { name -> retroViewModel.saveHighScore(name) },
-                    onRestartGame = { retroViewModel.startNewGame() },
-                    onOpenSettings = { navController.navigate(Routes.RETRO_SETTINGS) },
-                    onResume = { retroViewModel.resumeGame() },
-                    onReturnToMenu = {
-                        // Kullanicinin kendi istegi: her Retro oturumu (bir "game
-                        // over") sonunda menuye donuste bir gecis reklami —
-                        // Seviyeli Mod'daki gibi bir "her N bolum" esigi YOK,
-                        // her donuste bir kez.
-                        retroViewModel.pauseGame()
-                        val activity = context.findActivity()
-                        if (activity != null) {
-                            InterstitialAdManager.loadAndShow(
-                                context = context,
-                                activity = activity,
-                                onProceed = {
-                                    navController.popBackStack(Routes.RETRO_MENU, inclusive = false)
-                                }
-                            )
-                        } else {
-                            navController.popBackStack(Routes.RETRO_MENU, inclusive = false)
+        composable(
+            Routes.COMFORT_GAME,
+            arguments = listOf(navArgument("level") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val level = backStackEntry.arguments?.getInt("level") ?: 1
+            val definition = LevelGenerator.forComfortLevel(level)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    BlastTheBlocksGame(
+                        levelNumber = level,
+                        targetScore = definition.targetScore,
+                        shapePoolTier = definition.shapePoolTier,
+                        isComfortMode = true,
+                        currentTheme = progress.blockTheme,
+                        language = progress.language,
+                        soundEnabled = progress.soundEnabled,
+                        hapticsEnabled = progress.hapticsEnabled,
+                        darkMode = progress.darkMode,
+                        effectIntensity = progress.effectIntensity,
+                        initialBoosterCounts = progress.comfortOwnedBoosters,
+                        onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
+                        onUseBooster = { type -> viewModel.consumeComfortBoosterFromInventory(type) },
+                        // Faz 131: bkz. watchAdForBooster — Kolay Mod'un KENDI
+                        // envanterine (comfortOwnedBoosters) yaziliyor.
+                        onWatchAdForBooster = watchAdForBooster(context, progress.language) { viewModel.grantComfortBoosterFromAd(it) },
+                        onLinesCleared = { count -> viewModel.recordLinesCleared(count) },
+                        onMultiClear = { viewModel.recordMultiClear() },
+                        // Faz 96: "Haritaya Dön" (level-icindeki geri buton, exit-confirm
+                        // "ÇIK" ve level-failed "HARİTAYA DÖN" — hepsi bu TEK onBack'i
+                        // paylasiyor) artik HER SEFERINDE zorunlu interstitial gosterir.
+                        // No-fill/basarisiz durumda da InterstitialAdManager onProceed'i
+                        // yine cagirir, oyuncu asla kilitlenmez.
+                        onBack = {
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = { navController.popBackStack(Routes.COMFORT_MAP, inclusive = false) }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.COMFORT_MAP, inclusive = false)
+                            }
+                        },
+                        // Faz 115e: skor 0 iken reklamsiz cikis (bkz. exitGame()).
+                        onBackWithoutAd = {
+                            navController.popBackStack(Routes.COMFORT_MAP, inclusive = false)
+                        },
+                        // Faz 96: rewarded hakki tukendikten sonraki duz "TEKRAR DENE" de
+                        // artik zorunlu interstitial'a bagli (kullanici: tam simetri istedi).
+                        onRetryInterstitial = { onProceed ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                InterstitialAdManager.loadAndShow(context = context, activity = activity, onProceed = onProceed)
+                            } else {
+                                onProceed()
+                            }
+                        },
+                        musicEnabled = progress.musicEnabled,
+                        soundVolume = progress.soundVolume,
+                        onToggleSound = { viewModel.setSoundEnabled(it) },
+                        onSoundVolumeChange = { viewModel.setSoundVolume(it) },
+                        onToggleMusic = { viewModel.setMusicEnabled(it) },
+                        onToggleHaptics = { viewModel.setHapticsEnabled(it) },
+                        onToggleDarkMode = { viewModel.setDarkMode(it) },
+                        onSelectLanguage = { viewModel.setLanguage(it) },
+                        uiSkin = skin,
+                        onSelectSkin = onSelectSkin,
+                        notificationsEnabled = progress.notificationsEnabled,
+                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                        hasMadeFirstMove = progress.hasMadeFirstMove,
+                        onFirstMoveMade = { viewModel.markFirstMoveMade() },
+                        onLevelComplete = { score, stars -> viewModel.recordComfortLevelComplete(level, score, stars) },
+                        onLevelCompleteContinue = {
+                            // Faz 39: zorunlu gecis reklami — yeterli reklam gosterimi
+                            // olmadan oyuncu seviyeleri ucretsiz geçebiliyordu, bu da
+                            // reklam gelirini cok dusuruyordu. Faz 42: kullanici istegiyle
+                            // "her 2 bolumde bir" -> "her bolum sonrasi" (esik 2 -> 1).
+                            //
+                            // Faz 110: Career Mode — Level 1-10'de binding phase'i
+                            // desteklemek icin reklam sikligi azaltildi: Her 2 levelda 1
+                            // (2, 4, 6, 8, 10), Level 11+ standard "her level" davranisi.
+                            val shouldShowAd = LevelGenerator.shouldShowInterstitialAfterComfortLevel(level)
+                            val activity = context.findActivity()
+                            if (shouldShowAd && activity != null) {
+                                viewModel.resetLevelsSinceInterstitial()
+                                InterstitialAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onProceed = {
+                                        navController.popBackStack(Routes.COMFORT_MAP, inclusive = false)
+                                    }
+                                )
+                            } else {
+                                navController.popBackStack(Routes.COMFORT_MAP, inclusive = false)
+                            }
+                        },
+                        onLevelFailed = { /* skor kaybedildi, oyuncu "TEKRAR DENE"/"HARİTAYA DÖN" ile devam eder */ },
+                        // Faz 61: bu kanca daha once HIC baglanmamisti — varsayilan deger
+                        // aninda onDenied() cagirdigi icin Seviyeli Mod'daki "REKLAM İZLE,
+                        // DEVAM ET" butonu gercekte HICBIR ZAMAN reklam yuklemiyordu
+                        // (kullanici: "hala reklam çağıramıyor"). Routes.ENDLESS_GAME'deki
+                        // ile BIREBIR ayni RewardedAdManager kablolamasi.
+                        onRequestContinueAd = { onGranted, onDenied ->
+                            val activity = context.findActivity()
+                            if (activity != null) {
+                                var handled = false
+                                RewardedAdManager.loadAndShow(
+                                    context = context,
+                                    activity = activity,
+                                    onRewardEarned = { handled = true; onGranted() },
+                                    onFailure = { handled = true; showAdUnavailableToast(context, progress.language); onDenied() },
+                                    onAdClosed = { if (!handled) { handled = true; onDenied() } }
+                                )
+                            } else {
+                                onDenied()
+                            }
                         }
-                    }
-                )
-            }
-        }
-
-        composable(Routes.RETRO_HIGH_SCORES) {
-            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
-            val retroScores by retroViewModel.topScores.collectAsStateWithLifecycle()
-            val retroTotalGames by retroViewModel.totalGamesPlayed.collectAsStateWithLifecycle()
-            val retroTotalLines by retroViewModel.totalLinesCleared.collectAsStateWithLifecycle()
-            val retroHighest by retroViewModel.highestScoreEver.collectAsStateWithLifecycle()
-            val retroSelectedDiff by retroViewModel.selectedLeaderboardDifficulty.collectAsStateWithLifecycle()
-            val retroPalette = getThemePalette(retroSettings.theme)
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    RetroHighScoreScreen(
-                        scores = retroScores,
-                        totalGamesPlayed = retroTotalGames,
-                        totalLinesCleared = retroTotalLines ?: 0,
-                        highestScoreEver = retroHighest ?: 0,
-                        selectedDifficulty = retroSelectedDiff,
-                        palette = retroPalette,
-                        language = progress.language,
-                        onSelectDifficultyFilter = { diff -> retroViewModel.selectLeaderboardDifficulty(diff) },
-                        onBackToMenu = { navController.popBackStack() }
                     )
                 }
                 if (adsConsentResolved) {
-                    BannerAdView()
+                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
                 }
             }
         }
 
-        composable(Routes.RETRO_SETTINGS) {
-            val retroSettings by retroViewModel.settings.collectAsStateWithLifecycle()
-            val retroPalette = getThemePalette(retroSettings.theme)
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    RetroSettingsScreen(
-                        settings = retroSettings,
-                        palette = retroPalette,
-                        language = progress.language,
-                        onUpdateSettings = { newSettings -> retroViewModel.updateSettings(newSettings) },
-                        onBackToMenu = { navController.popBackStack() }
-                    )
-                }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
-            }
-        }
 
         composable(Routes.ENDLESS_GAME) {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -791,20 +909,10 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         // "reddedilirse" ozel bir aksiyon gerekmedigi icin (sadece
                         // hicbir sey olmaz) onRequestContinueAd'daki handled/onDenied
                         // guvenlik agina burada gerek yok.
-                        onWatchAdForBooster = { type, onGranted ->
-                            val activity = context.findActivity()
-                            if (activity != null) {
-                                RewardedAdManager.loadAndShow(
-                                    context = context,
-                                    activity = activity,
-                                    onRewardEarned = {
-                                        viewModel.grantEndlessBoosterFromAd(type)
-                                        onGranted()
-                                    },
-                                    onFailure = { showAdUnavailableToast(context, progress.language) }
-                                )
-                            }
-                        },
+                        // Faz 130: Sonsuz'un kendi kopyalanmis blogu da ortak
+                        // watchAdForBooster yardimcisina cevrildi — dort modun
+                        // ayni mekanizmasi artik TEK yerde tanimli.
+                        onWatchAdForBooster = watchAdForBooster(context, progress.language) { viewModel.grantEndlessBoosterFromAd(it) },
                         onRequestContinueAd = { onGranted, onDenied ->
                             val activity = context.findActivity()
                             if (activity != null) {

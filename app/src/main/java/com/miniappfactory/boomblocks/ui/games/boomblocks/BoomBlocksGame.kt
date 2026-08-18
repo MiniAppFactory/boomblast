@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -82,6 +83,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -100,6 +103,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -302,6 +306,36 @@ val BLOCK_COLORS = listOf(
     BlockPurple
 )
 
+// Faz 127: kullanici cihaz ekran goruntusuyle bildirdi — "REKLAM İZLE, DEVAM ET"
+// butonunun metni ikinci satira kayip KESILIYORDU. Kok neden: metin sabit 16.sp
+// idi ve satir sarmasi aciktı. S8 genisliginde (dialog ekranin %85'i, Card 16dp +
+// Column 24dp + Button varsayilan 24dp yatay ic bosluk) butona ~178dp'lik bir
+// metin alani kaliyor; TR metni (21 karakter) bu alana 16.sp'de sigmiyor.
+// Compose BOM 2024.09'da BasicText autoSize HENUZ YOK, o yuzden punto uzunluk
+// bandina gore seciliyor ve satir sarmasi tamamen kapatiliyor. Bantlar 5 dilin
+// en uzun metnine gore belirlendi (IT "GUARDA ANNUNCIO, CONTINUA" = 25 karakter).
+// Ayni etiket hem Sonsuz Mod'un devam dialogunda hem Seviye Basarisiz
+// dialogunda kullaniliyor — ikisi de ayni tasmayi yasayabilirdi.
+@Composable
+private fun AdButtonLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = when {
+            text.length <= 12 -> 16.sp
+            text.length <= 18 -> 14.sp
+            text.length <= 22 -> 13.sp
+            else -> 12.sp
+        },
+        fontWeight = FontWeight.Bold,
+        color = Color.Black,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
 val SHAPE_PATTERNS = listOf(
     // 1x1 Single
     listOf(listOf(true)),
@@ -492,16 +526,33 @@ val SHAPE_WEIGHTS_ENDLESS = listOf(
 // Sonsuz Mod'dan da agir.
 // Faz 107: SHAPE_WEIGHTS ile ayni x4 olcekleme ve aile-payi koruma mantigi
 // (bkz. yukaridaki not). Toplam: 168 (eski 42'nin tam 4 kati). 1x1 yine 0.
+//
+// Faz 125 — HATA DUZELTMESI (kullanici cihazda buldu: "Pro Mode hala cok
+// zor, level 28'e kadar gelebildim [ve zorlanmaya devam ediyorum]").
+// Olculmus kok neden (level-designer ajani, agirlik tablosundan hesaplanan
+// olasilik): havuz zaten level 6'da tam aciliyor (bkz. PRO_POOL_STEPS) ve
+// agirliklar hic degismedigi icin level 6'dan level 28'e (ve sonrasina)
+// kadar zorluk MATEMATIKSEL OLARAK BIREBIR AYNI kaliyordu (ort. hucre/parca
+// 4.10 -> 4.08 -> 4.08 -> 4.07, pratikte duzlesiyor). Yani "level 28'de hala
+// zor" hissi gercek: level 6'daki ile ayni zorlukta oynuyordu.
+// Duzeltme (sadece 3 aile, cerrahi): 2x1/1x2 (kacis parcasi) agirligi 3
+// KATINA cikarildi (4->12), en pahali iki buyuk-parca ailesi kucultuldu —
+// 4x1/1x4 ucte bir azaldi (12->8), 2x3/3x2 dikdortgen (6 hucre, EN pahali
+// tek parca) ucte bire indi (12->4). Diger aileler DEGISMEDI.
+// Olculmus etki (tam havuz, level 6+): "tepside hic kacis parcasi yok"
+// ihtimali %86.4 -> %61.4, "tepside en az bir dikdortgen var" %37.1 -> %14.3.
+// Puan hedefi egrisine (LevelGenerator.forChallengeLevel, 1.5x) DOKUNULMADI —
+// zorluk tamamen parca arzindan geliyordu, hedef zaten yumusakti.
 val SHAPE_WEIGHTS_CHALLENGE = listOf(
     0,  // 1x1 — ASLA gelmez       | aile 0
-    4, 4,      // 2x1, 1x2          | aile 8
+    12, 12,    // 2x1, 1x2          | aile 24 (Faz 125: 8 -> 24, kacis parcasi 3 kat artti)
     8, 8,      // 3x1, 1x3          | aile 16
     8,         // 2x2               | aile 8
     4, 4, 4, 4, // Kose x4          | aile 16
     3, 3, 3, 3, // T x4             | aile 12
-    12, 12,    // 4x1, 1x4          | aile 24
+    8, 8,      // 4x1, 1x4          | aile 16 (Faz 125: 24 -> 16)
     3, 3, 3, 3, // Buyuk L x4       | aile 12
-    12, 12,    // 2x3, 3x2          | aile 24
+    4, 4,      // 2x3, 3x2          | aile 8 (Faz 125: 24 -> 8, en buyuk degisiklik)
     6, 6,      // S x2              | aile 12
     6, 6,      // Z x2              | aile 12
     3, 3, 3, 3, // L-tetromino x4   | aile 12
@@ -516,8 +567,322 @@ val SHAPE_WEIGHTS_CHALLENGE = listOf(
 //   1 · 3 · 5 · 6 · 10 · 14 · 16 · 20 · 22 · 24 · 26 · 30 · 34
 // Tum acilim tablolari bu degerlerden secilir; ara bir sayi KULLANILMAZ.
 private val CAREER_POOL_STEPS = listOf(14, 16, 20, 22, 24, 26, 30, 34)
-private val PRO_POOL_STEPS = listOf(10, 16, 22, 26, 30)
+// Faz 125 — HATA DUZELTMESI: eski 5 basamak (10,16,22,26,30) bazi
+// seviyelerde IKI aileyi BIRDEN aciyordu — ornegin level 3'te Buyuk-L VE
+// 2x3/3x2 dikdortgen ailesi ayni anda geliyordu (dikdortgenli tepsi ihtimali
+// aniden %48.8'e sicriyordu). Artik 9 basamak, HER seviyede TAM OLARAK BIR
+// aile aciliyor (yine SADECE izinli kumulatif sinirlardan, yukaridaki notta
+// aciklanan aile-siniri kurali). Tam havuz level 6 yerine level 10'da
+// aciliyor — Kariyer'in (~level 32) hala 3 kati hizinda, "Pro daha zor"
+// niyeti korunuyor, sadece erken-level sok kaldiriliyor.
+private val PRO_POOL_STEPS = listOf(10, 14, 16, 20, 22, 24, 26, 30, 34)
 private val ENDLESS_POOL_STEPS = listOf(6, 10, 16, 22, 26, 30)
+
+// Faz 132: tema emojisi TEK yerde. Onceden tahta izgarasi ve tepsi onizlemesi
+// yollarinda birebir kopya iki `when` blogu vardi; yeni bir set eklerken birini
+// unutmak kacinilmazdi. Not: sadece Unicode 6.0 (2010) karakterleri kullaniliyor
+// — "MIXED" (zar) temasi tam bu yuzden kaldirilmisti, zar yuzleri bazi
+// cihazlarda hic render olmuyordu (kullanici: "hic gozukmuyor").
+// ANIMALS setinde emojiler blogun RENGIYLE eslesiyor (kaplan turuncu, balina
+// mavi, kurbaga yesil, domuz pembe, civciv sari, ahtapot mor) — FRUIT/SWEETS
+// setlerinde bu eslesme yok, yeni set onlardan daha okunakli.
+fun themeEmoji(theme: String, colorIndex: Int): String = when (theme.uppercase()) {
+    "FRUIT" -> when (colorIndex % 6) {
+        1 -> "\uD83C\uDF49"
+        2 -> "\uD83C\uDF4A"
+        3 -> "\uD83E\uDD5D"
+        4 -> "\uD83C\uDF53"
+        5 -> "\uD83E\uDDC0"
+        0 -> "\uD83C\uDF47"
+        else -> ""
+    }
+    "SWEETS" -> when (colorIndex % 6) {
+        1 -> "\uD83C\uDF69"
+        2 -> "\uD83C\uDF6B"
+        3 -> "\uD83C\uDF6A"
+        4 -> "\uD83E\uDDC1"
+        5 -> "\uD83C\uDF6C"
+        0 -> "\uD83E\uDDC7"
+        else -> ""
+    }
+    "ANIMALS" -> when (colorIndex % 6) {
+        1 -> "\uD83D\uDC2F"
+        2 -> "\uD83D\uDC33"
+        3 -> "\uD83D\uDC38"
+        4 -> "\uD83D\uDC37"
+        5 -> "\uD83D\uDC25"
+        0 -> "\uD83D\uDC19"
+        else -> ""
+    }
+    else -> ""
+}
+
+// Faz 132: blok govdesinin cizimi de TEK yerde. Dosyadaki eski yorum bu
+// kopyanin riskini zaten yaziyordu ("biri guncellenip digeri unutulursa parca
+// tepsiden tahtaya suruklendiginde GORUNUM DEGISIR" — Faz 106'da tam boyle bir
+// kopukluk kullanici tarafindan yakalanmisti). Dort yeni cizilmis tema
+// eklenirken iki kopyayi elle guncellemek ayni hatayi davet ederdi.
+//
+// PERFORMANS: her tema yalnizca drawRect/drawRoundRect/drawOval/drawLine
+// kullaniyor — hicbiri Path allocate etmiyor, Faz 112'deki "kare basina sifir
+// allocation" kararina sadik. En pahali tema WOOD (3 ek drawLine), en ucuz
+// PIXEL (hic gradyan yok).
+//
+// left/top/width/height DIS hucre kutusudur; inset iceride uygulanir.
+private fun DrawScope.drawThemedBlock(
+    left: Float,
+    top: Float,
+    width: Float,
+    height: Float,
+    baseColor: Color,
+    theme: String,
+    shimmerAlpha: Float,
+    strokePx: Float
+) {
+    when (theme.uppercase()) {
+        // --- PIKSEL: sert kenar, gradyan yok, iki kademeli isik/golge. Retro
+        // Modu Faz 128'de kaldirildi ama 8-bit kimligi oyunda bu tema ile kaliyor.
+        "PIXEL" -> {
+            val inset = width * 0.04f
+            val bw = (width - 2 * inset).coerceAtLeast(1f)
+            val bh = (height - 2 * inset).coerceAtLeast(1f)
+            val x = left + inset
+            val y = top + inset
+            val step = maxOf(1f, minOf(bw, bh) * 0.14f)
+            val lit = lerp(baseColor, Color.White, 0.42f)
+            val lit2 = lerp(baseColor, Color.White, 0.20f)
+            val dark = lerp(baseColor, Color.Black, 0.42f)
+            drawRect(color = baseColor, topLeft = Offset(x, y), size = Size(bw, bh))
+            drawRect(color = lit, topLeft = Offset(x, y), size = Size(bw, step))
+            drawRect(color = lit, topLeft = Offset(x, y), size = Size(step, bh))
+            drawRect(
+                color = lit2,
+                topLeft = Offset(x + step, y + step),
+                size = Size((bw - 2 * step).coerceAtLeast(0f), step)
+            )
+            drawRect(color = dark, topLeft = Offset(x, y + bh - step), size = Size(bw, step))
+            drawRect(color = dark, topLeft = Offset(x + bw - step, y), size = Size(step, bh))
+            drawRect(
+                color = Color.Black.copy(alpha = 0.55f),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                style = Stroke(width = strokePx)
+            )
+        }
+
+        // --- JOLE: cok yuvarlak, tek buyuk parlama, altta dolgunluk golgesi.
+        // Sekerleme temasinin emojisiz karsiligi; Seker Pembesi gorunumuyle esli.
+        "JELLY" -> {
+            val inset = width * 0.05f
+            val bw = (width - 2 * inset).coerceAtLeast(1f)
+            val bh = (height - 2 * inset).coerceAtLeast(1f)
+            val x = left + inset
+            val y = top + inset
+            val rad = minOf(bw, bh) * 0.44f
+            val r = CornerRadius(rad, rad)
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        lerp(baseColor, Color.White, 0.34f),
+                        baseColor,
+                        lerp(baseColor, Color.Black, 0.22f)
+                    ),
+                    startY = y,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r
+            )
+            drawOval(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = (shimmerAlpha + 0.22f).coerceIn(0.25f, 0.60f)),
+                        Color.White.copy(alpha = 0f)
+                    ),
+                    startY = y + bh * 0.10f,
+                    endY = y + bh * 0.46f
+                ),
+                topLeft = Offset(x + bw * 0.16f, y + bh * 0.10f),
+                size = Size(bw * 0.50f, bh * 0.34f)
+            )
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.28f)),
+                    startY = y + bh * 0.55f,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r
+            )
+            drawRoundRect(
+                color = lerp(baseColor, Color.White, 0.45f).copy(alpha = 0.55f),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r,
+                style = Stroke(width = strokePx)
+            )
+        }
+
+        // --- NEON CAM: yari saydam govde, parlayan kenar, dis isima. Oyunun
+        // mevcut neon dilinin dogrudan devami; koyu gorunumlerde en iyi durur.
+        "NEON" -> {
+            val inset = width * 0.06f
+            val bw = (width - 2 * inset).coerceAtLeast(1f)
+            val bh = (height - 2 * inset).coerceAtLeast(1f)
+            val x = left + inset
+            val y = top + inset
+            val rad = minOf(bw, bh) * 0.24f
+            val r = CornerRadius(rad, rad)
+            val edge = lerp(baseColor, Color.White, 0.62f)
+            drawRoundRect(
+                color = baseColor.copy(alpha = 0.32f),
+                topLeft = Offset(left + inset * 0.3f, top + inset * 0.3f),
+                size = Size(
+                    (width - inset * 0.6f).coerceAtLeast(1f),
+                    (height - inset * 0.6f).coerceAtLeast(1f)
+                ),
+                cornerRadius = CornerRadius(rad + inset, rad + inset),
+                style = Stroke(width = strokePx * 3f)
+            )
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(baseColor.copy(alpha = 0.78f), baseColor.copy(alpha = 0.38f)),
+                    startY = y,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r
+            )
+            // Ince ve PARLAK bir glint — genis/soluk bant gri leke gibi
+            // duruyordu (ilk onizleme render'inda yakalandi).
+            drawRoundRect(
+                // Glint BEYAZ degil, blogun renginden turetilmis acik ton — duz
+                // beyaz koyu saydam govdenin ustunde griye dusuyordu.
+                color = lerp(baseColor, Color.White, 0.86f).copy(alpha = (shimmerAlpha + 0.34f).coerceIn(0.48f, 0.72f)),
+                topLeft = Offset(x + bw * 0.18f, y + bh * 0.11f),
+                size = Size(bw * 0.64f, bh * 0.11f),
+                cornerRadius = CornerRadius(rad * 0.8f, rad * 0.8f)
+            )
+            drawRoundRect(
+                color = edge,
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r,
+                style = Stroke(width = strokePx * 1.9f)
+            )
+        }
+
+        // --- AHSAP OYUNCAK: sicak tonlar, yatay damar cizgileri, yumusak koseler.
+        // Digerlerinin tam ziddi — sakin. Blogun kendi rengi KORUNUYOR (renk
+        // eslestirme oynanisin parcasi), sadece sicaga cekiliyor.
+        "WOOD" -> {
+            val inset = width * 0.055f
+            val bw = (width - 2 * inset).coerceAtLeast(1f)
+            val bh = (height - 2 * inset).coerceAtLeast(1f)
+            val x = left + inset
+            val y = top + inset
+            val rad = minOf(bw, bh) * 0.20f
+            val r = CornerRadius(rad, rad)
+            val warmTop = lerp(baseColor, Color(0xFFF0CB96), 0.48f)
+            val warmMid = lerp(baseColor, Color(0xFF9A6A38), 0.42f)
+            val warmBottom = lerp(baseColor, Color(0xFF3E2511), 0.55f)
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(warmTop, warmMid, warmBottom),
+                    startY = y,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r
+            )
+            // Damar: koyu ana cizgi + hemen altinda ince acik bir yansima. Tek
+            // soluk cizgi ahsap hissi vermiyordu (ilk onizleme render'inda yakalandi).
+            val grainDark = Color(0xFF3E2511).copy(alpha = 0.34f)
+            val grainLight = Color(0xFFF0CB96).copy(alpha = 0.20f)
+            val grainWidth = maxOf(1f, strokePx * 0.8f)
+            for (f in floatArrayOf(0.26f, 0.50f, 0.74f)) {
+                drawLine(
+                    color = grainDark,
+                    start = Offset(x + bw * 0.08f, y + bh * f),
+                    end = Offset(x + bw * 0.92f, y + bh * f),
+                    strokeWidth = grainWidth
+                )
+                drawLine(
+                    color = grainLight,
+                    start = Offset(x + bw * 0.12f, y + bh * f + grainWidth),
+                    end = Offset(x + bw * 0.88f, y + bh * f + grainWidth),
+                    strokeWidth = maxOf(1f, grainWidth * 0.6f)
+                )
+            }
+            drawRoundRect(
+                color = warmBottom.copy(alpha = 0.80f),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r,
+                style = Stroke(width = strokePx)
+            )
+        }
+
+        // --- CLASSIC / FRUIT / SWEETS / ANIMALS: Faz 115'in fasetli parlak blogu.
+        // Emojili temalar bu govdeyi kullanip ustune emoji ciziyor (cagiran tarafta).
+        else -> {
+            val inset = width * 0.055f
+            val bw = (width - 2 * inset).coerceAtLeast(1f)
+            val bh = (height - 2 * inset).coerceAtLeast(1f)
+            val x = left + inset
+            val y = top + inset
+            val rad = minOf(bw, bh) * 0.26f
+            val r = CornerRadius(rad, rad)
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        lerp(baseColor, Color.White, 0.30f),
+                        baseColor,
+                        lerp(baseColor, Color.Black, 0.34f)
+                    ),
+                    startY = y,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r
+            )
+            val glossH = bh * 0.46f
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = shimmerAlpha.coerceIn(0.14f, 0.40f)),
+                        Color.Transparent
+                    ),
+                    startY = y,
+                    endY = y + glossH
+                ),
+                topLeft = Offset(x + bw * 0.08f, y + bh * 0.06f),
+                size = Size(bw * 0.84f, glossH),
+                cornerRadius = CornerRadius(rad * 0.8f, rad * 0.8f)
+            )
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.55f),
+                        Color.White.copy(alpha = 0.05f),
+                        Color.Black.copy(alpha = 0.30f)
+                    ),
+                    startY = y,
+                    endY = y + bh
+                ),
+                topLeft = Offset(x, y),
+                size = Size(bw, bh),
+                cornerRadius = r,
+                style = Stroke(width = strokePx)
+            )
+        }
+    }
+}
 
 data class BlockThemeOption(
     val id: String,
@@ -582,6 +947,79 @@ val BLOCK_THEMES = listOf(
         descriptionIt = "Donut, cioccolato, biscotto e caramella",
         descriptionFr = "Donut, chocolat, biscuit et bonbon",
         descriptionEs = "Donut, chocolate, galleta y caramelo"
+    ),
+    // --- Faz 132: bes yeni tema. Biri emoji tabanli (ANIMALS), dordu tamamen
+    // cizim tabanli (bkz. drawThemedBlock). Cizim tabanli olanlarin cihaz font
+    // destegi riski YOK — "MIXED" (zar) temasi tam o yuzden kaldirilmisti. ---
+    BlockThemeOption(
+        id = "ANIMALS",
+        titleTr = "Hayvanlar",
+        titleEn = "Animals",
+        titleIt = "Animali",
+        titleFr = "Animaux",
+        titleEs = "Animales",
+        icon = "\uD83D\uDC2F",
+        descriptionTr = "Kaplan, balina, kurbağa ve dostları",
+        descriptionEn = "Tiger, whale, frog and friends",
+        descriptionIt = "Tigre, balena, rana e amici",
+        descriptionFr = "Tigre, baleine, grenouille et amis",
+        descriptionEs = "Tigre, ballena, rana y amigos"
+    ),
+    BlockThemeOption(
+        id = "PIXEL",
+        titleTr = "Piksel 8-bit",
+        titleEn = "8-bit Pixel",
+        titleIt = "Pixel 8-bit",
+        titleFr = "Pixel 8-bit",
+        titleEs = "Píxel 8 bits",
+        icon = "\uD83D\uDC7E",
+        descriptionTr = "Sert kenarlı, kademeli 8-bit bloklar",
+        descriptionEn = "Hard-edged, stepped 8-bit blocks",
+        descriptionIt = "Blocchi 8-bit dai bordi netti",
+        descriptionFr = "Blocs 8-bit aux bords nets",
+        descriptionEs = "Bloques de 8 bits con bordes duros"
+    ),
+    BlockThemeOption(
+        id = "JELLY",
+        titleTr = "Jöle",
+        titleEn = "Jelly",
+        titleIt = "Gelatina",
+        titleFr = "Gélée",
+        titleEs = "Gelatina",
+        icon = "\uD83C\uDF6E",
+        descriptionTr = "Şişkin, parlak jöle blokları",
+        descriptionEn = "Plump, glossy jelly blocks",
+        descriptionIt = "Blocchi di gelatina lucidi",
+        descriptionFr = "Blocs de gélée brillants",
+        descriptionEs = "Bloques de gelatina brillantes"
+    ),
+    BlockThemeOption(
+        id = "NEON",
+        titleTr = "Neon Cam",
+        titleEn = "Neon Glass",
+        titleIt = "Vetro Neon",
+        titleFr = "Verre Néon",
+        titleEs = "Vidrio Neón",
+        icon = "\u2728",
+        descriptionTr = "Yarı saydam cam, parlayan kenar",
+        descriptionEn = "Translucent glass, glowing edge",
+        descriptionIt = "Vetro traslucido, bordo luminoso",
+        descriptionFr = "Verre translucide, bord lumineux",
+        descriptionEs = "Vidrio translúcido, borde brillante"
+    ),
+    BlockThemeOption(
+        id = "WOOD",
+        titleTr = "Ahşap Oyuncak",
+        titleEn = "Wooden Toy",
+        titleIt = "Giocattolo di Legno",
+        titleFr = "Jouet en Bois",
+        titleEs = "Juguete de Madera",
+        icon = "\uD83C\uDF33",
+        descriptionTr = "Damarlı ahşap oyuncak küpler",
+        descriptionEn = "Grained wooden toy cubes",
+        descriptionIt = "Cubi di legno venato",
+        descriptionFr = "Cubes en bois veiné",
+        descriptionEs = "Cubos de madera veteada"
     )
     // Not: "MIXED" (zar) temasi kaldirildi — Unicode zar yuzu karakterleri
     // (⚀-⚅) bazi cihazlarda/fontlarda hic render olmuyordu (kullanici geri
@@ -622,6 +1060,12 @@ fun BlastTheBlocksGame(
     // (bypass edilebiliyordu) kaldirildi — "Yeniden Başlat" artik esikli
     // interstitial reklama bagli (onProModeRestart).
     isChallengeMode: Boolean = false,
+    // Faz 128: Comfort Mode (TR "KOLAY MOD"). Parca havuzu ve agirliklar
+    // Kariyer'in AYNISI (bu bayrak generateNewTray'in havuz/agirlik secimine
+    // hic karismaz — isChallengeMode ve isEndless false oldugu icin zaten
+    // Kariyer dalina duser). Tek etkisi: tahta-farkindali pozitif onyargi
+    // (bkz. wouldCompleteLineAnywhere) SADECE bu modda devreye girer.
+    isComfortMode: Boolean = false,
     // Faz 96: "Yeniden Başlat" (Pro Mode) ve rewarded-hakki-tukenmis "TEKRAR
     // DENE" (Level+Pro ortak) artik interstitial reklam gosterip ardindan
     // onProceed() cagiran bir sarmalayicidan geciyor — reklam basarisiz olsa
@@ -1136,6 +1580,49 @@ fun BlastTheBlocksGame(
         else -> 1
     }
 
+    // Faz 128 (eski Faz 126'nin yeniden konumlandirilmis hali): verilen desenin
+    // MEVCUT tahtada, herhangi bir gecerli konumda, en az bir satir veya sutunu
+    // tamamlayip tamamlamayacagini kontrol eder.
+    //
+    // Tarihce — bu mantik once Sonsuz Mod'a konmustu (Faz 126), sonra kullanici
+    // karariyla oradan KALDIRILDI: "sonsuz modda board bias pozitifi olmayacak
+    // cunku o zaman yanip reklam seyretmez zaten burasi ekonomik olarak zayif
+    // bir alanimiz." Yani Sonsuz Mod'da oyuncunun tikanmasi reklam gosteriminin
+    // (rewarded "devam et") tetikleyicisi; onu seyreltmek geliri dusuruyordu.
+    // Comfort Mode'da ise gelir modeli TERS yonde calisiyor: oyuncu tikanmadan
+    // bol bol bolum gecsin, her bolum sonunda gecis reklami gorsun. Bu yuzden
+    // onyargi buraya tasindi.
+    fun wouldCompleteLineAnywhere(pattern: List<List<Boolean>>): Boolean {
+        val ph = pattern.size
+        val pw = pattern[0].size
+        for (startRow in 0..(gridSize - ph)) {
+            for (startCol in 0..(gridSize - pw)) {
+                var validPlacement = true
+                for (r in pattern.indices) {
+                    for (c in pattern[r].indices) {
+                        if (pattern[r][c] && board[(startRow + r) * gridSize + (startCol + c)] != 0) {
+                            validPlacement = false
+                        }
+                    }
+                }
+                if (!validPlacement) continue
+                fun cellOccupied(r: Int, c: Int): Boolean {
+                    if (board[r * gridSize + c] != 0) return true
+                    val pr = r - startRow
+                    val pc = c - startCol
+                    return pr in pattern.indices && pc in pattern[pr].indices && pattern[pr][pc]
+                }
+                for (r in 0 until gridSize) {
+                    if ((0 until gridSize).all { c -> cellOccupied(r, c) }) return true
+                }
+                for (c in 0 until gridSize) {
+                    if ((0 until gridSize).all { r -> cellOccupied(r, c) }) return true
+                }
+            }
+        }
+        return false
+    }
+
     fun generateNewTray() {
         trayShapes.clear()
         // Sonsuz modda zorluk skora gore kademeli artar (eski endless mantigi);
@@ -1213,17 +1700,35 @@ fun BlastTheBlocksGame(
             else -> SHAPE_WEIGHTS
         }
         val totalWeight = (0 until availableCount).sumOf { weights[it] }
-        repeat(3) {
-            // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
-            var roll = Random.nextInt(totalWeight)
-            var chosenIndex = availableCount - 1
-            for (idx in 0 until availableCount) {
-                val w = weights[idx]
-                if (roll < w) {
-                    chosenIndex = idx
-                    break
+        // Faz 128: Comfort Mode'a tahta-farkindali pozitif onyargi. Tahtada TAM
+        // O ANDA bir satir/sutunu tamamlayacak bir parca varsa, 3 yuvadan
+        // RASTGELE BIRI o parcalardan zorla seciliyor — diger 2 yuva yine normal
+        // agirlikli rastgele. Garanti "her zaman combo" DEGIL (oyle olsa "oyun
+        // beni oynuyor" gibi durur); sadece tamamen sanssiz bir tikanmayi
+        // seyreltiyor, boylece oyuncu bolumleri akiciyca gecip her bolum sonunda
+        // gecis reklami gormeye devam ediyor. Kariyer/Pro/Sonsuz'a DOKUNULMADI.
+        val helpfulIndices = if (isComfortMode) {
+            (0 until availableCount).filter { idx -> weights[idx] > 0 && wouldCompleteLineAnywhere(SHAPE_PATTERNS[idx]) }
+        } else {
+            emptyList()
+        }
+        val forcedSlot = if (helpfulIndices.isNotEmpty()) Random.nextInt(3) else -1
+        repeat(3) { slot ->
+            val chosenIndex = if (slot == forcedSlot) {
+                helpfulIndices.random()
+            } else {
+                // Duz uniform secim yerine agirlikli secim — bkz. SHAPE_WEIGHTS notu.
+                var roll = Random.nextInt(totalWeight)
+                var idx = availableCount - 1
+                for (i in 0 until availableCount) {
+                    val w = weights[i]
+                    if (roll < w) {
+                        idx = i
+                        break
+                    }
+                    roll -= w
                 }
-                roll -= w
+                idx
             }
             val randomColor = Random.nextInt(1, BLOCK_COLORS.size + 1)
             trayShapes.add(BlockShape(id = nextShapeId++, pattern = SHAPE_PATTERNS[chosenIndex], colorIndex = randomColor))
@@ -1326,9 +1831,16 @@ fun BlastTheBlocksGame(
         // ortadan kaldirir hem de reklamin odulunu somutlastirir: oyuncu
         // sahte bir "kolay parca" yerine gercek bir nefes alani gorur.
         // Dongu sonlanmasi garantili — tahta bosaldiginda her parca sigar.
+        //
+        // Faz 127: esik 2 -> 3. Kullanici karari: "reklam izle devam et deyince
+        // 3 parcanin da sigmasini garanti edelim ki oyuncular sikilmasin ve
+        // surekli rewarded video izlemeye tesvik olsun". Tepside zaten tam 3
+        // parca var, yani artik TAMAMI oynanabilir olana kadar satir bosaltiliyor —
+        // reklamin odulu somut ve her seferinde ayni. Dongu yine tahta bosalinca
+        // kesin sonlanir (bos tahtada her parca sigar), guard yine gridSize.
         generateNewTray()
         var guard = 0
-        while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 2 && guard < gridSize) {
+        while (trayShapes.filterNotNull().count { canPlaceAnywhere(it) } < 3 && guard < gridSize) {
             if (!clearDensestRowForContinue()) break
             guard++
         }
@@ -2567,13 +3079,8 @@ fun BlastTheBlocksGame(
                                 val baseColor = BLOCK_COLORS.getOrElse((cellVal - 1).coerceAtLeast(0)) { NeonCyan }
 
                                 val inset = cellDrawSize * 0.055f
-                                val bx = topLeftX + inset
-                                val by = topLeftY + inset
                                 val bs = (cellDrawSize - 2 * inset).coerceAtLeast(1f)
                                 val br = androidx.compose.ui.geometry.CornerRadius(bs * 0.26f, bs * 0.26f)
-
-                                val faceTop = lerp(baseColor, Color.White, 0.30f)
-                                val faceBottom = lerp(baseColor, Color.Black, 0.34f)
 
                                 // a) dis glow — tek halka. Gercek blur (RenderEffect)
                                 // bu hucre sayisinda pahali; genisletilmis yumusak
@@ -2586,76 +3093,24 @@ fun BlastTheBlocksGame(
                                     style = Stroke(width = with(drawContext.density) { 2.dp.toPx() })
                                 )
 
-                                // b) govde — dikey gradyan
-                                drawRoundRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(faceTop, baseColor, faceBottom),
-                                        startY = by,
-                                        endY = by + bs
-                                    ),
-                                    topLeft = Offset(bx, by),
-                                    size = Size(bs, bs),
-                                    cornerRadius = br
+                                // b/c/d) govde + parlaklik + kenar — Faz 132'den beri
+                                // TEK ortak fonksiyon (bkz. drawThemedBlock). Tepsi
+                                // onizlemesi de ayni fonksiyonu cagiriyor, boylece parca
+                                // tepsiden tahtaya suruklendiginde gorunum degisemez.
+                                drawThemedBlock(
+                                    left = topLeftX,
+                                    top = topLeftY,
+                                    width = cellDrawSize,
+                                    height = cellDrawSize,
+                                    baseColor = baseColor,
+                                    theme = currentTheme,
+                                    shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhaseState.value + (r + c) * 0.4f),
+                                    strokePx = with(drawContext.density) { 1.2.dp.toPx() }
                                 )
 
-                                // c) ust parlaklik. Mevcut shimmer animasyonu KORUNDU
-                                // (Faz'lardan beri suren "canlilik"); yalnizca duz ic
-                                // dikdortgen yerine yuvarlatilmis ve daralmis halde.
-                                val shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhaseState.value + (r + c) * 0.4f)
-                                val glossH = bs * 0.46f
-                                drawRoundRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.White.copy(alpha = shimmerAlpha.coerceIn(0.14f, 0.40f)),
-                                            Color.Transparent
-                                        ),
-                                        startY = by,
-                                        endY = by + glossH
-                                    ),
-                                    topLeft = Offset(bx + bs * 0.08f, by + bs * 0.06f),
-                                    size = Size(bs * 0.84f, glossH),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(br.x * 0.8f)
-                                )
-
-                                // d) ic kenar — ustte isik, altta golge
-                                drawRoundRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.White.copy(alpha = 0.55f),
-                                            Color.White.copy(alpha = 0.05f),
-                                            Color.Black.copy(alpha = 0.30f)
-                                        ),
-                                        startY = by,
-                                        endY = by + bs
-                                    ),
-                                    topLeft = Offset(bx, by),
-                                    size = Size(bs, bs),
-                                    cornerRadius = br,
-                                    style = Stroke(width = with(drawContext.density) { 1.2.dp.toPx() })
-                                )
-
-                                // Tema emoji (FRUIT/SWEETS)
-                                val emoji = when (currentTheme.uppercase()) {
-                                    "FRUIT" -> when (cellVal % 6) {
-                                        1 -> "🍉"
-                                        2 -> "🍊"
-                                        3 -> "🥝"
-                                        4 -> "🍓"
-                                        5 -> "🧀"
-                                        0 -> "🍇"
-                                        else -> ""
-                                    }
-                                    "SWEETS" -> when (cellVal % 6) {
-                                        1 -> "🍩"
-                                        2 -> "🍫"
-                                        3 -> "🍪"
-                                        4 -> "🧁"
-                                        5 -> "🍬"
-                                        0 -> "🧇"
-                                        else -> ""
-                                    }
-                                    else -> ""
-                                }
+                                // Tema emojisi (FRUIT/SWEETS/ANIMALS) — Faz 132'den
+                                // beri set tanimi tek yerde.
+                                val emoji = themeEmoji(currentTheme, cellVal)
 
                                 if (emoji.isNotEmpty()) {
                                     val paint = android.graphics.Paint().apply {
@@ -3623,6 +4078,9 @@ fun BlastTheBlocksGame(
                             enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
                             shape = RoundedCornerShape(12.dp),
+                            // Faz 127: varsayilan 24dp yatay ic bosluk uzun cevirilerde
+                            // metin alanini gereksiz daraltiyordu (bkz. AdButtonLabel).
+                            contentPadding = PaddingValues(horizontal = 10.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
@@ -3639,11 +4097,8 @@ fun BlastTheBlocksGame(
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
-                                Text(
-                                    text = language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR"),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                                AdButtonLabel(
+                                    language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR")
                                 )
                             }
                         }
@@ -3831,6 +4286,9 @@ fun BlastTheBlocksGame(
                             enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                             shape = RoundedCornerShape(12.dp),
+                            // Faz 127: bkz. AdButtonLabel — varsayilan 24dp yatay ic bosluk
+                            // uzun cevirilerde metin alanini gereksiz daraltiyordu.
+                            contentPadding = PaddingValues(horizontal = 10.dp),
                             // Faz 95d: kullanici "kutu esnek olmasın, farklı boylarda kutular
                             // olur, puntoyu küçült ve kutu yüksekliğini SABİT artır" dedi —
                             // 3 buton (bu + asagidaki YENİDEN BAŞLA + HARİTAYA DÖN) artik
@@ -3847,8 +4305,8 @@ fun BlastTheBlocksGame(
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
-                                Text(
-                                    text = if (isEndless || continuesUsedInAttempt >= maxRetryContinues) {
+                                AdButtonLabel(
+                                    if (isEndless || continuesUsedInAttempt >= maxRetryContinues) {
                                         // Faz 97: Seviyeli/Pro Mode'da bu denemedeki 3 reklamli
                                         // devam hakki da tukendiyse, buton "TEKRAR DENE"ye
                                         // (zorunlu interstitial'a sarili, reklamsiz degil)
@@ -3861,10 +4319,7 @@ fun BlastTheBlocksGame(
                                         // degil, 3 hamle geri alip DEVAM ediyor (Endless'teki
                                         // gibi), metin bunu dogru yansitmali.
                                         language.pick(tr = "REKLAM İZLE, DEVAM ET", en = "WATCH AD, CONTINUE", it = "GUARDA ANNUNCIO, CONTINUA", fr = "REGARDER PUB, CONTINUER", es = "VER ANUNCIO, CONTINUAR")
-                                    },
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                                    }
                                 )
                             }
                         }
@@ -4029,27 +4484,7 @@ fun EmbossedBlockCell(
         BLOCK_COLORS.getOrElse((colorIndex - 1).coerceAtLeast(0)) { NeonCyan }
     }
 
-    val emoji = if (isHover) "" else when (theme.uppercase()) {
-        "FRUIT" -> when (colorIndex % 6) {
-            1 -> "🍉"
-            2 -> "🍊"
-            3 -> "🥝"
-            4 -> "🍓"
-            5 -> "🧀"
-            0 -> "🍇"
-            else -> ""
-        }
-        "SWEETS" -> when (colorIndex % 6) {
-            1 -> "🍩"
-            2 -> "🍫"
-            3 -> "🍪"
-            4 -> "🧁"
-            5 -> "🍬"
-            0 -> "🧇"
-            else -> ""
-        }
-        else -> ""
-    }
+    val emoji = if (isHover) "" else themeEmoji(theme, colorIndex)
 
     Box(
         modifier = modifier.clip(RoundedCornerShape(6.dp)),
@@ -4062,62 +4497,17 @@ fun EmbossedBlockCell(
             if (isHover) {
                 drawRect(color = baseColor)
             } else {
-                // Faz 115: izgara hucresiyle AYNI recete (bkz. "FASETLI / PARLAK
-                // BLOK"). Tepsi ve tahta ayri kod yollarindan cizildigi icin biri
-                // guncellenip digeri unutulursa parca tepsiden tahtaya
-                // suruklendiginde GORUNUM DEGISIR — Faz 106'da tam bu tur bir
-                // kopukluk kullanici tarafindan yakalanmisti. Ikisi birlikte
-                // degistirildi.
-                val inset = w * 0.055f
-                val bs = (minOf(w, h) - 2 * inset).coerceAtLeast(1f)
-                val bw = (w - 2 * inset).coerceAtLeast(1f)
-                val bh = (h - 2 * inset).coerceAtLeast(1f)
-                val br = androidx.compose.ui.geometry.CornerRadius(bs * 0.26f, bs * 0.26f)
-
-                val faceTop = lerp(baseColor, Color.White, 0.30f)
-                val faceBottom = lerp(baseColor, Color.Black, 0.34f)
-
-                drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(faceTop, baseColor, faceBottom),
-                        startY = inset,
-                        endY = inset + bh
-                    ),
-                    topLeft = Offset(inset, inset),
-                    size = Size(bw, bh),
-                    cornerRadius = br
-                )
-
-                val shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhase())
-                val glossH = bh * 0.46f
-                drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = shimmerAlpha.coerceIn(0.14f, 0.40f)),
-                            Color.Transparent
-                        ),
-                        startY = inset,
-                        endY = inset + glossH
-                    ),
-                    topLeft = Offset(inset + bw * 0.08f, inset + bh * 0.06f),
-                    size = Size(bw * 0.84f, glossH),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(br.x * 0.8f)
-                )
-
-                drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.55f),
-                            Color.White.copy(alpha = 0.05f),
-                            Color.Black.copy(alpha = 0.30f)
-                        ),
-                        startY = inset,
-                        endY = inset + bh
-                    ),
-                    topLeft = Offset(inset, inset),
-                    size = Size(bw, bh),
-                    cornerRadius = br,
-                    style = Stroke(width = with(drawContext.density) { 1.2.dp.toPx() })
+                // Faz 132: tahta izgarasiyla AYNI ortak fonksiyon (bkz.
+                // drawThemedBlock) — iki kod yolu artik ayrisamaz.
+                drawThemedBlock(
+                    left = 0f,
+                    top = 0f,
+                    width = w,
+                    height = h,
+                    baseColor = baseColor,
+                    theme = theme,
+                    shimmerAlpha = 0.26f + 0.10f * sin(shimmerPhase()),
+                    strokePx = with(drawContext.density) { 1.2.dp.toPx() }
                 )
             }
 

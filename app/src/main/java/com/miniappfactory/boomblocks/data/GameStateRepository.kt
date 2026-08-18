@@ -56,11 +56,16 @@ class GameStateRepository(private val context: Context) {
         // Faz 77: Pro Mode (Challenge) — Seviyeli Mod'dan AYRI ilerleme.
         val CHALLENGE_HIGHEST_LEVEL = intPreferencesKey("challenge_highest_unlocked_level")
         val CHALLENGE_LEVEL_STARS = stringPreferencesKey("challenge_level_stars")
+        // Faz 128: Comfort Mode — Kariyer/Pro'dan tamamen ayri ilerleme anahtarlari.
+        val COMFORT_HIGHEST_LEVEL = intPreferencesKey("comfort_highest_unlocked_level")
+        val COMFORT_LEVEL_STARS = stringPreferencesKey("comfort_level_stars")
 
         // Faz 94: her mod kendi AYRI booster envanterine sahip (OWNED_BOOSTERS
         // yukarida Seviyeli Mod icin legacy adiyla kaliyor).
         val CHALLENGE_OWNED_BOOSTERS = stringPreferencesKey("challenge_owned_boosters")
         val ENDLESS_OWNED_BOOSTERS = stringPreferencesKey("endless_owned_boosters")
+        // Faz 131: Kolay Mod artik Kariyer ile ortak kova kullanmiyor.
+        val COMFORT_OWNED_BOOSTERS = stringPreferencesKey("comfort_owned_boosters")
     }
 
     val playerProgress: Flow<PlayerProgress> = context.gameDataStore.data.map { prefs ->
@@ -94,9 +99,12 @@ class GameStateRepository(private val context: Context) {
             levelsCompletedSinceInterstitial = prefs[Keys.LEVELS_SINCE_INTERSTITIAL] ?: 0,
             challengeHighestUnlockedLevel = prefs[Keys.CHALLENGE_HIGHEST_LEVEL] ?: 1,
             challengeLevelStars = decodeIntMap(prefs[Keys.CHALLENGE_LEVEL_STARS]),
+            comfortHighestUnlockedLevel = prefs[Keys.COMFORT_HIGHEST_LEVEL] ?: 1,
+            comfortLevelStars = decodeIntMap(prefs[Keys.COMFORT_LEVEL_STARS]),
             proRestartsSinceInterstitial = prefs[Keys.PRO_RESTARTS_SINCE_INTERSTITIAL] ?: 0,
             challengeOwnedBoosters = decodeBoosterMap(prefs[Keys.CHALLENGE_OWNED_BOOSTERS]),
-            endlessOwnedBoosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS])
+            endlessOwnedBoosters = decodeBoosterMap(prefs[Keys.ENDLESS_OWNED_BOOSTERS]),
+            comfortOwnedBoosters = decodeBoosterMap(prefs[Keys.COMFORT_OWNED_BOOSTERS])
         )
     }
 
@@ -182,6 +190,31 @@ class GameStateRepository(private val context: Context) {
             if (owned > 0) {
                 boosters[type] = owned - 1
                 prefs[Keys.CHALLENGE_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+                success = true
+            }
+        }
+        return success
+    }
+
+    // Faz 131: Kolay Mod icin ayri booster envanteri — addChallengeBooster/
+    // consumeChallengeBooster ile AYNI desen, farkli DataStore alani. Kariyer
+    // gibi coin ile SATIN ALINABILIR (Sonsuz'un aksine) ve reklamla da kazanilir.
+    suspend fun addComfortBooster(type: BoosterType, count: Int = 1) {
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.COMFORT_OWNED_BOOSTERS]).toMutableMap()
+            boosters[type] = (boosters[type] ?: 0) + count
+            prefs[Keys.COMFORT_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
+        }
+    }
+
+    suspend fun consumeComfortBooster(type: BoosterType): Boolean {
+        var success = false
+        context.gameDataStore.edit { prefs ->
+            val boosters = decodeBoosterMap(prefs[Keys.COMFORT_OWNED_BOOSTERS]).toMutableMap()
+            val owned = boosters[type] ?: 0
+            if (owned > 0) {
+                boosters[type] = owned - 1
+                prefs[Keys.COMFORT_OWNED_BOOSTERS] = encodeBoosterMap(boosters)
                 success = true
             }
         }
@@ -347,6 +380,23 @@ class GameStateRepository(private val context: Context) {
             val best = maxOf(starsMap[level] ?: 0, stars)
             starsMap[level] = best
             prefs[Keys.CHALLENGE_LEVEL_STARS] = encodeIntMap(starsMap)
+        }
+    }
+
+    // --- Comfort Mode (Kolay Mod) ---
+
+    // Faz 128: recordChallengeLevelResult ile BIREBIR ayni desen, sadece ayri
+    // anahtarlar. Uc modun ilerlemesi (Kariyer / Pro / Kolay) birbirinden bagimsiz.
+    suspend fun recordComfortLevelResult(level: Int, stars: Int) {
+        context.gameDataStore.edit { prefs ->
+            val currentHighest = prefs[Keys.COMFORT_HIGHEST_LEVEL] ?: 1
+            if (level >= currentHighest) {
+                prefs[Keys.COMFORT_HIGHEST_LEVEL] = level + 1
+            }
+            val starsMap = decodeIntMap(prefs[Keys.COMFORT_LEVEL_STARS]).toMutableMap()
+            val best = maxOf(starsMap[level] ?: 0, stars)
+            starsMap[level] = best
+            prefs[Keys.COMFORT_LEVEL_STARS] = encodeIntMap(starsMap)
         }
     }
 

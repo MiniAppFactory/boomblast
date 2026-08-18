@@ -51,4 +51,43 @@ class LevelGeneratorTest {
         val challengeGrowth = LevelGenerator.forChallengeLevel(6).targetScore - LevelGenerator.forChallengeLevel(5).targetScore
         assertEquals(50, challengeGrowth)
     }
+
+    // --- Faz 128: Comfort Mode (TR "KOLAY MOD") ---
+
+    @Test
+    fun `comfort levels start at 100 and grow by exactly one point`() {
+        assertEquals(100, LevelGenerator.forComfortLevel(1).targetScore)
+        assertEquals(101, LevelGenerator.forComfortLevel(2).targetScore)
+        assertEquals(1, LevelGenerator.forComfortLevel(3).targetScore - LevelGenerator.forComfortLevel(2).targetScore)
+        // Bolum 100'de hedef hala sadece 199 — Kariyer'de ayni bolumde 595 olurdu.
+        assertEquals(199, LevelGenerator.forComfortLevel(100).targetScore)
+    }
+
+    @Test
+    fun `comfort curve is far gentler than career at the same level`() {
+        val career = LevelGenerator.forLevel(40).targetScore
+        val comfort = LevelGenerator.forComfortLevel(40).targetScore
+        assertTrue("comfort hedefi kariyerden dusuk olmali", comfort < career)
+        // Ayni baslangic noktasi, besde bir egim: fark tam olarak (n-1)*4
+        assertEquals((40 - 1) * 4, career - comfort)
+    }
+
+    @Test
+    fun `comfort has no score multiplier and non-positive levels are coerced`() {
+        assertEquals(1f, LevelGenerator.forComfortLevel(7).scoreMultiplier)
+        val def = LevelGenerator.forComfortLevel(0)
+        assertEquals(1, def.number)
+        assertEquals(100, def.targetScore)
+    }
+
+    @Test
+    fun `comfort shows no interstitial for the first three levels then every level`() {
+        // Kullanici karari: ilk 3 bolum reklamsiz, 4. bolumden itibaren her gecis.
+        assertEquals(false, LevelGenerator.shouldShowInterstitialAfterComfortLevel(1))
+        assertEquals(false, LevelGenerator.shouldShowInterstitialAfterComfortLevel(2))
+        assertEquals(false, LevelGenerator.shouldShowInterstitialAfterComfortLevel(3))
+        assertEquals(true, LevelGenerator.shouldShowInterstitialAfterComfortLevel(4))
+        assertEquals(true, LevelGenerator.shouldShowInterstitialAfterComfortLevel(5))
+        assertEquals(true, LevelGenerator.shouldShowInterstitialAfterComfortLevel(120))
+    }
 }

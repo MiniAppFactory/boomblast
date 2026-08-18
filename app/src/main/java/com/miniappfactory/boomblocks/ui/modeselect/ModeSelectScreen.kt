@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
@@ -50,6 +51,7 @@ import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
+import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -74,12 +76,12 @@ fun ModeSelectScreen(
     // Faz 77: Pro Mode (eski "Challenge") artik oynanabilir — kart YAKINDA/
     // kilitli degil, kendi ilerlemesini gosteriyor.
     highestChallengeLevel: Int,
-    // Faz 78: Retro Modu artik oynanabilir — kart YAKINDA/kilitli degil.
-    retroHighScore: Int,
+    // Faz 128: Comfort Mode (TR "KOLAY MOD") — Retro Modu'nun yerini aldi.
+    comfortHighestLevel: Int,
     onOpenLevels: () -> Unit,
     onOpenEndless: () -> Unit,
     onOpenChallenge: () -> Unit,
-    onOpenRetro: () -> Unit,
+    onOpenComfort: () -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -247,21 +249,24 @@ fun ModeSelectScreen(
                             iconRes = R.drawable.icon_pro
                         )
                         Spacer(modifier = Modifier.width(16.dp))
+                        // Faz 128: RETRO kartinin yerini COMFORT MODE (TR "KOLAY MOD")
+                        // aldi. Kariyer'in kopyasi: ayni harita/loadout/oyun ekranlari,
+                        // ama cok yumusak hedef egrisi (100 puan, +1/bolum) ve
+                        // tahta-farkindali pozitif onyargi. Amac: oyuncu akiciyca cok
+                        // bolum gecsin, her geciste reklam gorsun.
                         ModeCard(
-                            title = language.pick(tr = "RETRO", en = "RETRO", it = "RETRO", fr = "RÉTRO", es = "RETRO"),
-                            statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
-                            statValue = "$retroHighScore",
-                            icon = Icons.Default.SportsEsports,
-                            // Faz 117: bkz. yukaridaki Pro Mod notu — bu, Pro'nun
-                            // eski rengiydi.
-                            accent = androidx.compose.ui.graphics.Color(0xFFFF6B35),
+                            title = language.pick(tr = "KOLAY MOD", en = "COMFORT MODE", it = "MODALITÀ COMFORT", fr = "MODE CONFORT", es = "MODO CONFORT"),
+                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
+                            statValue = "$comfortHighestLevel",
+                            icon = Icons.Default.Favorite,
+                            accent = ComfortTeal,
                             palette = palette,
-                            onClick = onOpenRetro,
-                            testTag = "mode_select_retro_button",
+                            onClick = onOpenComfort,
+                            testTag = "mode_select_comfort_button",
                             locked = false,
                             modifier = Modifier.weight(1f).aspectRatio(1f),
-                            emoji = "🕹️",
-                            iconRes = R.drawable.icon_retro
+                            emoji = "🪶",
+                            iconRes = R.drawable.icon_comfort
                         )
                     }
                 }

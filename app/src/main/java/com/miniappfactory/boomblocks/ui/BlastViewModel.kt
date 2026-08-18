@@ -3,6 +3,7 @@ package com.miniappfactory.boomblocks.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.miniappfactory.boomblocks.data.AD_TOKEN_REWARD
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.data.EffectIntensity
@@ -40,9 +41,14 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Faz 129: yalnizca GERCEK rewarded odulunde cagriliyor — uc cagri noktasinin
+    // (Kariyer / Pro / Kolay Mod loadout ekranlari) hepsi RewardedAdManager'in
+    // onRewardEarned callback'ine bagli, erken kapatan odul almiyor. Miktar
+    // AD_TOKEN_REWARD'dan geliyor (bkz. GameProgress.kt) — etiketle ayni kaynak.
+    // NOT: eski yorum "Faz 4'te gercek rewarded ad'e baglanacak, simdilik test
+    // odulu" diyordu; coktan baglanmisti, yorum bayattı.
     fun watchAdForTokens() {
-        // Faz 4'te gerçek rewarded ad sonucuna bağlanacak; şimdilik sabit bir test ödülü.
-        viewModelScope.launch { repository.addTokens(40) }
+        viewModelScope.launch { repository.addTokens(AD_TOKEN_REWARD) }
     }
 
     fun consumeBoosterFromInventory(type: BoosterType) {
@@ -84,6 +90,40 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.addEndlessBooster(type) }
     }
 
+    // Faz 130: ayni "oyun ici reklam izle, +1 guclendirici" firsati Kariyer/Kolay
+    // ve Pro modlarina da acildi. Uc ayri envanter var, o yuzden uc ayri fonksiyon:
+    //   grantBoosterFromAd          -> ownedBoosters          (Kariyer + Kolay Mod, ORTAK)
+    //   grantChallengeBoosterFromAd -> challengeOwnedBoosters (Pro)
+    //   grantEndlessBoosterFromAd   -> endlessOwnedBoosters   (Sonsuz)
+    // Hepsi SATIN ALINMAZ, sadece gercek rewarded odulunde cagrilir.
+    fun grantBoosterFromAd(type: BoosterType) {
+        viewModelScope.launch { repository.addBooster(type) }
+    }
+
+    fun grantChallengeBoosterFromAd(type: BoosterType) {
+        viewModelScope.launch { repository.addChallengeBooster(type) }
+    }
+
+    // Faz 131: Kolay Mod kendi envanterini kullanir — Pro'nunkiyle AYNI desen.
+    fun buyComfortBooster(type: BoosterType) {
+        viewModelScope.launch {
+            if (repository.spendTokens(type.tokenPrice)) {
+                repository.addComfortBooster(type)
+            }
+        }
+    }
+
+    fun consumeComfortBoosterFromInventory(type: BoosterType) {
+        viewModelScope.launch {
+            repository.consumeComfortBooster(type)
+            repository.incrementMissionProgress(MissionType.USE_BOOSTERS, 1)
+        }
+    }
+
+    fun grantComfortBoosterFromAd(type: BoosterType) {
+        viewModelScope.launch { repository.addComfortBooster(type) }
+    }
+
     fun resetEndlessBoosters() {
         viewModelScope.launch { repository.resetEndlessBoosters() }
     }
@@ -119,6 +159,21 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
             // hicbir yerde artirmiyordu, yani Pro Mode'da bolum sonrasi reklam
             // ASLA tetiklenmiyordu (kullanici bildirdi: "pro modda da her bölüm
             // sonrası reklam olacak").
+            repository.incrementLevelsSinceInterstitial()
+        }
+    }
+
+    // --- Comfort Mode (Kolay Mod) ---
+
+    // Faz 128: recordChallengeLevelComplete ile ayni desen. Jeton odulu Kariyer/
+    // Pro ile AYNI (5) tutuldu — Kolay Mod bolumleri daha hizli gectigi icin
+    // jeton kazanimi zaten dogal olarak daha yuksek, ustune carpan verilmedi.
+    fun recordComfortLevelComplete(level: Int, score: Int, stars: Int) {
+        viewModelScope.launch {
+            repository.recordComfortLevelResult(level, stars)
+            repository.addTokens(5)
+            repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
+            repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()
         }
     }

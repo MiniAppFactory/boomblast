@@ -65,6 +65,7 @@ import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
+import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
@@ -92,6 +93,8 @@ fun LevelMapScreen(
     darkMode: Boolean,
     skin: BlastSkin = BlastSkin.DEFAULT,
     isChallengeMode: Boolean = false,
+    // Faz 128: Comfort Mode (TR "KOLAY MOD") — ayni harita, kendi basligi/rengi.
+    isComfortMode: Boolean = false,
     onSelectLevel: (Int) -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -99,7 +102,11 @@ fun LevelMapScreen(
 ) {
     val palette = blastPalette(skin, darkMode)
     val lastLevel = highestUnlockedLevel + 3
-    val accentColor = if (isChallengeMode) ProModeOrange else NeonCyan
+    val accentColor = when {
+        isChallengeMode -> ProModeOrange
+        isComfortMode -> ComfortTeal
+        else -> NeonCyan
+    }
 
     // Faz 115l — HATA DUZELTMESI (kullanici gercek cihazda, dark mode'da
     // gorup "haritanın kotu tasarımı" dedi). Onceki (Faz 115) gecisi kilit
@@ -159,6 +166,7 @@ fun LevelMapScreen(
                 language = language,
                 palette = palette,
                 isChallengeMode = isChallengeMode,
+                isComfortMode = isComfortMode,
                 accentColor = accentColor,
                 onOpenMissions = onOpenMissions,
                 onOpenSettings = onOpenSettings,
@@ -245,6 +253,7 @@ private fun LevelMapHeader(
     language: AppLanguage,
     palette: BlastPalette,
     isChallengeMode: Boolean = false,
+    isComfortMode: Boolean = false,
     accentColor: Color = NeonCyan,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -280,6 +289,10 @@ private fun LevelMapHeader(
             Text(
                 text = if (isChallengeMode) {
                     language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO")
+                } else if (isComfortMode) {
+                    // Faz 128: mod kartindaki adla birebir ayni — oyuncu "KOLAY MOD"
+                    // yazan karta basip baska baslikli bir ekrana dusmesin.
+                    language.pick(tr = "KOLAY MOD", en = "COMFORT MODE", it = "MODALITÀ COMFORT", fr = "MODE CONFORT", es = "MODO CONFORT")
                 } else {
                     // Faz 104: mod adi "SEVİYELİ" -> "KARİYER" olunca bu harita basligi da
                     // ("SEVİYELER") modun adiyla hizalandi — oyuncu mod kartinda "KARİYER"

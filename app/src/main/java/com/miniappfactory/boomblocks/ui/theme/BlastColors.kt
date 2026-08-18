@@ -82,6 +82,21 @@ val BlastPurpleNightPalette = BlastPalette(
     emptyCell = Color(0xFF160B2E)
 )
 
+// Faz 130: "Şeker Pembesi" gorunumu (kullanici istegi). Oyunun tum gorunumleri
+// KOYU zeminli — acik pembe bir zemin butun arayuzu (beyaz metin, neon vurgular,
+// blok kontrastı) bozardi. O yuzden zemin koyu gul/bordo, "seker pembesi" ise
+// vurgu gradyaninda ve metin renklerinde tasiniyor: SUNSET ile ayni mantik,
+// ama mor yerine tamamen pembe eksende.
+val BlastCandyPinkPalette = BlastPalette(
+    background = Color(0xFF2B0F1E),
+    card = Color(0xFF3D1730),
+    cardAlt = Color(0xFF5A2140),
+    cardBorder = Color(0xFF7A2E56),
+    textPrimary = Color(0xFFFFF0F6),
+    textSecondary = Color(0xFFF2A8C8),
+    emptyCell = Color(0xFF2B0F1E)
+)
+
 enum class BlastSkin(
     val swatch: Color,
     val labelTr: String,
@@ -99,7 +114,9 @@ enum class BlastSkin(
     FOREST(Color(0xFF2A4433), "Orman", "Forest", "Foresta", "Forêt", "Bosque", listOf(Color(0xFF34D399), Color(0xFF059669))),
     OCEAN(Color(0xFF1B4566), "Okyanus", "Ocean", "Oceano", "Océan", "Océano", listOf(Color(0xFF38BDF8), Color(0xFF0EA5E9))),
     SUNSET(Color(0xFF54305A), "Gün Batımı", "Sunset", "Tramonto", "Coucher de Soleil", "Atardecer", listOf(Color(0xFFF97316), Color(0xFFEC4899))),
-    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night", "Notte Viola", "Nuit Violette", "Noche Púrpura", listOf(Color(0xFFA78BFA), Color(0xFF7C3AED)));
+    PURPLE_NIGHT(Color(0xFF33195E), "Mor Gece", "Purple Night", "Notte Viola", "Nuit Violette", "Noche Púrpura", listOf(Color(0xFFA78BFA), Color(0xFF7C3AED))),
+    // Faz 130: swatch her zaman o paletin cardAlt'i (digerlerinde de oyle).
+    CANDY_PINK(Color(0xFF5A2140), "Şeker Pembesi", "Candy Pink", "Rosa Caramella", "Rose Bonbon", "Rosa Caramelo", listOf(Color(0xFFFF8FC7), Color(0xFFEC4899)));
 
     fun label(language: AppLanguage): String =
         language.pick(tr = labelTr, en = labelEn, it = labelIt, fr = labelFr, es = labelEs)
@@ -115,4 +132,5 @@ fun blastPalette(skin: BlastSkin, darkMode: Boolean): BlastPalette = when (skin)
     BlastSkin.OCEAN -> BlastOceanPalette
     BlastSkin.SUNSET -> BlastSunsetPalette
     BlastSkin.PURPLE_NIGHT -> BlastPurpleNightPalette
+    BlastSkin.CANDY_PINK -> BlastCandyPinkPalette
 }

@@ -36,6 +36,11 @@ val NeonMagenta = Color(0xFFE11D48)
 val NeonGold = KronDarkAccent
 val NeonGreen = KronDarkPositive
 val NeonPurple = Color(0xFF8B5CF6)
+// Faz 128: Comfort Mode (TR "KOLAY MOD") accent'i. Kullanicinin sectigi mod
+// ikonu (tuy + puzzle parcasi) nane-turkuaz tonlarinda; kart rengi o ikonla
+// ayni aileden secildi. Diger uc moddan ayrisiyor: SONSUZ yesil (#4ADE80),
+// KARİYER camgobegi (#06B6D4), PRO mor (#8B5CF6).
+val ComfortTeal = Color(0xFF2DD4BF)
 
 val BlockOrange = Color(0xFFF97316)
 val BlockBlue = Color(0xFF3B82F6)

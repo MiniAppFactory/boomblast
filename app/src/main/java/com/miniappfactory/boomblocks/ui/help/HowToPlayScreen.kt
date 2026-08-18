@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -146,15 +147,17 @@ fun HowToPlayScreen(
                 palette = palette
             )
 
+            // Faz 128: RETRO MOD karti kaldirildi (mod menuden cikarildi), yerine
+            // COMFORT MODE (TR "KOLAY MOD") anlatimi geldi.
             ModeInfoCard(
-                accentColor = NeonGold,
-                title = language.pick(tr = "RETRO MOD", en = "RETRO MODE", it = "MODALITÀ RETRO", fr = "MODE RÉTRO", es = "MODO RETRO"),
+                accentColor = ComfortTeal,
+                title = language.pick(tr = "KOLAY MOD", en = "COMFORT MODE", it = "MODALITÀ COMFORT", fr = "MODE CONFORT", es = "MODO CONFORT"),
                 body = language.pick(
-                    tr = "Klasik Tetris! Düşen parçaları yönlendirip satırları tamamen doldurarak patlat. 1 satır=100, 2=300, 3=500, 4 satır (Tetris)=800 puan (×seviye) — art arda gelen Tetris'ler ve kombolar ekstra bonus verir. Parçayı bekletmek için \"Tut\", iniş noktasını görmek için hayalet parça önizlemesini kullanabilirsin.",
-                    en = "Classic Tetris! Steer falling pieces and fill rows completely to clear them. 1 line=100, 2=300, 3=500, 4 lines (Tetris)=800 points (×level) — consecutive Tetrises and combos give extra bonuses. Use \"Hold\" to save a piece for later, and the ghost piece preview to see where it will land.",
-                    it = "Tetris classico! Guida i pezzi che cadono e riempi completamente le righe per eliminarle. 1 riga=100, 2=300, 3=500, 4 righe (Tetris)=800 punti (×livello) — Tetris consecutivi e combo danno bonus extra. Usa \"Tieni\" per conservare un pezzo, e l'anteprima del pezzo fantasma per vedere dove atterrerà.",
-                    fr = "Tetris classique ! Dirige les pièces qui tombent et remplis complètement les lignes pour les effacer. 1 ligne=100, 2=300, 3=500, 4 lignes (Tetris)=800 points (×niveau) — des Tetris consécutifs et des combos donnent des bonus. Utilise \"Garder\" pour réserver une pièce, et l'aperçu de la pièce fantôme pour voir où elle atterrira.",
-                    es = "¡Tetris clásico! Dirige las piezas que caen y llena filas completas para eliminarlas. 1 línea=100, 2=300, 3=500, 4 líneas (Tetris)=800 puntos (×nivel) — Tetris consecutivos y combos dan bonus extra. Usa \"Guardar\" para reservar una pieza, y la vista previa de la pieza fantasma para ver dónde caerá."
+                    tr = "Kariyer Modu'nun rahat hali. Hedef puan 100'den başlar ve her bölümde yalnızca 1 puan artar — bölümler hızlı geçer, baskı yoktur. Parçalar da sana yardım eder: tahtada o an bir satırı ya da sütunu tamamlayabilecek bir parça varsa, tepsindeki üç yuvadan biri o parçalardan seçilir. Bölüm haritası, yıldızlar ve güçlendiriciler Kariyer'deki gibidir; ilerlemen Kariyer'den ayrı tutulur.",
+                    en = "The relaxed side of Career Mode. The target score starts at 100 and rises by just 1 point per level — levels go by fast and there is no pressure. The pieces help you too: if a piece could complete a row or column on the board right now, one of your three tray slots is drawn from those. The level map, stars and boosters work just like Career; your progress is tracked separately.",
+                    it = "Il lato rilassato della Modalità Carriera. Il punteggio obiettivo parte da 100 e sale di appena 1 punto per livello — i livelli passano in fretta e non c'è pressione. Anche i pezzi ti aiutano: se un pezzo può completare una riga o una colonna sul tabellone in questo momento, uno dei tre slot del vassoio viene scelto tra quelli. Mappa dei livelli, stelle e potenziamenti funzionano come in Carriera; i progressi sono separati.",
+                    fr = "Le côté détendu du Mode Carrière. Le score cible démarre à 100 et n'augmente que de 1 point par niveau — les niveaux défilent vite et sans pression. Les pièces t'aident aussi : si une pièce peut compléter une ligne ou une colonne sur le plateau à cet instant, l'un de tes trois emplacements est tiré parmi celles-ci. La carte des niveaux, les étoiles et les boosters fonctionnent comme en Carrière ; ta progression est séparée.",
+                    es = "El lado relajado del Modo Carrera. La puntuación objetivo empieza en 100 y sube solo 1 punto por nivel — los niveles pasan rápido y sin presión. Las piezas también te ayudan: si una pieza puede completar una fila o columna en el tablero ahora mismo, una de tus tres ranuras se elige entre ellas. El mapa de niveles, las estrellas y los potenciadores funcionan como en Carrera; tu progreso se guarda por separado."
                 ),
                 palette = palette
             )

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.miniappfactory.boomblocks.data.AD_TOKEN_REWARD
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.data.pick
@@ -378,7 +379,16 @@ private fun WatchAdCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = language.pick(tr = "Reklam izle: +Token", en = "Watch ad: +Tokens", it = "Guarda annuncio: +Token", fr = "Regarder pub : +Jetons", es = "Ver anuncio: +Fichas"),
+                    // Faz 129: miktar artik etikette de yaziyor (kullanici istegi:
+                    // "+100 Token yazsin"). Sayi AD_TOKEN_REWARD'dan interpolate
+                    // ediliyor, elle yazilmiyor — odul degisirse etiket de degisir.
+                    text = language.pick(
+                        tr = "Reklam izle: +$AD_TOKEN_REWARD Token",
+                        en = "Watch ad: +$AD_TOKEN_REWARD Tokens",
+                        it = "Guarda annuncio: +$AD_TOKEN_REWARD Token",
+                        fr = "Regarder pub : +$AD_TOKEN_REWARD Jetons",
+                        es = "Ver anuncio: +$AD_TOKEN_REWARD Fichas"
+                    ),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonGold

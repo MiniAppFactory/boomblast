@@ -4,9 +4,14 @@ package com.miniappfactory.boomblocks.data
 // teşvik etmeli, bomba hepsi 100 olmalı, shuffle olmasın, bomba ve line
 // clear olsun sadece" dedi — SHUFFLE turu tamamen kaldirildi (35/50/20 ->
 // sadece BOMB/LINE_CLEAR, ikisi de 100).
+// Faz 129: guclendirici fiyati 150 -> 80 (kullanici karari). Yeni denge:
+// bir reklam 40 jeton (AD_TOKEN_REWARD), yani bir guclendirici artik TAM 2
+// reklam ediyor — onceden ~4 reklamdi. Baslangic bakiyesi 150 jeton oldugu
+// icin oyuncu ilk bolume girmeden bir guclendirici alip ustune 70 jeton
+// birakabiliyor (onceden bakiye tam tamina bir guclendiriciye yetiyordu).
 enum class BoosterType(val tokenPrice: Int) {
-    BOMB(150),
-    LINE_CLEAR(150)
+    BOMB(80),
+    LINE_CLEAR(80)
 }
 
 // Faz 109: patlama efektleri (isik huzmesi, fizikli parcaciklar, ileride ambient
@@ -53,6 +58,12 @@ data class PlayerProgress(
     // donuk uyumluluk, mevcut kullanici verisi kaybolmasin).
     val challengeOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
     val endlessOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
+    // Faz 131: Kolay Mod da KENDI envanterini kullaniyor. Faz 128'de Kariyer'den
+    // kopyalandigi icin ikisi ayni kovayi (ownedBoosters) paylasiyordu; Kolay Mod
+    // cok daha hizli bolum gectirdigi icin orada biriktirip Kariyer'de harcama
+    // yolu aciktı. Kullanici karari: "her bir guclendirici kendi bucket'ini
+    // kullansin, ortak kullanan hicbir mod kalmasin." Artik dort modun dordu ayri.
+    val comfortOwnedBoosters: Map<BoosterType, Int> = emptyMap(),
     val soundEnabled: Boolean = true,
     val soundVolume: Float = 0.5f,
     val musicEnabled: Boolean = true,
@@ -80,8 +91,23 @@ data class PlayerProgress(
     // Faz 96: can sistemi (bypass edilebiliyordu, bkz. eski challengeLives)
     // yerini "Yeniden Başlat"a bagli esikli interstitial reklama birakti —
     // levelsCompletedSinceInterstitial ile AYNI desen, ayri bir sayac.
-    val proRestartsSinceInterstitial: Int = 0
+    val proRestartsSinceInterstitial: Int = 0,
+    // Faz 128: Comfort Mode (TR "KOLAY MOD") — Retro'nun yerini aldi. Kariyer'in
+    // AYNI ekranlarini kullanir ama kendi ilerlemesi, kendi (cok yumusak) hedef
+    // egrisi ve tahta-farkindali pozitif onyargisi vardir. Kariyer/Pro ile
+    // AYRI ilerleme: oyuncu Kolay Mod'da ilerleyince Kariyer acilmaz.
+    val comfortHighestUnlockedLevel: Int = 1,
+    val comfortLevelStars: Map<Int, Int> = emptyMap()
 )
+
+// Faz 130: odul 40 -> 80. Gerekce kullanicinin kendi ifadesi: "uyumluluk
+// acisindan". Artik oyunun HER yerinde bir reklam = bir guclendirici:
+//   - Loadout ekrani: 1 reklam = 80 jeton = tam 1 guclendirici (fiyat 80)
+//   - Oyun ici (dort modda da): 1 reklam = dogrudan +1 guclendirici
+// Onceden loadout'ta 2 reklam gerekiyordu, oyun icinde 1 — oyuncu ayni seyin
+// iki farkli fiyatini goruyordu. Miktar TEK yerde tanimli: hem odulu veren kod
+// (BlastViewModel.watchAdForTokens) hem etiket (LoadoutScreen) buradan okuyor.
+const val AD_TOKEN_REWARD = 80
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS, MULTI_CLEARS }
 

@@ -63,6 +63,32 @@ object LevelGenerator {
         return LevelDefinition(safeNumber, targetScore, shapePoolTier, scoreMultiplier = 1.5f)
     }
 
+    // Faz 128: Comfort Mode (TR "KOLAY MOD") — Retro'nun yerini aldi.
+    // Kullanici tanimi: "100 puanla baslayacak ve her bolumde hedef 1 puan
+    // artacak. daha cok reklam izleme daha cok bolum gecme motivasyonu
+    // yaratacak." Yani Kariyer'in +5/seviye egrisinin BESTE BIRI: bolum 100'de
+    // hedef hala sadece 199 puan (Kariyer'de 595 olurdu). Parca havuzu ve
+    // agirlik tablosu Kariyer'in AYNISI (BoomBlocksGame'de isChallengeMode ve
+    // isEndless false oldugu icin otomatik olarak Kariyer dalina duser);
+    // farki hedef egrisi + tahta-farkindali pozitif onyargi (bkz. generateNewTray).
+    fun forComfortLevel(number: Int): LevelDefinition {
+        val safeNumber = number.coerceAtLeast(1)
+        val shapePoolTier = when {
+            safeNumber <= 3 -> 1
+            safeNumber <= 8 -> 2
+            else -> 3
+        }
+        return LevelDefinition(safeNumber, 100 + (safeNumber - 1), shapePoolTier)
+    }
+
+    // Faz 128: Comfort Mode reklam temposu — kullanici karari "ilk 3 bolum
+    // reklamsiz, sonra her bolum". Gerekce: mod cok hizli bolum gectirdigi icin
+    // ilk oturumda reklam yorgunlugu riski var; oyuncu modu taniyana kadar
+    // tamamen temiz kaliyor, 4. bolumden itibaren her gecis reklamli.
+    // NOT: InterstitialFrequencyPolicy (60sn min aralik) yine ustte devrede,
+    // yani pratikte cok hizli ust uste gecislerde hepsi gosterilmez.
+    fun shouldShowInterstitialAfterComfortLevel(level: Int): Boolean = level > 3
+
     // Faz 110: Career Mode reklam sinlifi. Level 1-10'de binding phase'i
     // destelemek icin her 2 levelda 1 reklam (2, 4, 6, 8, 10); Level 11+'da
     // standard "her level" gosterimine gecis.

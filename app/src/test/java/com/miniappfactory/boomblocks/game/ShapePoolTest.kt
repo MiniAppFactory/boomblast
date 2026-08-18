@@ -116,8 +116,11 @@ class ShapePoolTest {
             listOf(4, 16, 24, 12, 24, 8, 16, 8, 16, 8, 8, 8, 8),
             totals(SHAPE_WEIGHTS_ENDLESS)
         )
+        // Faz 125: kacis parcasi (ikili duz) 3 kat arttirildi, en pahali iki
+        // aile (dortlu duz, dikdortgen) kucultuldu — bkz. BoomBlocksGame.kt
+        // SHAPE_WEIGHTS_CHALLENGE yorumu. Diger aileler DEGISMEDI.
         assertEquals(
-            listOf(0, 8, 16, 8, 16, 12, 24, 12, 24, 12, 12, 12, 12),
+            listOf(0, 24, 16, 8, 16, 12, 16, 12, 8, 12, 12, 12, 12),
             totals(SHAPE_WEIGHTS_CHALLENGE)
         )
     }
