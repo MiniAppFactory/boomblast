@@ -47,7 +47,7 @@ fun EffectIntensity.label(language: AppLanguage): String = when (this) {
 }
 
 data class PlayerProgress(
-    val tokens: Int = 150,
+    val tokens: Int = STARTING_TOKENS,
     val highestUnlockedLevel: Int = 1,
     val levelStars: Map<Int, Int> = emptyMap(),
     val ownedBoosters: Map<BoosterType, Int> = emptyMap(),
@@ -115,6 +115,14 @@ data class PlayerProgress(
 // iki farkli fiyatini goruyordu. Miktar TEK yerde tanimli: hem odulu veren kod
 // (BlastViewModel.watchAdForTokens) hem etiket (LoadoutScreen) buradan okuyor.
 const val AD_TOKEN_REWARD = 80
+
+// Faz 149: yeni oyuncunun baslangic bakiyesi (150 -> 100). Bu deger hem
+// PlayerProgress varsayilani hem de DataStore'da kayit yokken kullanilan
+// geri dusme degeri — onceden BES ayri yerde `?: 150` olarak elle yaziliydi,
+// biri unutulsa oyuncu bazi islemlerde farkli bir varsayilan gorurdu.
+// 100, en ucuz temanin (Meyve/Sekerleme) fiyatiyla birebir ayni: yeni oyuncu
+// ilk temasini hemen alabiliyor, dukkanin nasil calistigini bedelsiz ogreniyor.
+const val STARTING_TOKENS = 100
 
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS, MULTI_CLEARS }
 

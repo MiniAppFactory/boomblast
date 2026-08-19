@@ -72,7 +72,7 @@ class GameStateRepository(private val context: Context) {
 
     val playerProgress: Flow<PlayerProgress> = context.gameDataStore.data.map { prefs ->
         PlayerProgress(
-            tokens = prefs[Keys.TOKENS] ?: 150,
+            tokens = prefs[Keys.TOKENS] ?: STARTING_TOKENS,
             highestUnlockedLevel = prefs[Keys.HIGHEST_LEVEL] ?: 1,
             levelStars = decodeIntMap(prefs[Keys.LEVEL_STARS]),
             ownedBoosters = decodeBoosterMap(prefs[Keys.OWNED_BOOSTERS]),
@@ -123,7 +123,7 @@ class GameStateRepository(private val context: Context) {
 
     suspend fun addTokens(amount: Int) {
         context.gameDataStore.edit { prefs ->
-            val current = prefs[Keys.TOKENS] ?: 150
+            val current = prefs[Keys.TOKENS] ?: STARTING_TOKENS
             prefs[Keys.TOKENS] = current + amount
         }
     }
@@ -131,7 +131,7 @@ class GameStateRepository(private val context: Context) {
     suspend fun spendTokens(amount: Int): Boolean {
         var success = false
         context.gameDataStore.edit { prefs ->
-            val current = prefs[Keys.TOKENS] ?: 150
+            val current = prefs[Keys.TOKENS] ?: STARTING_TOKENS
             if (current >= amount) {
                 prefs[Keys.TOKENS] = current - amount
                 success = true
@@ -371,7 +371,7 @@ class GameStateRepository(private val context: Context) {
             val claimed = decodeStringSet(prefs[Keys.MISSION_CLAIMED]).toMutableSet()
             if (claimed.add("$missionId#$tierIndex")) {
                 prefs[Keys.MISSION_CLAIMED] = claimed.joinToString(",")
-                val current = prefs[Keys.TOKENS] ?: 150
+                val current = prefs[Keys.TOKENS] ?: STARTING_TOKENS
                 prefs[Keys.TOKENS] = current + rewardTokens
             }
         }
@@ -412,7 +412,7 @@ class GameStateRepository(private val context: Context) {
                 ok = true
                 return@edit
             }
-            val current = prefs[Keys.TOKENS] ?: 150
+            val current = prefs[Keys.TOKENS] ?: STARTING_TOKENS
             if (current >= price) {
                 prefs[Keys.TOKENS] = current - price
                 prefs[Keys.UNLOCKED_THEMES] = (unlocked + themeId).joinToString(",")

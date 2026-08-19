@@ -146,7 +146,8 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     fun recordLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
             // Faz 139: jeton SADECE ilk gecerde (bkz. repository notu).
-            if (repository.recordLevelResult(level, stars)) repository.addTokens(5)
+            // Faz 149: 5 -> 10 (kullanici karari, ekonomi yeniden dengelendi).
+            if (repository.recordLevelResult(level, stars)) repository.addTokens(10)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()
@@ -169,7 +170,9 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
             // dakika basina en dusuk odul demekti. 10'da bile Pro, dakika basina
             // Kolay Mod'dan daha az kazandiriyor, yani "en verimli jeton yolu"
             // haline GELMIYOR; sadece adil oluyor.
-            if (firstClear) repository.addTokens(10)
+            // Faz 149: 10 -> 25. Pro bolumu digerlerinden cok daha uzun
+            // suruyor (hedef 250 ve +50/bolum, 1x1 yok, tam havuz bolum 9).
+            if (firstClear) repository.addTokens(25)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             // recordLevelComplete'teki ile ayni sayaci artiriyor — AppNavigation'daki
@@ -189,7 +192,8 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
     fun recordComfortLevelComplete(level: Int, score: Int, stars: Int) {
         viewModelScope.launch {
             // Faz 139: jeton SADECE ilk gecerde (bkz. repository notu).
-            if (repository.recordComfortLevelResult(level, stars)) repository.addTokens(5)
+            // Faz 149: 5 -> 10, Kariyer ile ayni.
+            if (repository.recordComfortLevelResult(level, stars)) repository.addTokens(10)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             repository.incrementLevelsSinceInterstitial()

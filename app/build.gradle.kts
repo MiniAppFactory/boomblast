@@ -97,8 +97,14 @@ android {
     // "bu versionCode'u Play'e yuklemeyi denedin mi?" Emin olunamiyorsa
     // dogrudan bir sonraki sayiya cikilmali — versionCode ucuz, reddedilen
     // yukleme pahali.
-    versionCode = 14
-    versionName = "1.1.0"
+    // Faz 150 (release): 14 -> 15, versionName 1.1.0 -> 1.1.1.
+    // vc14 de Play'e yuklenmeye calisildi ve tukendi (bkz. yukaridaki KURAL).
+    // Bu sefer versionName de artti cunku ICERIK degisti: jeton ekonomisi
+    // yeniden dengelendi (baslangic 150 -> 100, Kariyer/Kolay bolum odulu
+    // 5 -> 10, Pro 10 -> 25). Ayni ada farkli bir build vermek karisiklik
+    // yaratirdi — bkz. 1.0.4 -> 1.0.5 ve 1.0.7 -> 1.0.8 ayni gerekce.
+    versionCode = 15
+    versionName = "1.1.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
