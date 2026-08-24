@@ -17,14 +17,23 @@ data class BlastPalette(
     val emptyCell: Color
 )
 
+// Faz 157: Varsayilan (aktif) skin'in tahtasi Block Blast referansina gore
+// cok koyu lacivertti (neredeyse siyah), bloklar zeminden "patlamiyordu".
+// Referansta tahta ORTA-acik bir mavi ve izgara cizgileri gorunuyor. Tahta
+// karti + hucre ici acildi; DIS `background` (tahta disi alan) kasitli olarak
+// biraz daha koyu tutuldu ki tahta ondan AYRISIP one ciksin. Blok renkleri
+// ayri (BLOCK_COLORS) — burada degismedi.
+//   card      1E293B -> 25344F  (tahta cercevesi, daha acik mavi-gri)
+//   emptyCell 0F172A -> 1C2B48  (hucre ici; izgara artik gorunur)
+//   cardAlt   334155 -> 3B4E70  (hucre kenari/kabartma ust tonu)
 val BlastDarkPalette = BlastPalette(
-    background = Color(0xFF0F172A),
-    card = Color(0xFF1E293B),
-    cardAlt = Color(0xFF334155),
-    cardBorder = Color(0xFF334155),
+    background = Color(0xFF101B30),
+    card = Color(0xFF25344F),
+    cardAlt = Color(0xFF3B4E70),
+    cardBorder = Color(0xFF3B4E70),
     textPrimary = Color.White,
     textSecondary = Color.Gray,
-    emptyCell = Color(0xFF0F172A)
+    emptyCell = Color(0xFF1C2B48)
 )
 
 val BlastLightPalette = BlastPalette(

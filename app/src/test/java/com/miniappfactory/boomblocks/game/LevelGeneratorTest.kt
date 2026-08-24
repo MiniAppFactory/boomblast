@@ -47,9 +47,43 @@ class LevelGeneratorTest {
         val challenge = LevelGenerator.forChallengeLevel(5)
         assertEquals(1f, level.scoreMultiplier)
         assertTrue("challenge multiplier must exceed normal level multiplier", challenge.scoreMultiplier > level.scoreMultiplier)
-        // Challenge target growth (Level 1-10): +50/level (250, 300, 350, ...)
-        val challengeGrowth = LevelGenerator.forChallengeLevel(6).targetScore - LevelGenerator.forChallengeLevel(5).targetScore
-        assertEquals(50, challengeGrowth)
+        // Faz 151: Pro hedef egrisi 200 + (n-1)*20; Faz 151b'de L40'tan sonra
+        // adim +10'a dusuyor (yumusak tavan). Eski egrideki 10->11 kirilmasi
+        // (50 -> 5) yok.
+        assertEquals(200, LevelGenerator.forChallengeLevel(1).targetScore)
+        assertEquals(380, LevelGenerator.forChallengeLevel(10).targetScore)
+        assertEquals(980, LevelGenerator.forChallengeLevel(40).targetScore)
+        assertEquals(1080, LevelGenerator.forChallengeLevel(50).targetScore)
+        assertEquals(1580, LevelGenerator.forChallengeLevel(100).targetScore)
+    }
+
+    @Test
+    fun `pro target grows by 20 up to the soft cap and by 10 after it`() {
+        val cap = LevelGenerator.PRO_TARGET_SOFT_CAP_LEVEL
+        for (n in 1 until cap) {
+            assertEquals(
+                "Pro target growth must be +${LevelGenerator.PRO_TARGET_STEP} at level $n",
+                LevelGenerator.PRO_TARGET_STEP,
+                LevelGenerator.forChallengeLevel(n + 1).targetScore - LevelGenerator.forChallengeLevel(n).targetScore
+            )
+        }
+        for (n in cap..(cap + 60)) {
+            assertEquals(
+                "Pro target growth must be +${LevelGenerator.PRO_TARGET_STEP_AFTER_CAP} at level $n",
+                LevelGenerator.PRO_TARGET_STEP_AFTER_CAP,
+                LevelGenerator.forChallengeLevel(n + 1).targetScore - LevelGenerator.forChallengeLevel(n).targetScore
+            )
+        }
+    }
+
+    @Test
+    fun `pro target never stops growing and never drops`() {
+        // Yumusak tavan bir TAVAN degil, egim dususu: egri her seviyede artmali.
+        for (n in 1..200) {
+            val prev = LevelGenerator.forChallengeLevel(n).targetScore
+            val next = LevelGenerator.forChallengeLevel(n + 1).targetScore
+            assertTrue("Pro target must strictly increase at level $n", next > prev)
+        }
     }
 
     // --- Faz 128: Comfort Mode (TR "KOLAY MOD") ---

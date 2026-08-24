@@ -78,6 +78,10 @@ import kotlin.math.sin
 // Pro Mode'un her yerde tutarli bir "marka rengi" olmasi icin.
 private val ProModeOrange = Color(0xFFFF6B35)
 
+// Faz 152: haritanin oyuncunun ULASTIGI seviyenin otesinde kac kilitli dugum
+// gosterecegi. Bkz. LevelMapScreen icindeki gerekce.
+private const val LEVEL_MAP_LOOKAHEAD = 12
+
 // Faz 77: Pro Mode kendi haritasi icin bu ekrani AYNEN yeniden kullaniyor —
 // eskiden `progress.highestUnlockedLevel`/`progress.levelStars`/`LevelGenerator.
 // forLevel` DOGRUDAN icerde okunuyordu (Seviyeli Mod'a kilitli). Artik cagiran
@@ -101,7 +105,23 @@ fun LevelMapScreen(
     onBack: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
-    val lastLevel = highestUnlockedLevel + 3
+    // Kariyer/Pro/Kolay prosedurel ve SINIRSIZ (bkz. LevelGenerator) — sabit bir
+    // "son bolum" yok, o yuzden harita "ulasilan + N" dugum cizer. N Faz 3'ten
+    // beri 3'tu.
+    //
+    // Faz 152: N 3 -> 12. Kullanici once "haritalar sadece 4 level gozukuyor,
+    // onu +10 level yapalim" dedi, sonra "hep +12 ciz" ile netlestirdi.
+    // Sorun: yeni oyuncu haritayi actiginda 4 dugum goruyordu, oyun kucuk/
+    // bitmis gibi duruyordu ve kaydirilacak bir sey olmadigi icin "devami var"
+    // hissi hic olusmuyordu. 12, ekrana sigandan fazla dugum birakiyor (liste
+    // gercekten kaydiriliyor) ama hala ULASILABILIR bir ufuk gosteriyor —
+    // 50 dugum cizmek kilitli bir duvar gibi durup tersine caydirici olurdu.
+    //
+    // Maliyet yok: liste LazyColumn, yani sanallastirilmis; ekranda olmayan
+    // dugum bestelenmiyor. Otomatik kaydirma da (asagidaki LaunchedEffect)
+    // oyuncunun seviyesini hedefliyor, ek dugumler ONUN ALTINDA kaliyor —
+    // acilis gorunumu degismiyor.
+    val lastLevel = highestUnlockedLevel + LEVEL_MAP_LOOKAHEAD
     val accentColor = when {
         isChallengeMode -> ProModeOrange
         isComfortMode -> ComfortTeal
@@ -375,7 +395,7 @@ private fun LevelMapHeader(
 }
 
 // Faz 115n — HATA DUZELTMESI (kullanici: "0/4 gözükmesi anlamlı degil").
-// Kok sebep: "Y" olarak kullandigim `lastLevel = highestUnlockedLevel + 3`
+// Kok sebep: "Y" olarak kullandigim `lastLevel = highestUnlockedLevel + N`
 // gercek bir toplam DEGIL — sadece "kac dugum render edilsin" render-zamani
 // sayisi (Kariyer prosedurel/sinirsiz, sabit bir toplam bolum sayisi yok).
 // Onu "toplam" gibi gostermek yanlis veri sunmakti. Kullanicinin istegiyle

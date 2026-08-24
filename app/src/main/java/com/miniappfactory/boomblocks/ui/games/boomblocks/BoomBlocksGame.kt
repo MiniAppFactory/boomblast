@@ -169,13 +169,25 @@ data class GameSnapshot(
 // yaziyordu; DrawScope'ta bu ham pikseldir, S8'in 3.0 yogunlugunda ~1.3dp
 // eder — parcaciklar fiilen gorunmuyordu. Hucre birimi kullanmak ayrica
 // tablet/telefon ve (banner reklam yuklenince kuculen) grid'de ayni hissi verir.
-const val MAX_BLAST_PARTICLES = 96
+// Faz 151: 96 -> 128 (havuz zaten 200, bkz. ParticleSystem.MAX_POOL_PARTICLES).
+const val MAX_BLAST_PARTICLES = 128
 // Parcacik penceresi: en gec dogan (300ms) + en uzun omur (600ms) = 900ms.
 const val PARTICLE_WINDOW_MS = 950
 const val PARTICLE_WINDOW_S = PARTICLE_WINDOW_MS / 1000f
 // Hucre/saniye^2. Parcaciklar yukari firlar, tepe noktasina ~0.44sn'de varir
 // ve dusmeye baslar — referanstaki "kucuk kupler huzme icinde yukari suzuluyor".
 const val PARTICLE_GRAVITY = 8f
+
+// Faz 153: ekran sarsintisi genlikleri (piksel), indeks = kademe - 1.
+// Kademe = maxOf(temizlenen satir sayisi, kombo sayaci), 1..5 arasina kirpilir.
+// Degerler kullanicinin cihazda verdigi his ayarindan geliyor — bkz.
+// BoomBlocksGame icindeki cagri noktasi.
+//
+// Faz 158: kullanici S22'de deneyip "tek satirin sarsilmasi ve titresimi hala
+// yetersiz, hepsini biraz daha yukselt" dedi. Tum tablo yukseltildi, TEK SATIR
+// (kademe 0) en buyuk goreli artisi aldi (5.6 -> 9.0). Hizlanan egri korundu.
+//   5.6 -> 9.0  |  6.6 -> 11  |  10 -> 15  |  14 -> 20  |  20 -> 28
+val SHAKE_AMPLITUDES_PX = floatArrayOf(9f, 11f, 15f, 20f, 28f)
 
 const val PK_DIAMOND = 0
 const val PK_CIRCLE = 1
@@ -1590,6 +1602,15 @@ fun BlastTheBlocksGame(
     var dragPointerStartGlobal by remember { mutableStateOf(Offset.Zero) }
     var rootOriginPx by remember { mutableStateOf(Offset.Zero) }
     var gridOriginPx by remember { mutableStateOf(Offset.Zero) }
+    // Faz 154: kirpilmayan FX katmaninin KENDI kok-koordinati. Parcaciklar
+    // artik tahta Card'inin icinde degil, onun KARDESI olan kok seviyeli bir
+    // Canvas'ta ciziliyor (bkz. asagidaki "KIRPILMAYAN FX KATMANI"). O Canvas'in
+    // kendi origin'i ile grid'in origin'i arasindaki fark, hucre-birimli
+    // parcacik koordinatlarini ekran koordinatina cevirmek icin gerekiyor.
+    // rootOriginPx'ten TUREMIYOR cunku kok Box'in 16dp padding'i var ve
+    // onGloballyPositioned padding'ten ONCE olculuyor — kendi olcumu tek
+    // guvenilir kaynak.
+    var fxOriginPx by remember { mutableStateOf(Offset.Zero) }
     var cellSizePx by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     val dragCoroutineScope = rememberCoroutineScope()
@@ -2318,17 +2339,18 @@ fun BlastTheBlocksGame(
                 excitement == 1 -> " 🎉"
                 else -> ""
             }
-            lastClearedText = "$praiseWord$praiseEmoji +$lineBonus"
-            lastClearWasCelebration = comboCount >= 2 || totalLinesCleared > 1
-
-            // Faz 34: orijinal oyunda ovgu kelimeleri sesle de soyleniyordu
-            // (kullanici gozlemi) — sadece gercek bir kutlama aninda (kucuk
-            // her tekli patlamada degil) seslendiriliyor. Faz 93: kullanicinin
-            // gonderdigi 4 gercek ses kaydiyla (good/great/amazing/incredible)
-            // cihaz TTS motorunun (robotik) yerini aldi.
-            if (lastClearWasCelebration && soundEnabled) {
-                SoundManager.playPraise(soundEnabled, excitement)
-            }
+            // Faz 156 — ZAMANLAMA DUZELTMESI (cihaz kaydindan bulundu:
+            // docs/research/karsilastirma_blockblast_vs_kaboom_vc17_25fps.png).
+            // Ovgu yazisi ("GUZEL! +8") ve ovgu SESI eskiden BURADA, yani
+            // placeShape icinde SENKRON (t=0) tetikleniyordu — bloklar daha yok
+            // OLMADAN banner ekrana geliyordu. Referans olcumu (ARCHITECTURE.md,
+            // "Combo N metni patlamadan 410-510ms SONRA giriyor") ve kayit ayni
+            // seyi soyluyor: ovgu, yok olusun ARDINDAN gelmeli.
+            // Deger burada hesaplaniyor (kelime havuzu/dil/excitement burada
+            // hazir), GORUNURLUGU asagidaki temizleme coroutine'ine — hucreler
+            // bosaldiktan ~200ms sonraya, huzmenin parlak platosuna — erteleniyor.
+            val pendingPraiseText = "$praiseWord$praiseEmoji +$lineBonus"
+            val pendingWasCelebration = comboCount >= 2 || totalLinesCleared > 1
 
             sessionLinesCleared += totalLinesCleared
             when {
@@ -2382,7 +2404,19 @@ fun BlastTheBlocksGame(
             // (hucreler hala dolu, tahta guncellenmemis), o yuzden asil kesilecek
             // yer burasi — huzme/parcacik ise tahta zaten temizken oynuyor.
             // Nabiz yapisi korunuyor: keyframe'lerin hepsi bu degere oranli.
-            val anticipationMs = if (isBigClear) 480 else 320
+            //
+            // Faz 154: 320/480 -> 150/210. Referans olcumu (docs/ARCHITECTURE.md,
+            // "Sutun temizleme zaman cizelgesi") Block Blast'ta beklentinin
+            // SIFIR oldugunu soyluyor: bloklar t=0'da tek karede yok oluyor.
+            // Faz 107b/107c'de kullanici "takilmis gibi" deyince sureler
+            // kisaltilmisti ama YANLIS YER kisaldi — huzme (280ms'ye indirildi)
+            // oyuncuyu HIC bekletmiyor, tahta o sirada zaten temiz. Bekleten tek
+            // sey burasi: hucreler hala dolu, tahta guncellenmemis.
+            // Ayrica bu glow bilgi olarak da GEREKSIZ: hangi satirin patlayacagi
+            // parca birakilmadan ONCE zaten gosteriliyor (Faz 51 onizleme glow'u).
+            // Tamamen sifirlamadik — 150ms'lik tek keskin sarj "patlattim" vurusunu
+            // veriyor, 320ms'lik iki nabiz ise oyunu duraklatiyordu.
+            val anticipationMs = if (isBigClear) 210 else 150
             dragCoroutineScope.launch {
                 glowPulse.snapTo(0f)
                 // 2 nabiz: parla -> kis -> daha parla -> kis -> patlamadan hemen
@@ -2415,15 +2449,31 @@ fun BlastTheBlocksGame(
                 } else {
                     SoundManager.playBlast(soundEnabled)
                 }
-                // Faz 105: titresim tam patlama aninda, ses ile AYNI karede —
-                // glow bittikten sonra. Kendi icinde 2 satir esigini kontrol
-                // ediyor (tek satirda titresim yok), bu yuzden burada kosulsuz
-                // cagriliyor: ses/titresim ayrimi tek bir yerde, HapticManager'da.
+                // Titresim tam patlama aninda, ses ile AYNI karede — glow
+                // bittikten sonra. Kosulsuz cagriliyor: hangi kademede ne kadar
+                // titreyecegi tek bir yerde, HapticManager'da karar veriliyor.
+                // NOT (Faz 158): eski yorum "tek satirda titresim yok" diyordu —
+                // ARTIK YANLIS. Faz 153'te esik kaldirildi, tek satir da titriyor
+                // (Faz 158'de belirgin sekilde yukseltildi).
                 HapticManager.playClearHaptic(hapticsEnabled, totalLinesCleared, comboCount)
                 glowingClearCells = emptySet()
                 glowingRows = emptySet()
                 glowingCols = emptySet()
                 recentlyClearedCells = clearedIndices
+                // Faz 156: ovgu yazisi + sesi artik hucreler yok OLDUKTAN sonra,
+                // huzmenin parlak platosuna (~200ms) denk gelecek sekilde
+                // gosteriliyor. Deger yukarida (placeShape govdesinde) hesaplandi;
+                // burada yalnizca State'e yaziliyor ve LaunchedEffect(lastClearedText)
+                // banner'i acip solduruyor. Ses de ayni ana kaydi — patlama
+                // hissiyle senkron.
+                dragCoroutineScope.launch {
+                    delay(200)
+                    lastClearedText = pendingPraiseText
+                    lastClearWasCelebration = pendingWasCelebration
+                    if (pendingWasCelebration && soundEnabled) {
+                        SoundManager.playPraise(soundEnabled, excitement)
+                    }
+                }
                 // Faz 107: 350ms -> 110ms. Yok olus ANI olmali; 350ms'lik sonme
                 // patlamayi "eriyip gitme"ye ceviriyordu. Kalici gorsel gövde
                 // artik asagidaki isik huzmesi (690ms).
@@ -2461,7 +2511,22 @@ fun BlastTheBlocksGame(
                     // EASING LINEAR KALMALI: `bp` burada zaman tabani olarak
                     // kullaniliyor (cizim tarafinda cekirdek ilk %30'da soner,
                     // bant %18'den acilir). Easing degistirmek faz matematigini bozar.
-                    beamProgress.animateTo(1f, animationSpec = tween(280, easing = LinearEasing))
+                    // Faz 154: 280ms -> 620ms, referans olcumune (~690ms) dogru.
+                    // Faz 107b'de 690 -> 360 -> 280'e cekilmisti, gerekce
+                    // "kullanici takilmis gibi his veriyor dedi". Yeniden
+                    // olculdugunde bunun kok nedeni huzme DEGIL, ondan onceki
+                    // 320-480ms'lik beklenti glow'u cikti (yukariya bkz.) —
+                    // huzme calarken tahta zaten temiz ve oyuncu oynayabiliyor,
+                    // tipki referanstaki gibi. Beklenti 150ms'ye indigi icin
+                    // ritmin TOPLAM bekleten kismi yine de kisaldi:
+                    //   once:  320 bekleten + 280 serbest = 600
+                    //   simdi: 150 bekleten + 620 serbest = 770
+                    // Patlamanin gorsel GOVDESI iki kattan fazla uzadi ama
+                    // oyuncunun bekledigi sure yariya indi.
+                    // EASING LINEAR KALMALI: `bp` cizim tarafinda zaman tabani
+                    // (cekirdek ilk %30'da soner, bant %18'den acilir).
+                    // Easing degistirmek faz matematigini bozar.
+                    beamProgress.animateTo(1f, animationSpec = tween(620, easing = LinearEasing))
                     beamRows = emptySet()
                     beamCols = emptySet()
                 }
@@ -2517,8 +2582,17 @@ fun BlastTheBlocksGame(
                 // Faz 5: ParticlePool.acquire() ile yeni havuz sistemi.
                 particlePool.reset()
                 val clearedList = clearedIndices.toList()
-                val burstCount = (20 + (comboCount - 1) * 8 + (totalLinesCleared - 1) * 10)
-                    .coerceIn(20, MAX_BLAST_PARTICLES)
+                // Faz 151: kullanici "ekrandaki patlamalar daha cok olmali"
+                // dedi. Faz 107 sayiyi bilerek sabit tutmustu (referans olcumu
+                // ~15 kup + 2-3 yildiz) -- o karar burada urun karariyla
+                // degistiriliyor: taban 20 -> 34, kombo adimi 8 -> 12, ek satir
+                // adimi 10 -> 16, tavan 96 -> 128.
+                //   tek satir/kombo1: 20 -> 34 | 2 satir: 30 -> 50
+                //   3 satir + 2x kombo: 48 -> 78 | ust sinir: 96 -> 128
+                // Parcacik OMRU/pencere degismedi (950ms), yani ekran daha uzun
+                // sure degil daha YOGUN doluyor.
+                val burstCount = (34 + (comboCount - 1) * 12 + (totalLinesCleared - 1) * 16)
+                    .coerceIn(34, MAX_BLAST_PARTICLES)
                 repeat(burstCount) {
                     val index = clearedList[Random.nextInt(clearedList.size)]
                     val p = particlePool.acquire() ?: return@repeat
@@ -2536,11 +2610,21 @@ fun BlastTheBlocksGame(
                     // "yildiz patlamasi" gorunuyordu.
                     p.x = (index % gridSize) + 0.15f + Random.nextFloat() * 0.70f
                     p.y = (index / gridSize) + 0.15f + Random.nextFloat() * 0.70f
-                    // Yatay menzil bilerek dar: efekt katmani grid Card'inin
-                    // ICINDE, yani tahta sinirinda KIRPILIYOR. Referansta konfeti
-                    // tahtanin ~0.6 hucre disina tasiyor ama bizde tasan parcacik
-                    // gorunmeyecegi icin "kesilmis" gorunurdu (bkz. rapor notu).
-                    p.vx = (Random.nextFloat() - 0.5f) * 2.4f
+                    // Yatay menzil ESKIDEN bilerek dardi (2.4): efekt katmani
+                    // grid Card'inin ICINDEydi, yani tahta sinirinda KIRPILIYORDU
+                    // ve tasan parcacik "kesilmis" gorunurdu.
+                    // Faz 154: FX katmani Card'in KARDESI oldu (bkz. asagidaki
+                    // kok seviye Canvas), artik kirpilma yok.
+                    //
+                    // Menzil once 4.0'a cikarilmisti, sonra referans kontakt
+                    // sayfasi (docs/research/blockblast_sutun_patlamasi_25fps.png)
+                    // KARE KARE incelenince 3.0'a cekildi: gercek oyunda kupler
+                    // genis bir yelpazeye SACILMIYOR, agirlikla patlayan sutunun
+                    // ICINDE yukari suzuluyor; tasma "~0.6 hucre" mertebesinde
+                    // (ARCHITECTURE.md'nin kendi ifadesi de bu). 4.0 bizi
+                    // referanstan UZAKLASTIRIYORDU — dagilmis bir konfeti,
+                    // sutunlu bir huzme degil.
+                    p.vx = (Random.nextFloat() - 0.5f) * 3.0f
                     // Yukari yonelim (negatif = yukari).
                     p.vy = -(2.5f + Random.nextFloat() * 2.2f)
                     p.rot = Random.nextFloat() * 360f
@@ -2549,17 +2633,38 @@ fun BlastTheBlocksGame(
                     p.spin = if (p.kind == PK_DIAMOND || p.kind == PK_STREAK) {
                         (Random.nextFloat() - 0.5f) * 520f
                     } else 0f
+                    // Faz 154: kup/zerre boyutlari buyutuldu. Referansta huzmenin
+                    // icinde yukselen kupler ufak zerreler degil, blogun kendisi
+                    // gibi okunan belirgin parcalar. DIAMOND 0.20 -> 0.26,
+                    // MOTE 0.11 -> 0.13. Daire/serit/yildiz DEGISMEDI — onlar
+                    // zaten kivilcim rolunde.
                     p.size = when (p.kind) {
-                        PK_DIAMOND -> 0.20f
+                        PK_DIAMOND -> 0.26f
                         PK_CIRCLE -> 0.13f
                         PK_STREAK -> 0.10f
-                        PK_MOTE -> 0.11f
+                        PK_MOTE -> 0.13f
                         else -> 0.26f
                     }
                     // Hepsi ayni anda dogmaz: 0-300ms rastgele gecikme.
-                    p.delay = Random.nextFloat() * 0.30f
-                    // Kiymik omru 300-600ms.
-                    p.life = 0.30f + Random.nextFloat() * 0.30f
+                    //
+                    // Faz 154: yildizlar (PK_STAR) ISTISNA — referans zaman
+                    // cizelgesinde beyaz 4-uclu kivilcimlar 25-100ms araliginda,
+                    // yani konfetiden ONCE ve patlama anina yapisik cikiyor
+                    // (docs/ARCHITECTURE.md). Duz 0-300ms dagilimda yildizlarin
+                    // yarisi huzme aciliyorken geliyordu ve "patlama kivilcimi"
+                    // degil "geciken parlama" gibi duruyordu. Artik 0-80ms.
+                    p.delay = if (p.kind == PK_STAR) {
+                        Random.nextFloat() * 0.08f
+                    } else {
+                        Random.nextFloat() * 0.30f
+                    }
+                    // Kiymik omru: Faz 155'te 300-600ms -> 400-800ms.
+                    // Kayitta parcaciklar ~480ms'de tukeniyordu, yani huzmenin
+                    // genis/parlak evresi (bp 0.10-0.50 = 62-310ms) biter bitmez
+                    // ortalik bosaliyordu. Referansta kupler o evre BOYUNCA
+                    // yukselmeye devam ediyor (olcum: 230-510ms "bant icinde
+                    // kupler yukseliyor"). Omur uzatildi, SAYI degismedi.
+                    p.life = 0.40f + Random.nextFloat() * 0.40f
                     // Faz 106: cogunluk patlamayi TETIKLEYEN parcanin renginde,
                     // %30 hucrenin kendi renginde (doku korunuyor). Yildizlar
                     // additive ciziliyor, bu yuzden beyaz.
@@ -2632,16 +2737,46 @@ fun BlastTheBlocksGame(
                 // karakterimizi koruyup esigi yukselttik: eskiden 2 satir bile
                 // (totalLinesCleared > 1) sarsiyordu, yani neredeyse her kombo
                 // ekrani titretiyordu. Artik 3+ satir VEYA 3x+ kombo.
-                if (totalLinesCleared >= 3 || comboCount >= 3) {
-                    dragCoroutineScope.launch {
-                        // Eiserloh modeli: siddet DOGRUSAL degil, trauma^2 ile
-                        // artar — kucuk anlarda neredeyse hissedilmez, buyuk anda
-                        // vurur. Tavan 24f -> 20f'ye cekildi (urun karari: buyuk
-                        // an icin bile "bir tik azalt").
-                        val shakeSteps = maxOf(totalLinesCleared - 2, comboCount - 2).coerceIn(1, 4)
-                        val trauma = shakeSteps / 4f
-                        val amplitude = 20f * (0.35f + 0.65f * trauma * trauma)
-                        shakeOffset.snapTo(0f)
+                //
+                // Faz 151: kullanici geri bildirimi "tek patlatmada da ekran
+                // sallanmali, illa 3 defayi beklememeli." Esik KALDIRILDI --
+                // artik her temizleme sarsiyor, ama siddet kademeli: tek satir
+                // fiziksel olarak ~3.6px'lik bir "tik", 5+ satir/kombo yine
+                // 20px'lik tam vurus. Yani Faz 107'nin asil kaygisi (her kombo
+                // ekrani titretmesin) siddet egrisiyle korunuyor, olay
+                // yokluguyla degil: kucuk anin geri bildirimi VAR ama buyuk
+                // anla karistirilamaz. Kucuk anlarda salinim da kisaltildi
+                // (5 donus yerine 2), boylece tek satir temizlemesi 280ms
+                // boyunca ekrani mesgul etmiyor.
+                dragCoroutineScope.launch {
+                    // Eiserloh modeli: siddet DOGRUSAL degil, trauma^2 ile
+                    // artar — kucuk anlarda neredeyse hissedilmez, buyuk anda
+                    // vurur. Tavan 24f -> 20f'ye cekildi (urun karari: buyuk
+                    // an icin bile "bir tik azalt").
+                    // Faz 151: kademe artik "esigin ustunde kac adim"
+                    // degil, olayin kendi buyuklugu. 1 = tek satir/ilk
+                    // kombo, 5 = 5+ satir veya 5x kombo.
+                    val shakeSteps = maxOf(totalLinesCleared, comboCount).coerceIn(1, 5)
+                    // Faz 153: kullanici cihazda deneyip "ekran sallanmalarini
+                    // artir" dedi ve degerleri TEK TEK verdi (1 satir 5.6px,
+                    // 2 satir 6.6px, 3 satir/3x kombo 10px, 5+ yine 20px).
+                    // Faz 151'deki 20f*(0.18+0.82*trauma^2) formulu bu noktalari
+                    // birebir uretmiyordu (3. kademede 9.2px veriyordu), o yuzden
+                    // formul yerine ACIK TABLO kullaniliyor: istenen sayilar
+                    // tahminle degil dogrudan okunuyor ve bir dahaki his ayarinda
+                    // tek satir degistirmek yetiyor.
+                    // Egrinin sekli korundu: artis dogrusal degil, hizlanarak
+                    // (5.6 -> 6.6 -> 10 -> 14 -> 20), yani kucuk an hala kucuk.
+                    // 4. kademe (14) kullanici tarafindan verilmedi; 10 ile 20
+                    // arasinda ayni hizlanan egriye oturtuldu.
+                    val amplitude = SHAKE_AMPLITUDES_PX[shakeSteps - 1]
+                    shakeOffset.snapTo(0f)
+                    if (shakeSteps <= 2) {
+                        // Kucuk an: tek gidis-donus, ~100ms. Uzun salinim
+                        // burada "sarsinti" degil "titreme" gibi duruyordu.
+                        shakeOffset.animateTo(amplitude, animationSpec = tween(40))
+                        shakeOffset.animateTo(0f, animationSpec = tween(60))
+                    } else {
                         shakeOffset.animateTo(amplitude, animationSpec = tween(40))
                         shakeOffset.animateTo(-amplitude, animationSpec = tween(60))
                         shakeOffset.animateTo(amplitude * 0.6f, animationSpec = tween(60))
@@ -3387,11 +3522,44 @@ fun BlastTheBlocksGame(
                         val cell = size.width / gridSize
                         // Cekirdek ilk %30'da soner (690ms * 0.30 = ~207ms).
                         val core = (1f - bp / 0.30f).coerceIn(0f, 1f)
-                        // Bant %18'den itibaren acilir ve sona kadar soner.
-                        val wide = ((bp - 0.18f) / 0.82f).coerceIn(0f, 1f)
-                        val fade = 1f - wide
-                        val bandHalf = cell * (0.34f + 0.66f * wide) * 0.5f
-                        val bandAlpha = fade * fade * 0.55f
+                        // Bant %12'den itibaren acilir.
+                        val wide = ((bp - 0.12f) / 0.88f).coerceIn(0f, 1f)
+                        // Faz 154: bant tepe genisligi 1.0 -> 1.4 hucre.
+                        // Referans: "230-510ms arasi huzme GENIS yumusak altin
+                        // banda donusuyor". Huzme artik patlamanin ana govdesi
+                        // (620ms) oldugu icin tepe genisligi de buna gore
+                        // buyutuldu; baslangic genisligi (0.34) DEGISMEDI, yani
+                        // acilis hala dar ve keskin.
+                        val bandHalf = cell * (0.34f + 1.06f * wide) * 0.5f
+                        // Faz 155 — HATA DUZELTMESI (cihazda 25 fps kayittan
+                        // bulundu: docs/research/kaboom_row_strip.png).
+                        //
+                        // Eski hal: `fade = 1 - wide`, `bandAlpha = fade^2 * K`.
+                        // Yani GENISLIK ile PARLAKLIK ayni degiskene bagliydi ve
+                        // TERS yondeydi: bant genisledikce alfasi cokuyordu, en
+                        // genis oldugu anda neredeyse seffafti. Kayitta bu, koyu
+                        // lacivert tahtanin uzerinde parlayan bir altin bant
+                        // olarak DEGIL, mat bir zeytin-kahve leke olarak
+                        // goruntuluyordu; huzmenin son %40'i fiilen gorunmuyordu
+                        // (620ms tasarlanmis omrun gorunen kismi ~360ms).
+                        // Referansta ise (230-510ms) o evre patlamanin EN PARLAK
+                        // anidir.
+                        //
+                        // Yeni hal: parlaklik kendi ZARFINA sahip, genislikten
+                        // bagimsiz — hizli acilis, uzun plato, gec ve yumusak
+                        // sonme:
+                        //   bp < 0.10        -> 0'dan 1'e (ani tutusma)
+                        //   0.10 <= bp < 0.50 -> 1 (plato, bant hem GENIS hem PARLAK)
+                        //   bp >= 0.50       -> 1 - x^2 (once yavas, sonda hizli)
+                        val bandGlow = when {
+                            bp < 0.10f -> bp / 0.10f
+                            bp < 0.50f -> 1f
+                            else -> {
+                                val x = ((bp - 0.50f) / 0.50f).coerceIn(0f, 1f)
+                                1f - x * x
+                            }
+                        }
+                        val bandAlpha = bandGlow * 0.60f
                         val coreHalf = cell * 0.30f * 0.5f
                         val bandColor = clearAccentColor.copy(alpha = bandAlpha)
                         val coreColor = Color.White.copy(alpha = core)
@@ -3419,6 +3587,10 @@ fun BlastTheBlocksGame(
                         beamRows.forEach { r ->
                             val cy = (r + 0.5f) * cell
                             if (bandAlpha > 0.004f) {
+                                // Faz 155: BlendMode.Plus — bant artik koyu
+                                // zeminin uzerine BOYA gibi degil ISIK gibi
+                                // biniyor. Duz kaynak-uzeri cizimde dusuk alfali
+                                // altin, lacivertle karisip camur rengi veriyordu.
                                 drawRect(
                                     brush = Brush.verticalGradient(
                                         colors = listOf(clear, bandColor, clear),
@@ -3426,7 +3598,8 @@ fun BlastTheBlocksGame(
                                         endY = cy + bandHalf
                                     ),
                                     topLeft = Offset(0f, cy - bandHalf),
-                                    size = Size(size.width, bandHalf * 2f)
+                                    size = Size(size.width, bandHalf * 2f),
+                                    blendMode = BlendMode.Plus
                                 )
                             }
                             if (core > 0.004f) {
@@ -3445,6 +3618,7 @@ fun BlastTheBlocksGame(
                         beamCols.forEach { c ->
                             val cx = (c + 0.5f) * cell
                             if (bandAlpha > 0.004f) {
+                                // Faz 155: satir bandiyla ayni gerekce (Plus).
                                 drawRect(
                                     brush = Brush.horizontalGradient(
                                         colors = listOf(clear, bandColor, clear),
@@ -3452,7 +3626,8 @@ fun BlastTheBlocksGame(
                                         endX = cx + bandHalf
                                     ),
                                     topLeft = Offset(cx - bandHalf, 0f),
-                                    size = Size(bandHalf * 2f, size.height)
+                                    size = Size(bandHalf * 2f, size.height),
+                                    blendMode = BlendMode.Plus
                                 )
                             }
                             if (core > 0.004f) {
@@ -3628,62 +3803,13 @@ fun BlastTheBlocksGame(
                 // ile sarilmisti, yani animasyon degeri KOMPOZISYONDA okunuyordu ve
                 // burst boyunca bu Box her karede yeniden derleniyordu. Artik erken
                 // cikis draw lambda'sinin ICINDE.
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    // Faz 5: ParticlePool.getActiveCount() ile aktif parçacık sayısı
-                    val n = particlePool.getActiveCount()
-                    if (n == 0) return@Canvas
-                    val t = particleProgress.value * PARTICLE_WINDOW_S
-                    if (t >= PARTICLE_WINDOW_S) return@Canvas
-                    val cell = size.width / gridSize
-                    for (i in 0 until n) {
-                        val p = particlePool[i]
-                        val lt = t - p.delay
-                        if (lt <= 0f || lt >= p.life) continue
-                        val f = lt / p.life
-                        // Ucgen olcek rampasi: t=0.5'te tam boy, t=1'de sifir.
-                        // AYRI bir alpha fade YOK — duz alpha inisinden belirgin
-                        // sekilde daha canli duruyor (juice referansi).
-                        val grow = if (f < 0.5f) f * 2f else (1f - f) * 2f
-                        if (grow <= 0.02f) continue
-                        // Surtunme: yatay hiz omur boyunca sonuyor.
-                        val cx = (p.x + p.vx * lt * (1f - 0.30f * f)) * cell
-                        // Yercekimi: yukari cikip yavaslar, sonra duser.
-                        val cy = (p.y + p.vy * lt + 0.5f * PARTICLE_GRAVITY * lt * lt) * cell
-                        val sz = p.size * grow * cell
-                        if (sz < 0.6f) continue
-                        val center = Offset(cx, cy)
-                        when (p.kind) {
-                            PK_CIRCLE -> drawCircle(p.color, sz * 0.5f, center)
-                            PK_MOTE -> drawRect(
-                                color = p.color,
-                                topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
-                                size = Size(sz, sz)
-                            )
-                            PK_DIAMOND -> rotate(p.rot + p.spin * lt, center) {
-                                drawRect(
-                                    color = p.color,
-                                    topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
-                                    size = Size(sz, sz)
-                                )
-                            }
-                            PK_STREAK -> rotate(p.rot + p.spin * lt, center) {
-                                drawRect(
-                                    color = p.color,
-                                    topLeft = Offset(cx - sz * 0.5f, cy - sz * 1.1f),
-                                    size = Size(sz, sz * 2.2f)
-                                )
-                            }
-                            else -> withTransform({
-                                translate(cx, cy)
-                                rotate(p.rot, Offset.Zero)
-                                scale(sz, sz, Offset.Zero)
-                            }) {
-                                // Additive: kivilcim hizla beyaza patlar.
-                                drawPath(sparkStarPath, p.color, blendMode = BlendMode.Plus)
-                            }
-                        }
-                    }
-                }
+                // Faz 154: parcacik Canvas'i BURADAN TASINDI. Eskiden tahta
+                // Card'inin ICINDE oldugu icin parcaciklar tahta sinirinda
+                // KIRPILIYORDU; referans olcumu ise konfetinin tahtanin ~0.6
+                // hucre disina tastigini soyluyor (docs/ARCHITECTURE.md,
+                // "Mimari kisit: parcaciklar tahta disina tasiyor").
+                // Yeni yeri: kok Box'ta, Card'in KARDESI olan tam ekran Canvas
+                // (bu dosyada "KIRPILMAYAN FX KATMANI" diye arayin).
 
                 // Faz 107: tahta kenari MARQUEE (2x+ komboda tahtanin cevresinde
                 // yuruyen sari isik noktalari) burada bulunuyordu ve cihazda
@@ -3732,8 +3858,18 @@ fun BlastTheBlocksGame(
                         // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
                         Text(
                             text = lastClearedText,
-                            fontSize = (13 + comboCount.coerceAtMost(5) * 2).sp,
-                            fontWeight = FontWeight.Bold,
+                            // Faz 159: kullanici "tebrik yazilari oyunun genel
+                            // fontuyla ayni degil ve puntosu buyumeli" dedi.
+                            //  - Font AILESI zaten AppFontFamily'ydi (Baloo 2),
+                            //    ama AGIRLIK Bold (700) idi; oyunun basliklari
+                            //    (SONSUZ, mod adlari...) FontWeight.Black (900 =
+                            //    Baloo 2 ExtraBold, tombul hali) kullaniyor. Fark
+                            //    buydu — agirlik Black'e cekilip basliklarla
+                            //    ayni "karakter"e getirildi.
+                            //  - Punto buyutuldu: taban 13 -> 20, kombo adimi
+                            //    2 -> 3. Tek satir 15sp -> 23sp; 5x kombo 23 -> 35.
+                            fontSize = (20 + comboCount.coerceAtMost(5) * 3).sp,
+                            fontWeight = FontWeight.Black,
                             color = comboColor,
                             // Faz 115p: bkz. SCORE duzeltmesi yorumu.
                             style = TextStyle(
@@ -3905,6 +4041,91 @@ fun BlastTheBlocksGame(
         // onFirstMoveMade() cagrisi (asagida, checkGameOver/placeShape akisinda)
         // zararsizca kaliyor (DataStore'a "ilk hamle yapildi" yazmaya devam
         // ediyor), sadece GORUNUR ipucu kaldirildi.
+
+        // ============ KIRPILMAYAN FX KATMANI (Faz 154) ============
+        // Referans olcumu: konfeti tahtanin kenarinin ~0.6 hucre DISINA cikiyor.
+        // Bizim efekt katmanimiz grid Card'inin *icinde* bir overlay'di, yani
+        // kirpiliyordu — parcaciklar tahta kenarinda duvara carpmis gibi
+        // kesiliyordu ve yatay hizlari da tam bu yuzden bilerek dar tutulmustu.
+        // Cozum (plan Faz 4): efekt katmani Card'in KARDESI olmali.
+        //
+        // Neden zIndex(6f): tahtanin ve tepsinin USTUNDE ama surukleme hayaletinin
+        // (asagida) ve diyaloglarin (zIndex 20-30) ALTINDA. Parcacik oyuncunun
+        // parmagindaki parcayi kapatmamali.
+        //
+        // Neden ayri bir Canvas ve kompozisyon-okumasi yok: `particleProgress` ve
+        // `particlePool` SADECE draw lambda'sinin icinde okunuyor, yani burst
+        // boyunca hicbir recomposition tetiklenmiyor (Faz 1 ilkesi).
+        //
+        // Sarsinti: `gridOriginPx` tahtanin GERCEK kok konumu ve Card'a uygulanan
+        // shake offset'ini zaten iceriyor, bu yuzden parcaciklar tahtayla birlikte
+        // sallaniyor — ayrica shake eklemek cift sayardi.
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(6f)
+                .onGloballyPositioned { fxOriginPx = it.positionInRoot() }
+        ) {
+            val n = particlePool.getActiveCount()
+            if (n == 0) return@Canvas
+            val t = particleProgress.value * PARTICLE_WINDOW_S
+            if (t >= PARTICLE_WINDOW_S) return@Canvas
+            val cell = cellSizePx
+            if (cell <= 0f) return@Canvas
+            // Hucre birimi -> ekran koordinati. Parcacik koordinatlari grid'in
+            // sol-ust kosesine gore uretiliyor (bkz. burst kodu), bu katman ise
+            // tum ekrani kapliyor.
+            val ox = gridOriginPx.x - fxOriginPx.x
+            val oy = gridOriginPx.y - fxOriginPx.y
+            for (i in 0 until n) {
+                val p = particlePool[i]
+                val lt = t - p.delay
+                if (lt <= 0f || lt >= p.life) continue
+                val f = lt / p.life
+                // Ucgen olcek rampasi: t=0.5'te tam boy, t=1'de sifir.
+                // AYRI bir alpha fade YOK — duz alpha inisinden belirgin
+                // sekilde daha canli duruyor (juice referansi).
+                val grow = if (f < 0.5f) f * 2f else (1f - f) * 2f
+                if (grow <= 0.02f) continue
+                // Surtunme: yatay hiz omur boyunca sonuyor.
+                val cx = ox + (p.x + p.vx * lt * (1f - 0.30f * f)) * cell
+                // Yercekimi: yukari cikip yavaslar, sonra duser.
+                val cy = oy + (p.y + p.vy * lt + 0.5f * PARTICLE_GRAVITY * lt * lt) * cell
+                val sz = p.size * grow * cell
+                if (sz < 0.6f) continue
+                val center = Offset(cx, cy)
+                when (p.kind) {
+                    PK_CIRCLE -> drawCircle(p.color, sz * 0.5f, center)
+                    PK_MOTE -> drawRect(
+                        color = p.color,
+                        topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
+                        size = Size(sz, sz)
+                    )
+                    PK_DIAMOND -> rotate(p.rot + p.spin * lt, center) {
+                        drawRect(
+                            color = p.color,
+                            topLeft = Offset(cx - sz * 0.5f, cy - sz * 0.5f),
+                            size = Size(sz, sz)
+                        )
+                    }
+                    PK_STREAK -> rotate(p.rot + p.spin * lt, center) {
+                        drawRect(
+                            color = p.color,
+                            topLeft = Offset(cx - sz * 0.5f, cy - sz * 1.1f),
+                            size = Size(sz, sz * 2.2f)
+                        )
+                    }
+                    else -> withTransform({
+                        translate(cx, cy)
+                        rotate(p.rot, Offset.Zero)
+                        scale(sz, sz, Offset.Zero)
+                    }) {
+                        // Additive: kivilcim hizla beyaza patlar.
+                        drawPath(sparkStarPath, p.color, blendMode = BlendMode.Plus)
+                    }
+                }
+            }
+        }
 
         activeDragShape()?.let { draggedShape ->
             val liftPx = with(density) { dragLiftDp.toPx() }

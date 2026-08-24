@@ -15,6 +15,16 @@ data class LevelDefinition(
 )
 
 object LevelGenerator {
+    // Faz 151: Pro Mode hedef egrisi -- tek yerden yonetilir.
+    const val PRO_BASE_TARGET = 200
+    const val PRO_TARGET_STEP = 20
+    // Faz 151b: yumusak tavan. Duz +20 hic kirilmadigi icin cok ileri
+    // seviyelerde bolum suresi kontrolsuz uzuyordu (L100'de 2180 puan).
+    // L40'tan sonra adim yariya iniyor -- egri hala MONOTON artiyor, sadece
+    // egimi dusuyor; "artik zorlasmiyor" hissi olusmuyor.
+    const val PRO_TARGET_SOFT_CAP_LEVEL = 40
+    const val PRO_TARGET_STEP_AFTER_CAP = 10
+
     fun forLevel(number: Int): LevelDefinition {
         val safeNumber = number.coerceAtLeast(1)
         val targetScore = targetScoreForLevel(safeNumber)
@@ -50,11 +60,38 @@ object LevelGenerator {
     // Faz 110: Pro Mode de Career Mode stratejisini takip et — Level 1-10
     // binding phase: daha yiksekcek puan (250 base), Level 11+ ise seamless
     // (Level 10 = 700 + (n-10)*5).
+    //
+    // Faz 151: iki kademeli egri (250 +50/lv, sonra 700 +5/lv) TERK EDILDI.
+    // Kullanici geri bildirimi: "pro mode da puanlar cok fazla hizli artiyor,
+    // asiri reklam izlemek zorunda kalmaktan izlemezler; pro 200 puanla
+    // baslayip 20 20 artmali her levelda, zaten pronun zorlugu aslinda board
+    // bias olmamasindan geliyor."
+    //
+    // Teshis dogru: Pro'da tahta-farkindali pozitif onyargi YOK (bkz.
+    // BoomBlocksGame.generateNewTray -- helpfulIndices SADECE isComfortMode
+    // dalinda dolduruluyor), 1x1 agirligi 0 oldugu icin hic gelmiyor ve havuz
+    // seviye 6'da tamamen aciliyor. Yani Pro'nun zorlugu zaten PARCADAN geliyor;
+    // ustune hedef puani +50/seviye tirmandirmak ayni zorlugu ikinci kez
+    // fiyatlandiriyordu. Oyuncu Level 10'da 700 puana takilip ya birakiyor ya da
+    // rewarded "devam" reklamina MECBUR kaliyordu -- mecburi reklam izlenmez,
+    // oyun birakilir (bkz. Faz 64'un ayni yondeki karari).
+    //
+    // Yeni egri: 200 + (n-1)*20, L40'tan sonra adim +10 (yumusak tavan).
+    //   L1  250 -> 200      L10 700 -> 380      L20 750 -> 580
+    //   L30 800 -> 780 (kesisim ~L31)           L40 850 -> 980
+    //   L50 900 -> 1080     L100 1150 -> 1580
+    // Erken bolumler belirgin sekilde nefes aliyor. Faz 151'in ilk halinde adim
+    // hic kirilmiyordu ve L100'de hedef 2180'e cikiyordu -- oyuncu modu coktan
+    // benimsemis olsa bile tek bir bolum orada dakikalarca suruyordu. Yumusak
+    // tavanla egri hala her seviyede artiyor (yani "zorlasmayi birakti" hissi
+    // yok) ama ust uc 2180 yerine 1580'de kaliyor.
     fun forChallengeLevel(number: Int): LevelDefinition {
         val safeNumber = number.coerceAtLeast(1)
-        val targetScore = when {
-            safeNumber <= 10 -> 250 + (safeNumber - 1) * 50
-            else -> 700 + (safeNumber - 10) * 5
+        val targetScore = if (safeNumber <= PRO_TARGET_SOFT_CAP_LEVEL) {
+            PRO_BASE_TARGET + (safeNumber - 1) * PRO_TARGET_STEP
+        } else {
+            PRO_BASE_TARGET + (PRO_TARGET_SOFT_CAP_LEVEL - 1) * PRO_TARGET_STEP +
+                (safeNumber - PRO_TARGET_SOFT_CAP_LEVEL) * PRO_TARGET_STEP_AFTER_CAP
         }
         val shapePoolTier = when {
             safeNumber <= 2 -> 2

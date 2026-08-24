@@ -172,7 +172,18 @@ class BlastViewModel(application: Application) : AndroidViewModel(application) {
             // haline GELMIYOR; sadece adil oluyor.
             // Faz 149: 10 -> 25. Pro bolumu digerlerinden cok daha uzun
             // suruyor (hedef 250 ve +50/bolum, 1x1 yok, tam havuz bolum 9).
-            if (firstClear) repository.addTokens(25)
+            //
+            // Faz 151: 25 -> 15. Odulun kendisi degil, DAYANDIGI VARSAYIM
+            // degisti: Faz 151'de Pro hedef egrisi 250 +50/bolum'den
+            // 200 +20/bolum'e dusuruldu (bkz. LevelGenerator.forChallengeLevel),
+            // yani Pro bolumu ~2 kat kisaldi. 25 jeton oldugu gibi kalsaydi
+            // puan basina jeton verimi ikiye katlanir, Pro L10 civarinda Kolay
+            // Mod ile basa bas gelir ve "en verimli jeton yolu Pro'yu farmlamak"
+            // durumu olusurdu -- Faz 138 ve 149'un ACIKCA kacindigi sonuc.
+            // 15, kisalan bolum suresine gore Faz 149'un dengesini koruyor:
+            // Pro hala Kariyer/Kolay'dan (10) fazla verir cunku bolum hala daha
+            // uzun ve basarisizlik riski var, ama farm hedefi haline gelmez.
+            if (firstClear) repository.addTokens(15)
             repository.incrementMissionProgress(MissionType.COMPLETE_LEVELS, 1)
             repository.incrementMissionProgress(MissionType.SCORE_POINTS, score)
             // recordLevelComplete'teki ile ayni sayaci artiriyor — AppNavigation'daki

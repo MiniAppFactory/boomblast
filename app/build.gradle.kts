@@ -103,8 +103,26 @@ android {
     // yeniden dengelendi (baslangic 150 -> 100, Kariyer/Kolay bolum odulu
     // 5 -> 10, Pro 10 -> 25). Ayni ada farkli bir build vermek karisiklik
     // yaratirdi — bkz. 1.0.4 -> 1.0.5 ve 1.0.7 -> 1.0.8 ayni gerekce.
-    versionCode = 15
-    versionName = "1.1.1"
+    //
+    // Faz 151 (release): 15 -> 16, versionName 1.1.1 -> 1.1.2.
+    // Kullanici teyidi: "su anda Google'daki vc15 (1.1.1)" — yani vc15
+    // TUKENDI (yayinda), bir sonraki sayiya cikildi.
+    // versionName de artti cunku ICERIK degisti: her patlamada ekran
+    // sarsintisi (eskiden 3+ satir/kombo), daha yogun parcacik, Pro Mode
+    // hedef egrisi 250 +50/bolum -> 200 +20/bolum (L40 sonrasi +10) ve buna
+    // bagli Pro bolum odulu 25 -> 15. Ayni ada farkli bir build vermek
+    // karisiklik yaratirdi — bkz. 1.0.4 -> 1.0.5, 1.0.7 -> 1.0.8, 1.1.0 -> 1.1.1.
+    //
+    // Faz 154 (release): 16 -> 17, versionName 1.1.2 -> 1.1.3.
+    //
+    // Faz 160 (release): 17 -> 18, versionName 1.1.3 -> 1.1.4.
+    // Kullanici vc17'yi Play'e YUKLEDIGINI bildirdi ("vc17 yuklendi"), yani vc17
+    // TUKENDI — bkz. yukaridaki KURAL. Icerik: tablet titresim duzeltmesi —
+    // Galaxy Tab S7'de oyun titresimleri hic hissedilmiyordu; kok neden vibrate
+    // cagrisinda AudioAttributes (usage) eksikligiydi, ayrica darbe sureleri
+    // uzatildi (tablet motorunun donebilmesi icin).
+    versionCode = 18
+    versionName = "1.1.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

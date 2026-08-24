@@ -42,11 +42,15 @@ val NeonPurple = Color(0xFF8B5CF6)
 // KARİYER camgobegi (#06B6D4), PRO mor (#8B5CF6).
 val ComfortTeal = Color(0xFF2DD4BF)
 
-val BlockOrange = Color(0xFFF97316)
-val BlockBlue = Color(0xFF3B82F6)
-val BlockGreen = Color(0xFF22C55E)
-val BlockPink = Color(0xFFEC4899)
-val BlockYellow = Color(0xFFEAB308)
-val BlockPurple = Color(0xFFA855F7)
+// Faz 157: Block Blast referansina gore bloklar bir tik daha CANLI/parlak
+// yapildi (hue KORUNDU, sadece deger/doygunluk artti) — acilmis tahtada
+// "seker gibi" okusunlar. Tailwind-500 tonlariydi; referans bloklari biraz
+// daha doygun. Degisim modest: her biri ~%6-10 daha parlak.
+val BlockOrange = Color(0xFFFF7A1E)
+val BlockBlue = Color(0xFF3D8BFF)
+val BlockGreen = Color(0xFF2BD968)
+val BlockPink = Color(0xFFFF4FA3)
+val BlockYellow = Color(0xFFFFC01E)
+val BlockPurple = Color(0xFFB45CFF)
 
 
