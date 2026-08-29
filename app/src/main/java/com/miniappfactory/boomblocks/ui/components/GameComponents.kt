@@ -560,7 +560,29 @@ fun GameButton(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = sink, bottom = depth - sink)
+                // 🔴 URETIMDE COKME (2026-08-29, vc19/1.2.0, S22 Ultra):
+                //   java.lang.IllegalArgumentException: Padding must be non-negative
+                //   at androidx.compose.foundation.layout.PaddingElement.<init>
+                //
+                // `sink` bir ANIMASYON degeri (animateDpAsState), `depth` ise
+                // composable PARAMETRESI. Ikisi ayri kaynaklardan geliyor ve
+                // ayni karede senkron olmak zorunda degil: buton basiliyken
+                // yeniden bestelenip `depth` kuculurse (ya da ayni yuvada
+                // farkli `depth`li bir butona donusurse), `sink` bir sure eski
+                // BUYUK degerini tasir ve `depth - sink` NEGATIF olur.
+                // Compose negatif padding'i istisna ile reddediyor.
+                //
+                // Tetikleyen senaryo: yeterli jetonla SATIN AL'a basmak —
+                // satin alma aninda buton pasiflesiyor ve satir yeniden
+                // besteleniyor.
+                //
+                // Duzeltme: iki degeri de sinirla. Gorsel davranis degismiyor
+                // (normal akista zaten 0..depth araliginda), yalnizca imkansiz
+                // durum guvenli hale geliyor.
+                .padding(
+                    top = sink.coerceIn(0.dp, depth),
+                    bottom = (depth - sink).coerceAtLeast(0.dp)
+                )
                 // TASMA: sabit yukseklik YOK. Uzun IT/TR metni butonu uzatir,
                 // kirpmaz. Alt sinir 52dp — dokunma hedefi >= 48dp garantili.
                 .defaultMinSize(minHeight = minHeight / fitScale)

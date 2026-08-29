@@ -128,8 +128,13 @@ android {
     // bastan yazildi (ortak bilesen kiti, yeni varliklar, doygunlastirilmis
     // palet) ve ALL CLEAR diye YENI bir mekanik eklendi. Yama numarasi bunu
     // anlatmaz; 1.0.9 -> 1.1.0 ile ayni gerekce.
-    versionCode = 19
-    versionName = "1.2.0"
+    // 🔴 Faz 163 (ACIL HOTFIX): versionCode 19 -> 20, versionName 1.2.0 -> 1.2.1.
+    // vc19 URETIMDE COKUYORDU: yeterli jetonla "SATIN AL"a basinca
+    // IllegalArgumentException: Padding must be non-negative (GameButton'un
+    // basilma animasyonunda depth - sink negatife dusuyordu). Yama surumu,
+    // cunku icerik degismedi — yalnizca cokme giderildi.
+    versionCode = 20
+    versionName = "1.2.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
