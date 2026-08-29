@@ -288,7 +288,10 @@ fun OnboardingScreen(
                         }
                     }
 
-                    val step = onboardingSteps[currentStep]
+                    // Ikinci savunma hatti: yukaridaki clamp kok nedeni cozuyor,
+                    // bu satir ise ileride baska bir yol `currentStep`i bozarsa
+                    // cokme yerine son adimi gostersin diye duruyor.
+                    val step = onboardingSteps[currentStep.coerceIn(0, onboardingSteps.lastIndex)]
 
                     Box(
                         modifier = Modifier.size(116.dp),
@@ -402,7 +405,20 @@ fun OnboardingScreen(
 
                     if (currentStep < onboardingSteps.lastIndex) {
                         Button(
-                            onClick = { currentStep += 1 },
+                            // 🔴 Faz 165: sinirsiz artirma COKME uretiyordu.
+                            // Butonun GORUNURLUGU kompozisyon zamaninda karar
+                            // veriliyor (yukarida `currentStep < lastIndex`), ama
+                            // ARTIRMA olay-dagitim zamaninda oluyor. UI thread
+                            // takiliyken (ilk acilista consent + AdMob SDK yuklenirken
+                            // tam olarak boyle oluyor) ayni kareye iki dokunus
+                            // sigabiliyor: ikisi de eski gorunurluk kararina gore
+                            // dagitiliyor, `currentStep` son indeksi asiyor ve
+                            // asagidaki `onboardingSteps[currentStep]` patliyor.
+                            //   IndexOutOfBoundsException: Index 3 out of bounds
+                            //   for length 3
+                            // Her YENI KURULUM bu ekrandan geciyor, yani en pahali
+                            // yerdeki cokme.
+                            onClick = { currentStep = (currentStep + 1).coerceAtMost(onboardingSteps.lastIndex) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
