@@ -70,6 +70,7 @@ import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import androidx.compose.ui.platform.LocalDensity
 
 private data class OnboardingStep(
     val icon: ImageVector,
@@ -309,6 +310,7 @@ fun OnboardingScreen(
                         //   2. halka tek renk degil, ustte parlak altta koyu,
                         //   3. halkanin disinda KATMANLI parlama (Modifier.blur
                         //      API 31+ oldugu icin kullanilamiyor, minSdk 24).
+                        val medallionPx = with(LocalDensity.current) { 88.dp.toPx() }
                         Box(
                             modifier = Modifier
                                 .size(88.dp)
@@ -332,9 +334,19 @@ fun OnboardingScreen(
                                             lerp(step.accent, NeonGold, 0.55f),
                                             lerp(step.accent, Color.Black, 0.35f)
                                         ),
+                                        // Faz 166: bu uc sayi PIKSELDI ama kutu
+                                        // 88.dp, yani cihaz yogunluguyla buyuyor —
+                                        // isik kaynagi yogunluk arttikca kutunun
+                                        // ust-sol kosesine dogru kaciyordu.
+                                        // GameKit.IconMedallion'daki ayni hatanin
+                                        // elle kopyalanmis hali.
+                                        //
+                                        // Oranlar tasarimin yapildigi xxhdpi'deki
+                                        // (density 3, 88dp = 264px) gorunumu birebir
+                                        // korur: 30/264, 24/264, 150/264.
                                         // Isik ust-solda.
-                                        center = Offset(30f, 24f),
-                                        radius = 150f
+                                        center = Offset(medallionPx * 0.1136f, medallionPx * 0.0909f),
+                                        radius = medallionPx * 0.5682f
                                     )
                                 )
                                 .border(

@@ -508,10 +508,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlowRoute(
         moveTo(start.x, start.y)
         cubicTo(start.x, midY, end.x, midY, end.x, end.y)
     }
-    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 26f, cap = StrokeCap.Round)
-    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 13f, cap = StrokeCap.Round)
-    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f, cap = StrokeCap.Round)
-    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f, cap = StrokeCap.Round)
+    // Faz 166 -- BIRIM HATASI. Bu dort kalinlik HAM PIKSELDI, oysa yolun
+    // geometrisi (dugum konumlari, LEVEL_NODE_SIZE) dp tabanli, yani
+    // yogunlukla olcekleniyor. Sonucta yol, ekran yogunlugu arttikca diger
+    // her seye gore INCELIYORDU: xxxhdpi'de govde ~3.25dp kaliyor ve Faz
+    // 115m'in istedigi "kalin parlak yol" hicbir modern cihazda olusmuyordu.
+    //
+    // Oranlar tasarim tabani olarak alinan xxhdpi'ye (density 3) gore
+    // sabitlendi; boylece o yogunluktaki gorunum korunuyor, digerleri ona
+    // hizalaniyor.
+    //
+    // NOT: denetimdeki "yol dugumleri yutuyor" iddiasi DOGRULANMADI ve burada
+    // iddia edilmiyor — dugum yolun ustunde, opak ve 60dp.
+    val pathScale = density / 3f
+    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 26f * pathScale, cap = StrokeCap.Round)
+    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 13f * pathScale, cap = StrokeCap.Round)
+    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f * pathScale, cap = StrokeCap.Round)
+    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f * pathScale, cap = StrokeCap.Round)
     // 1) dis isima — genis, dusuk alfa
     drawPath(curve, color = color.copy(alpha = 0.22f), style = outerGlow)
     // 2) koyu taban — yolun "govdesi"
@@ -668,11 +681,22 @@ private fun LevelPathNode(
                     .drawBehind {
                         val glowAlpha = if (isCurrent) 0.45f else 0.28f
                         val glowPad = if (isCurrent) 14.dp.toPx() else 8.dp.toPx()
+                        // Faz 166 -- OLU KOD CANLANDI. `Brush.radialGradient`e
+                        // `radius` VERILMEMISTI; bu durumda gradyan cizim
+                        // alaninin `minDimension / 2`sinde, yani dugumun
+                        // yaricapinda (30dp) biter. Daire ise `+ glowPad` ile
+                        // 38/44dp'ye ciziliyordu. Yani gradyanin disinda kalan
+                        // halka tamamen Transparent, icinde kalan 30dp ise
+                        // hemen ardindan gelen opak `.background(nodeFill)` ile
+                        // ortuluyordu: `glowAlpha` ve `glowPad` fiilen OLU
+                        // koddu, hale hicbir cihazda gorunmuyordu.
+                        val glowRadius = size.minDimension / 2f + glowPad
                         drawCircle(
                             brush = Brush.radialGradient(
-                                colors = listOf(nodeAccent.copy(alpha = glowAlpha), Color.Transparent)
+                                colors = listOf(nodeAccent.copy(alpha = glowAlpha), Color.Transparent),
+                                radius = glowRadius
                             ),
-                            radius = size.minDimension / 2f + glowPad
+                            radius = glowRadius
                         )
                     }
                     .clip(CircleShape)

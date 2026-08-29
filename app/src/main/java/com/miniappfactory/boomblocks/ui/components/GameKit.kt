@@ -52,6 +52,7 @@ import kotlin.math.roundToInt
 import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
 import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.readableOn
+import androidx.compose.ui.platform.LocalDensity
 
 // Faz 158 — paylasilan oyun arayuz kiti (2. parca).
 //
@@ -195,6 +196,22 @@ fun IconMedallion(
     content: @Composable BoxScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(50)
+    // Faz 166 -- BIRIM HATASI DUZELTMESI.
+    //
+    // Asagidaki radyal gradyan `size.value`yi (Dp'nin ham sayisi, ornegin 56)
+    // dogrudan `Brush.radialGradient`e veriyordu; oysa oradaki `center` ve
+    // `radius` PIKSEL bekler. 20 satir yukaridaki `drawBehind` blogu ayni
+    // olcuyu `size.toPx()` ile DOGRU kullaniyor, yani hata ayni composable
+    // icinde tutarsizdi.
+    //
+    // Sonuc: isik kaynagi cihaz yogunluguyla KAYIYORDU. Tasarimin yapildigi
+    // xxhdpi'de (density 3) merkez dairenin ust-solunda; density 1.5'te ayni
+    // ham sayilar merkezin SAGINA dusuyordu. Madalyon Gorevler ekraninda
+    // kosulsuz ciziliyor, yani her kullanici goruyor.
+    //
+    // Carpanlar density 3'teki GORUNUMU birebir korumak icin secildi:
+    //   0.9 / 3 = 0.30,  0.7 / 3 = 0.233,  2.2 / 3 = 0.733
+    val medallionPx = with(LocalDensity.current) { size.toPx() }
     Box(
         modifier = modifier
             .size(size)
@@ -222,8 +239,8 @@ fun IconMedallion(
                             .copy(alpha = if (dimmed) 0.05f else 0.30f)
                     ),
                     // Isik kaynagi ust-sol: dairenin merkezi degil.
-                    center = Offset(size.value * 0.9f, size.value * 0.7f),
-                    radius = size.value * 2.2f
+                    center = Offset(medallionPx * 0.30f, medallionPx * 0.233f),
+                    radius = medallionPx * 0.733f
                 )
             )
             .border(

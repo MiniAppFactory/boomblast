@@ -240,7 +240,17 @@ fun GameEmblemLine(
     val density = LocalDensity.current
     // Kontur kalinligi yazi boyutuyla olcekleniyor: fontScale buyudugunde de
     // orani korunur. 0.11 -> 0.22, yani onceki halin iki kati.
-    val strokePx = with(density) { (fontSize.value * 0.22f).dp.toPx() }
+    //
+    // Faz 166 -- BIRIM HATASI DUZELTMESI. Burada `(fontSize.value * 0.22f).dp.toPx()`
+    // yaziyordu. `fontSize` bir sp degeri; sp -> px donusumu `density * fontScale`
+    // iken `Dp.toPx()` YALNIZCA density uygular. Yani sistem yazi boyutu
+    // buyutuldugunde HARF buyuyor, kontur/isima/3B govde ise sabit kaliyordu:
+    // fontScale 2.0'da efektif oran %22'den %11'e, yani Faz 159'un iki katina
+    // cikardigi degerin bastan haline donuyordu. Ustteki yorum tam tersini
+    // vaat ediyordu.
+    //
+    // `TextUnit.toPx()` fontScale'i de uygular, yani vaat artik tutuyor.
+    val strokePx = with(density) { fontSize.toPx() * 0.22f }
 
     val base = TextStyle(
         fontFamily = AppFontFamily,

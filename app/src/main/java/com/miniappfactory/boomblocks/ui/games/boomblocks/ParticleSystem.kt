@@ -47,11 +47,6 @@ class ParticlePool {
     }
 
     /**
-     * Render döngüsünde cizilecek aktif parçacıkları döndür.
-     */
-    fun getActiveParticles(): List<BlastParticle> = particles.slice(0 until activeCount)
-
-    /**
      * Aktif parçacık sayısını döndür (Canvas loop'ta kullanılır).
      */
     fun getActiveCount(): Int = activeCount
@@ -61,36 +56,30 @@ class ParticlePool {
      */
     operator fun get(index: Int): BlastParticle = particles[index]
 
-    /**
-     * Physics güncelleme — her karede bir kez çağrılır.
-     * Hücre birimi + yerçekim simülasyonu.
-     *
-     * @param deltaTimeMs kare süresi (millisaniye)
-     */
-    fun update(deltaTimeMs: Float) {
-        val deltaS = deltaTimeMs / 1000f
-        particles.slice(0 until activeCount).forEach { p ->
-            if (!p.active) return@forEach
-
-            // Yaş artır; maxAge aşılırsa deaktif et
-            p.life -= deltaS
-            if (p.life <= 0f) {
-                p.active = false
-                return@forEach
-            }
-
-            // Yerçekim + hava direnci
-            p.vy += PARTICLE_GRAVITY * deltaS  // aşağı ivme
-            p.vx *= 0.96f  // hava direnci (her frame'de %4 azalma)
-
-            // Konum güncelle
-            p.x += p.vx * deltaS
-            p.y += p.vy * deltaS
-
-            // Dönme
-            p.rot += p.spin * deltaS
-        }
-    }
+    // Faz 166 — KALDIRILDI: `update(deltaTimeMs)`.
+    //
+    // Ayni parcacigi IKI bagimsiz integrator suruyordu:
+    //
+    //   1) burasi, her karede p.x/p.y/p.vx/p.vy/p.rot/p.life'i ILERLETIYORDU;
+    //   2) BoomBlocksGame'deki cizim katmani ise ayni alanlari BASLANGIC degeri
+    //      kabul edip `lt` (parcacigin kendi gecen suresi) ile kapali formda
+    //      YENIDEN entegre ediyordu:
+    //        cx = p.x + p.vx * lt * (1 - 0.30f)
+    //        cy = p.y + p.vy * lt + 0.5f * g * lt * lt
+    //
+    // Sonuclari (denetimde dogrulandi):
+    //   - OMUR TAM YARIYA iniyordu: burasi `p.life`i azaltirken cizim onu sabit
+    //     toplam omur sanip `lt >= p.life` ile kesiyordu; ikisi ortada bulusuyor.
+    //   - Dikey hareket ~2x, donus 2x.
+    //   - `p.vx *= 0.96f` KARE BASINA oldugu icin sacilma EKRAN TAZELEME HIZINA
+    //     bagliydi: 120Hz'te 60Hz'in iki kati sonuyordu, yani ayni patlama S22
+    //     Ultra'da ve eski bir cihazda farkli goruunuyordu.
+    //
+    // Tek sahip olarak CIZIM secildi, cunku modeli zaten daha zengin ve dogru:
+    // parcacik basina `delay`, ucgen olcek rampasi, kapali-form yercekimi ve
+    // surtunme iceriyor; `particleProgress` (Animatable) tabanli oldugu icin de
+    // kare hizindan BAGIMSIZ. Havuz artik yalnizca depolama: her karede
+    // `particles.slice(...)` ile liste tahsis etmiyor.
 
     /**
      * Havuzun doldurulma yüzdesini döndür (debug için).

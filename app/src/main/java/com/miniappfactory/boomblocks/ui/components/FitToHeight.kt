@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.Density
  */
 val LocalFitScale = compositionLocalOf { 1f }
 
-private enum class FitSlot { Probe, Content }
+private enum class FitSlot { Probe, ScaledProbe, Content }
 
 /**
  * Icerigi kullanilabilir yuksekliğe sigdirir; sigdiramazsa kaydirmaya birakir.
@@ -117,27 +117,63 @@ fun FitToHeight(
             available.toFloat() / natural.toFloat()
         }
         val scale = rawScale.coerceIn(minScale, 1f)
-        // Alt sinirda bile sigmiyorsa kaydirmaya geri donulur.
-        val fits = natural * scale <= available + 0.5f
+
+        // Faz 166 — HATA DUZELTMESI. Burada `fits = natural * scale <= available`
+        // yaziyordu, yani sigip sigmadigi TAHMIN ediliyordu. Tahmin yanlisti:
+        //
+        //   duzen `scale` kadar kuculuyor,
+        //   metin ise `textScale = (1 + scale) / 2` kadar (erisilebilirlik payi),
+        //   ve textScale > scale.
+        //
+        // Yani metin, duzenden DAHA AZ kuculuyor. Yuksekligi cogunlukla metin
+        // belirleyen bir icerikte gercek yukseklik `natural * scale`'i asiyor,
+        // ama tahmin "sigdi" diyordu. `fits = true` ise "kaydirma YOK, chevron
+        // YOK" demek — icerik kirpiliyor ve oyuncunun kaydirma sansi da olmuyor.
+        // Loadout'ta bunun bedeli dogrudan "REKLAM IZLE" kartinin ulasilamaz
+        // hale gelmesi, yani kapanan bir jeton kazanma yolu.
+        //
+        // Cozum tahmini duzeltmek degil, TAHMINI BIRAKMAK: asagida icerik bir
+        // kez de GERCEK olcekli yogunlukla olculuyor ve karar o olcume gore
+        // veriliyor. minScale'de bile sigmama durumu da ayni olcumden dogal
+        // olarak cikiyor, ayri bir dala gerek kalmiyor.
+        val textScale = (1f + scale) / 2f
+        val scaledDensity = Density(
+            density = density * scale,
+            fontScale = fontScale * (textScale / scale)
+        )
+
+        val fits = if (scale >= 1f) {
+            natural <= available
+        } else {
+            val scaledProbe = subcompose(FitSlot.ScaledProbe) {
+                CompositionLocalProvider(
+                    LocalDensity provides scaledDensity,
+                    LocalFitScale provides scale
+                ) {
+                    content(true)
+                }
+            }.map {
+                it.measure(
+                    Constraints(
+                        minWidth = 0,
+                        maxWidth = constraints.maxWidth,
+                        minHeight = 0,
+                        maxHeight = Constraints.Infinity
+                    )
+                )
+            }
+            (scaledProbe.maxOfOrNull { it.height } ?: 0) <= available
+        }
 
         val placeables = if (scale >= 1f) {
             subcompose(FitSlot.Content) { content(fits) }
                 .map { it.measure(constraints) }
         } else {
-            // Metin duzenin yarisi kadar kuculur (erisilebilirlik payi).
-            val textScale = (1f + scale) / 2f
-            val baseDensity = density
-            val baseFontScale = fontScale
+            // Faz 166: olcumle cizim AYNI yogunluk nesnesini kullaniyor —
+            // ikisinin ayrisabilmesi zaten yukaridaki hatanin kaynagiydi.
             subcompose(FitSlot.Content) {
                 CompositionLocalProvider(
-                    LocalDensity provides Density(
-                        density = baseDensity * scale,
-                        // sp = density * fontScale oldugu icin, density zaten
-                        // `scale` kadar kucuktu; fontScale'i telafi carpaniyla
-                        // buyuterek metnin yalnizca `textScale` kadar
-                        // kuculmesini sagliyoruz.
-                        fontScale = baseFontScale * (textScale / scale)
-                    ),
+                    LocalDensity provides scaledDensity,
                     LocalFitScale provides scale
                 ) {
                     content(fits)

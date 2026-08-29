@@ -1734,6 +1734,14 @@ fun BlastTheBlocksGame(
     // Sürükle-bırak durumu: tepsideki hangi parça sürükleniyor, parmağın ekran üzerindeki
     // mutlak konumu ve ızgaranın piksel koordinatları — hedef hücreyi hesaplamak için gerekli.
     var draggedTrayIndex by remember { mutableIntStateOf(-1) }
+    // Faz 166: "su anda bir parmak GERCEKTEN surukluyor" bayragi.
+    //
+    // `draggedTrayIndex` bu is icin kullanilamaz: gecersiz birakma sonrasi geri
+    // yaylanma animasyonu bitene kadar (~300ms) set kaliyor, yani ona bakarak
+    // kapi koymak oyuncunun hizli yeniden tutusunu da engellerdi. Bu bayrak
+    // ise onDragStart/onDragEnd icinde SENKRON set/temizleniyor, animasyondan
+    // bagimsiz.
+    var trayDragInProgress by remember { mutableStateOf(false) }
     val dragOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     var dragPointerStartGlobal by remember { mutableStateOf(Offset.Zero) }
     var rootOriginPx by remember { mutableStateOf(Offset.Zero) }
@@ -2230,6 +2238,31 @@ fun BlastTheBlocksGame(
         // ve dev yazi YENI tahtanin uzerinde asili kalirdi — Faz 107b'de
         // `levelCompleteRevealed` icin duzeltilen hatanin AYNISI.
         allClearBonusText = ""
+        // Faz 166: YARIM KALAN PATLAMA EFEKTLERI de sifirlanmali.
+        //
+        // `checkGameOver()` ritual daha surerken diyalogu acabiliyor. Oyuncu
+        // "TEKRAR DENE"ye hemen basarsa tahta sifirlaniyordu ama huzmeler
+        // (620ms), sok dalgasi, "+N" balonlari (700ms), parcaciklar (950ms) ve
+        // sarsinti oldugu yerde kaliyor -- yeni ve BOS tahtanin uzerinde eski
+        // patlama oynuyordu.
+        //
+        // Ayni dosyada bu tuzak iki kez daha kuruldu ve iki kez duzeltildi:
+        // Faz 107b (levelCompleteRevealed) ve Faz 161 (allClearBonusText).
+        // Ucuncusu de burada kapaniyor.
+        beamRows = emptySet()
+        beamCols = emptySet()
+        shockRows = emptySet()
+        shockCols = emptySet()
+        scorePopups = emptyList()
+        radialFlash = null
+        particlePool.reset()
+        dragCoroutineScope.launch {
+            shakeOffset.snapTo(0f)
+            // Parcacik penceresi "bitmis" konuma alinir; aksi halde yeni
+            // tahtada eski burst kaldigi yerden cizilmeye devam eder.
+            particleProgress.snapTo(1f)
+        }
+        trayDragInProgress = false
         generateNewTray()
     }
 
@@ -2321,8 +2354,10 @@ fun BlastTheBlocksGame(
             val deltaTimeMs = (frameTimeNanos - lastFrameTimeNanos) / 1_000_000f
             lastFrameTimeNanos = frameTimeNanos
 
-            // Faz 5: Physics güncelleme
-            particlePool.update(deltaTimeMs)
+            // Faz 166: parcacik fizigi buradan KALDIRILDI. Cizim katmani ayni
+            // parcaciklari zaten kapali formda entegre ediyordu; ikisi birden
+            // calisinca omur yariya iniyor ve sacilma ekran tazeleme hizina
+            // bagli hale geliyordu. Ayrinti: ParticleSystem.kt.
 
             // Faz 4: Radyal flash'i guncelle (progress += delta)
             if (radialFlash != null) {
@@ -4302,19 +4337,46 @@ fun BlastTheBlocksGame(
                             )
                             .pointerInput(shape?.id) {
                                 if (shape == null) return@pointerInput
+                                // Faz 166 -- TOCTOU DUZELTMESI.
+                                //
+                                // Tepside 3 yuva, 3 AYRI `detectDragGestures` blogu var
+                                // ama surukleme durumu (`draggedTrayIndex`, `dragOffset`,
+                                // `dragPointerStartGlobal`) TEK ve global. Ikinci bir
+                                // parmak baska bir yuvaya basinca kendi onDragStart'i bu
+                                // global durumu eziyordu; birinci parmagin onDragEnd'i ise
+                                // KENDI `shape`ini (closure'dan) ama IKINCI parmagin
+                                // suruklemesinden hesaplanan hucreye yerlestiriyordu.
+                                // Yani parca yanlis hucreye isinlaniyor, ya da ikinci
+                                // parmagin suruklemesi oksuz kalip hic yerlesmiyordu.
+                                //
+                                // Cozum: ayni anda YALNIZCA BIR surukleme. Ikinci parmak
+                                // sessizce yok sayilir (`owned` false kalir), boylece o
+                                // blogun onDragEnd'i de birinci parmagin durumunu
+                                // temizleyemez.
+                                var owned = false
                                 detectDragGestures(
                                     onDragStart = { startOffset ->
                                         val coords = itemCoords ?: return@detectDragGestures
+                                        if (trayDragInProgress) return@detectDragGestures
+                                        owned = true
+                                        trayDragInProgress = true
                                         draggedTrayIndex = i
                                         dragPointerStartGlobal = coords.positionInRoot() + startOffset
                                         dragCoroutineScope.launch { dragOffset.snapTo(Offset.Zero) }
                                         SoundManager.playPickup(soundEnabled)
                                     },
                                     onDrag = { change, amount ->
+                                        // Sahiplenilmemis parmagin hareketi TUKETILMEZ:
+                                        // tuketmek, ust katmanlarin o dokunusu gormesini
+                                        // engellerdi.
+                                        if (!owned) return@detectDragGestures
                                         change.consume()
                                         dragCoroutineScope.launch { dragOffset.snapTo(dragOffset.value + amount) }
                                     },
                                     onDragEnd = {
+                                        if (!owned) return@detectDragGestures
+                                        owned = false
+                                        trayDragInProgress = false
                                         val hover = currentHoverCell()
                                         if (isCurrentDropValid() && hover != null) {
                                             placeShape(i, shape, hover.first, hover.second)
@@ -4327,6 +4389,9 @@ fun BlastTheBlocksGame(
                                         }
                                     },
                                     onDragCancel = {
+                                        if (!owned) return@detectDragGestures
+                                        owned = false
+                                        trayDragInProgress = false
                                         dragCoroutineScope.launch {
                                             dragOffset.animateTo(Offset.Zero, animationSpec = spring())
                                             draggedTrayIndex = -1

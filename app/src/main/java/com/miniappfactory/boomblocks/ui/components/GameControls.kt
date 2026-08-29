@@ -122,9 +122,21 @@ fun GameToggle(
                         listOf(lerp(trackColor, Color.Black, 0.18f), lerp(trackColor, Color.White, 0.12f))
                     )
                 )
+                // Faz 166: kenarlik rengi ANIMASYONSUZDU (`if (checked)`), oysa
+                // ray dolgusu ve tutamak `progress` uzerinden spring'e bagli.
+                // Anahtara basildigi an cerceve aninda "acik" renge zipliyor,
+                // govde ise yumusakca geciyordu — arada ~200-350ms suren melez
+                // bir hal olusuyordu: acik cerceve + kapali govde.
+                // (Denetimdeki "yarim saniye" tahmini ~2x abartiliydi.)
+                // Ayni `progress`e baglanarak cerceve de govdeyle birlikte
+                // geciyor.
                 .border(
                     width = 2.dp,
-                    color = if (checked) lerp(onColor, Color.White, 0.45f) else surfaces.panelBorder,
+                    color = lerp(
+                        surfaces.panelBorder,
+                        lerp(onColor, Color.White, 0.45f),
+                        progress
+                    ),
                     shape = shape
                 )
                 // Acikken disa vuran yumusak parlama — hedef mockup'ta toggle
