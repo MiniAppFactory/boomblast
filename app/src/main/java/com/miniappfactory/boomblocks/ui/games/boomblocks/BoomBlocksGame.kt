@@ -2,6 +2,7 @@ package com.miniappfactory.boomblocks.ui.games.boomblocks
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.res.painterResource
+import com.miniappfactory.boomblocks.ads.RetryAdPolicy
 import com.miniappfactory.boomblocks.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -1491,9 +1492,37 @@ fun BlastTheBlocksGame(
     // Kural (kullanici, 2026-08-16): skor 0 ise oyuncu daha hicbir sey
     // oynamamistir, bedelsiz cikar. Skor > 0 ise oynanmis bir tahta terk
     // ediliyor demektir; bu bir "bedava reset"tir ve reklam gosterilir.
+    // Faz 97: kullanici "reklam izle devam et 1 kez değil 3 kez olsun, rewarded
+    // admob gelir modeli daha iyi" dedi — Seviyeli+Pro Mode'daki bu hak artik
+    // Sonsuz Mod'daki endlessContinuesUsed/maxEndlessContinues ile AYNI desende
+    // bir sayac (eskiden tek kullanimlik bir boolean'di).
+    var continuesUsedInAttempt by remember { mutableStateOf(0) }
+    val maxRetryContinues = 3
+    // Faz 90: kullanici Sonsuz Mod'da "reklam izle devam et" hakkinin oturum
+    // basina SADECE 1 degil 4 kez sunulmasini istedi. Sonsuz Mod'a ozel ayri
+    // bir sayac (yukaridaki continuesUsedInAttempt Seviyeli/Pro Mode'a ozel).
+    var endlessContinuesUsed by remember { mutableStateOf(0) }
+    val maxEndlessContinues = 4
+
+    // Faz 164: yukaridaki dort sayac BURAYA tasindi (onceden ~130 satir
+    // asagidaydi). Sebep: `exitGame` artik hak durumunu okumak zorunda ve
+    // Kotlin'de bir yerel degisken kullanilmadan once TANIMLI olmali.
+    // Deger, davranis ve yorumlar aynen korundu — yalnizca konum degisti.
+
     fun exitGame() {
         val free = onBackWithoutAd
-        if (score <= 0 && free != null) free() else onBack()
+        // Faz 164 — kullanici bildirdi: "3 hakkimi kullandim, Pro'da HARITAYA
+        // DON deyince yine reklam cikti, ben bile kufur ettim."
+        //
+        // "TEKRAR DENE"deki muafiyet cikisa da uygulanmali: haklarini tuketen
+        // oyuncunun elinde yalnizca IKI yol kaliyor — bastan baslamak ya da
+        // haritaya donmek. Ikisi de zorunlu; ikisinin de uzerine reklam koymak
+        // oyuncuyu kapana kistirmak olur. Odullu reklamlar oyuncunun SECIMIYDI,
+        // bunlar degil.
+        val used = if (isEndless) endlessContinuesUsed else continuesUsedInAttempt
+        val max = if (isEndless) maxEndlessContinues else maxRetryContinues
+        val continuesExhausted = !RetryAdPolicy.shouldShowInterstitialOnRetry(used, max)
+        if ((score <= 0 || continuesExhausted) && free != null) free() else onBack()
     }
 
     BackHandler {
@@ -1618,18 +1647,7 @@ fun BlastTheBlocksGame(
     var showFirstMoveHint by remember { mutableStateOf(!hasMadeFirstMove) }
 
     var showContinueDialog by remember { mutableStateOf(false) }
-    // Faz 97: kullanici "reklam izle devam et 1 kez değil 3 kez olsun, rewarded
-    // admob gelir modeli daha iyi" dedi — Seviyeli+Pro Mode'daki bu hak artik
-    // Sonsuz Mod'daki endlessContinuesUsed/maxEndlessContinues ile AYNI desende
-    // bir sayac (eskiden tek kullanimlik bir boolean'di).
-    var continuesUsedInAttempt by remember { mutableStateOf(0) }
-    val maxRetryContinues = 3
     var isRequestingContinueAd by remember { mutableStateOf(false) }
-    // Faz 90: kullanici Sonsuz Mod'da "reklam izle devam et" hakkinin oturum
-    // basina SADECE 1 degil 4 kez sunulmasini istedi. Sonsuz Mod'a ozel ayri
-    // bir sayac (yukaridaki continuesUsedInAttempt Seviyeli/Pro Mode'a ozel).
-    var endlessContinuesUsed by remember { mutableStateOf(0) }
-    val maxEndlessContinues = 4
     val shakeOffset = remember { Animatable(0f) }
     val comboTextScale = remember { Animatable(1f) }
     val comboTextAlpha = remember { Animatable(1f) }
@@ -2081,6 +2099,41 @@ fun BlastTheBlocksGame(
             if (!clearDensestRowForContinue()) break
             guard++
         }
+
+        // Faz 164 — kullanici bildirdi: "reklam izle devam et deyince parcalar
+        // zor oldugu icin patlatmayabiliyor."
+        //
+        // Faz 127'den beri UC parcanin da SIGDIGI garanti. Ama SIGMAK ile
+        // PATLATMAK ayni sey degil: uc parca da yerlesebilir ve hicbiri satir
+        // tamamlamayabilir. O zaman oyuncu "reklam bosa gitti" hissediyor.
+        //
+        // NEDEN "patlatana kadar bosaltmaya devam et" DEGIL: tahta bosaldikca
+        // satir tamamlamak ZORLASIR (bos tahtada hicbir parca tamamlayamaz),
+        // yani o dongu sonlanmaz. Cozum ters yonde: tahta yerlestikten SONRA
+        // tepsideki BIR yuvayi, o tahtada satir tamamlayabilen bir parcayla
+        // degistiriyoruz. Kolay Mod'daki `forcedSlot` mekanizmasinin aynisi,
+        // ama burada tek seferlik ve yalnizca reklam sonrasi.
+        //
+        // Dagilim guvenligi: bu bir REJECTION SAMPLING degil — tepsi zaten
+        // uretildi ve dagilimi bozulmadi; yalnizca tek bir yuva degistiriliyor.
+        // Faz 101'de cozulen yanlilik geri gelmiyor.
+        //
+        // Boyle bir parca yoksa (tahta cok bosaldiysa) tepsi oldugu gibi kalir —
+        // zaten o durumda oyuncuya bol bol yer verilmis olur.
+        val helpful = (0 until SHAPE_PATTERNS.size)
+            .filter { wouldCompleteLineAnywhere(SHAPE_PATTERNS[it]) }
+        if (helpful.isNotEmpty() && trayShapes.isNotEmpty()) {
+            val alreadyClears = trayShapes.filterNotNull()
+                .any { wouldCompleteLineAnywhere(it.pattern) }
+            if (!alreadyClears) {
+                val slot = Random.nextInt(trayShapes.size)
+                val chosen = SHAPE_PATTERNS[helpful.random()]
+                val color = Random.nextInt(1, BLOCK_COLORS.size + 1)
+                trayShapes[slot] = BlockShape(
+                    id = nextShapeId++, pattern = chosen, colorIndex = color
+                )
+            }
+        }
     }
 
     // Faz 95c: kullanici "reklam izle devam et dediginde reklam yoksa oyunu
@@ -2195,7 +2248,15 @@ fun BlastTheBlocksGame(
     fun handleRetryWithAd() {
         if (isRequestingContinueAd) return
         if (continuesUsedInAttempt >= maxRetryContinues) {
-            onRetryInterstitial { resetGame() }
+            // Faz 164: burasi haklarin TUKENDIGI dal — oyuncunun bastan
+            // baslamaktan baska secenegi yok. Onceden burada zorunlu bir gecis
+            // reklami vardi; kaldirildi. Gerekce ve kapsam: `RetryAdPolicy`.
+            if (RetryAdPolicy.shouldShowInterstitialOnRetry(
+                    continuesUsedInAttempt, maxRetryContinues)) {
+                onRetryInterstitial { resetGame() }
+            } else {
+                resetGame()
+            }
             return
         }
         isRequestingContinueAd = true
@@ -5308,7 +5369,24 @@ fun BlastTheBlocksGame(
                             // bosluk burasiydi. Artik o da her sifirlamada interstitial
                             // gosteriyor (bkz. AppNavigation.kt Routes.ENDLESS_GAME'de
                             // onRetryInterstitial baglandi). No-fill'de yine gecer.
-                            onClick = { if (isEndless) onRetryInterstitial { resetGame() } else handleRetryWithAd() },
+                            //
+                            // Faz 164: ...ama haklarini TUKETEN oyuncu bunun disinda.
+                            // 4 odullu reklam izlemis ve baska secenegi kalmamis bir
+                            // oyuncuya, tahtayi sifirdan baslatmak icin 5. reklami
+                            // dayatmak "cikisa konmus gecis ucreti" oluyordu.
+                            // Karar `RetryAdPolicy`de, saf fonksiyon oldugu icin JVM
+                            // testiyle kilitli. Hakki KALAN oyuncu (devam teklifini
+                            // reddedip biten) muafiyetin disinda — davranisi degismedi.
+                            onClick = {
+                                if (isEndless) {
+                                    if (RetryAdPolicy.shouldShowInterstitialOnRetry(
+                                            endlessContinuesUsed, maxEndlessContinues)) {
+                                        onRetryInterstitial { resetGame() }
+                                    } else {
+                                        resetGame()
+                                    }
+                                } else handleRetryWithAd()
+                            },
                             enabled = !isRequestingContinueAd,
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                             shape = RoundedCornerShape(12.dp),
