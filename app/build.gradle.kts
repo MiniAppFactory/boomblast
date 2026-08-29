@@ -121,8 +121,15 @@ android {
     // Galaxy Tab S7'de oyun titresimleri hic hissedilmiyordu; kok neden vibrate
     // cagrisinda AudioAttributes (usage) eksikligiydi, ayrica darbe sureleri
     // uzatildi (tablet motorunun donebilmesi icin).
-    versionCode = 18
-    versionName = "1.1.4"
+    // Faz 162 (release): versionCode 18 -> 19. vc18 (1.1.4) production'da
+    // CANLI, yani tukendi.
+    //
+    // versionName 1.1.4 -> 1.2.0 (yama degil MINOR): bu surumde arayuz dili
+    // bastan yazildi (ortak bilesen kiti, yeni varliklar, doygunlastirilmis
+    // palet) ve ALL CLEAR diye YENI bir mekanik eklendi. Yama numarasi bunu
+    // anlatmaz; 1.0.9 -> 1.1.0 ile ayni gerekce.
+    versionCode = 19
+    versionName = "1.2.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
