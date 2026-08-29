@@ -64,6 +64,13 @@ import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
+import com.miniappfactory.boomblocks.ui.components.GameBackButton
+import com.miniappfactory.boomblocks.ui.components.GameTitle
+import com.miniappfactory.boomblocks.ui.components.GameCoinPill
+import com.miniappfactory.boomblocks.ui.components.GameIconButton
+import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
+import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
+import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
@@ -139,40 +146,20 @@ fun LevelMapScreen(
     // zaten koyu bir zeminde neredeyse hicbir sey). Ayrica ekran tamamen
     // duz `palette.background` — hicbir doku/derinlik yok, dugumler arasi
     // buyuk bosluklarla birlikte "bos/bitmemis" hissi yaratiyordu.
-    val mapAmbient = Brush.verticalGradient(
-        colors = listOf(
-            lerp(palette.background, accentColor, 0.10f),
-            palette.background,
-            lerp(palette.background, accentColor, 0.05f)
+    // Faz 158: elle kurulan gradyan + iki radyal leke, ortak
+    // `GameScreenBackground` bilesenine devredildi (gok gradyani + kose
+    // bloklari + parilti + zemin bandi). ONEMLI: `accentOverride` ile MODUN
+    // rengi geciliyor — Kariyer camgobegi, Pro turuncu, Kolay nane kaliyor;
+    // zemin bandi/gok tonu skin'in kendi paletinden turuyor. Yani hem mod
+    // kimligi hem skin kimligi korunuyor.
+    val surfaces = rememberGameSurfaces(skin, darkMode, listOf(accentColor, accentColor))
+    Box(modifier = Modifier.fillMaxSize()) {
+        GameScreenBackground(
+            skin = skin,
+            darkMode = darkMode,
+            accentOverride = listOf(accentColor, accentColor),
+            modifier = Modifier.matchParentSize()
         )
-    )
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(mapAmbient)
-    ) {
-        // Faz 115m: ChatGPT promptunun istedigi "faint radial cyan glow / faint
-        // purple accents / subtle center illumination" — TEK Canvas, ekran
-        // basina bir kez ciziliyor (LazyColumn'un icinde/ogesi DEGIL), yani
-        // sanallastirmaya ya da kaydirma performansina dokunmuyor.
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(NeonCyan.copy(alpha = 0.10f), Color.Transparent),
-                    radius = size.width * 0.55f
-                ),
-                radius = size.width * 0.55f,
-                center = Offset(size.width * 0.15f, size.height * 0.10f)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(NeonPurple.copy(alpha = 0.08f), Color.Transparent),
-                    radius = size.width * 0.6f
-                ),
-                radius = size.width * 0.6f,
-                center = Offset(size.width * 0.9f, size.height * 0.5f)
-            )
-        }
         // Faz 124: kullanici "aynısı Pro ve Kariyer modları için de geçerli"
         // dedi — ModeSelectScreen/TermsAcceptScreen/OnboardingScreen'deki AYNI
         // gezinen-oyun-parcasi katmani (bkz. `ui/common/WanderingPiecesBackground.kt`).
@@ -182,6 +169,7 @@ fun LevelMapScreen(
         WanderingPiecesBackground(modifier = Modifier.fillMaxSize())
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             LevelMapHeader(
+                surfaces = surfaces,
                 progress = progress,
                 language = language,
                 palette = palette,
@@ -269,6 +257,7 @@ fun LevelMapScreen(
 
 @Composable
 private fun LevelMapHeader(
+    surfaces: GameSurfaces,
     progress: PlayerProgress,
     language: AppLanguage,
     palette: BlastPalette,
@@ -295,18 +284,26 @@ private fun LevelMapHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f, fill = false)
         ) {
-            IconButton(
+            // Faz 158: seffaf IconButton yerine kabartmali oyun tusu.
+            GameBackButton(
                 onClick = onBack,
+                surfaces = surfaces,
+                contentDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
+                size = 40.dp,
                 modifier = Modifier.testTag("level_map_back_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
-                    tint = palette.textPrimary
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // Faz 161 — kullanici istegi: "modlari sectikten sonra gelen
+            // haritalardaki PRO MOD / KARIYER / KOLAY MOD yazilari menu
+            // ekranindaki gibi kabartmali olsun."
+            //
+            // Duz `Text` yerine `GameTitle`: menudeki baslik malzemesinin
+            // AYNISI (kalin kontur + gradyan dolgu + ic isik + golge). Boylece
+            // oyuncu mod kartindan haritaya gecerken ayni gorsel dile devam
+            // ediyor. `surfaces.accentText` ile saglanan acik/koyu tema
+            // kontrast guvencesi GameEmblem'in kendi icinde yasiyor.
+            GameTitle(
+                surfaces = surfaces,
                 text = if (isChallengeMode) {
                     language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO")
                 } else if (isComfortMode) {
@@ -320,10 +317,12 @@ private fun LevelMapHeader(
                     language.pick(tr = "KARİYER", en = "CAREER", it = "CARRIERA", fr = "CARRIÈRE", es = "CARRERA")
                 },
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                color = accentColor,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                // KIRPMA DEGIL SARMA: tek satirda "KOLAY M..." diye kesiliyordu.
+                // Kullanici: "boyle durumlarda kirpmak degil wrap yapsak daha
+                // iyi." En uzun cevirilerde (MODALITA COMFORT, MODE CONFORT)
+                // ikinci satira insin, bilgi kaybolmasin.
+                maxLines = 2,
+                textAlign = TextAlign.Start,
                 modifier = Modifier.weight(1f, fill = false)
             )
         }
@@ -335,61 +334,40 @@ private fun LevelMapHeader(
         // "kupa ile disli arasinda cok bosluk var"). Dokunma hedefi 40dp'ye
         // dusuruldu ve Spacer'lar kaldirildi/daraltildi — grup artik saga
         // yapisik, sikistirilmis tek blok halinde duruyor.
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Token balance pill
-            Surface(
-                color = NeonGold.copy(alpha = 0.18f),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .testTag("level_map_token_pill")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.icon_coin),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${progress.tokens}",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = NeonGold
-                    )
-                }
-            }
+        // Faz 158: jeton kapsulu ve iki tus artik ortak kitten
+        // (`GameCoinPill` / `GameIconButton`) — mod secim ekranindaki ust
+        // barla AYNI malzeme. Faz 72'deki "kupa ile disli arasinda cok
+        // bosluk var" sikayeti korunuyor: aralar 4dp, grup saga yapisik.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            GameCoinPill(
+                amount = "${progress.tokens}",
+                surfaces = surfaces,
+                fontSize = 13.sp,
+                iconSize = 16.dp,
+                modifier = Modifier.testTag("level_map_token_pill")
+            )
 
-            Spacer(modifier = Modifier.width(2.dp))
-
-            IconButton(
+            GameIconButton(
+                icon = Icons.Default.EmojiEvents,
+                contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
                 onClick = onOpenMissions,
-                modifier = Modifier
-                    .size(40.dp)
-                    .testTag("level_map_missions_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.EmojiEvents,
-                    contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
-                    tint = NeonPurple
-                )
-            }
+                surfaces = surfaces,
+                accent = NeonPurple,
+                size = 38.dp,
+                modifier = Modifier.testTag("level_map_missions_button")
+            )
 
-            IconButton(
+            GameIconButton(
+                icon = Icons.Default.Settings,
+                contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
                 onClick = onOpenSettings,
-                modifier = Modifier
-                    .size(40.dp)
-                    .testTag("level_map_settings_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
-                    tint = palette.textPrimary
-                )
-            }
+                surfaces = surfaces,
+                size = 38.dp,
+                modifier = Modifier.testTag("level_map_settings_button")
+            )
         }
     }
 }

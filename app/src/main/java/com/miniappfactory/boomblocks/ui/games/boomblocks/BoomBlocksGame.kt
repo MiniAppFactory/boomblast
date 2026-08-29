@@ -97,6 +97,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -104,6 +105,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -188,6 +190,77 @@ const val PARTICLE_GRAVITY = 8f
 // (kademe 0) en buyuk goreli artisi aldi (5.6 -> 9.0). Hizlanan egri korundu.
 //   5.6 -> 9.0  |  6.6 -> 11  |  10 -> 15  |  14 -> 20  |  20 -> 28
 val SHAKE_AMPLITUDES_PX = floatArrayOf(9f, 11f, 15f, 20f, 28f)
+
+// ============ Faz 161: GOKKUSAGI SUPURME (madde 4) ============
+// Handover'daki acik karar ("huzme sabit ALTIN mi, patlatan parcanin rengi mi")
+// UCUNCU secenekle kapatildi: rakip kayitta huzme ne sabit altin ne tek renk —
+// satir boyunca AKAN cok renkli bir gradyan. Bu palet tahtadaki BLOCK_COLORS'in
+// ta kendisi (ayni oyunun renkleri, yabanci bir gokkusagi degil) + baslangicta
+// ve sonda beyaz: beyaz uclar bandin kenarlarini "isik" gibi acar/kapatir,
+// ortadaki renkler akarak supurme hissini verir.
+//
+// SIRA ONEMLI: renk tonu (hue) boyunca ilerliyor (turuncu -> sari -> yesil ->
+// mavi -> mor -> pembe), boylece akarken renkler birbirine dogal geciyor;
+// karisik sirada "titreme" gibi duruyordu.
+//
+// Faz 155'te bulunan hata (dusuk alfali altin + koyu lacivert = mat camur leke)
+// bu palette de gecerli — bu yuzden cizim BlendMode.Plus ile yapiliyor, DEGISMEDI.
+val BEAM_SWEEP_COLORS = listOf(
+    Color.White,
+    BlockOrange,
+    BlockYellow,
+    BlockGreen,
+    BlockBlue,
+    BlockPurple,
+    BlockPink,
+    Color.White
+)
+// Huzmenin omru boyunca gokkusaginin satir boyunca kac "tur" akacagi.
+// 1.0 = tam bir palet boyu kayar. 1.6 secildi: gozle takip edilebilecek kadar
+// yavas (2.5'te renkler stroboskopik titriyordu), ama akis acikca fark ediliyor.
+const val BEAM_SWEEP_CYCLES = 1.6f
+// Supurme BASI: satir boyunca ilerleyen parlak nokta. Referansta patlama
+// aninda bir isik satirin bir ucundan otekine kosuyor. Sure = huzmenin ilk
+// %45'i (620ms * 0.45 = ~280ms); daha uzunu "kosu" degil "surunme" oluyordu.
+const val BEAM_HEAD_PHASE = 0.45f
+// Basin yarim genisligi, hucre cinsinden — 1.1 hucre, yani bir blok boyundan
+// biraz genis bir isik topagi.
+const val BEAM_HEAD_HALF_CELLS = 1.1f
+// Supurme basinin sinus zarfi icin. `kotlin.math.PI` Double'dir ve sicak cizim
+// dongusunde her cagride kutu-acma (boxing) yapmamak icin Float sabiti tutuluyor.
+const val BEAM_HEAD_PI = 3.14159265f
+// Bandin/cekirdegin DIKEY yumusakligi artik gradyan brush'la degil, ic ice
+// gecmis duz dikdortgenlerin additive toplamiyla uretiliyor (bkz. cizim
+// tarafindaki gerekce: kare basina 32 Brush tahsisi -> 4). Bu carpanlar
+// katmanlarin yarim-yukseklikleridir; esit alfali 4 kat, merkezde 4a kenarda a
+// olan bir merdiven verir ve gozle duz rampadan ayirt edilmez.
+// `floatArrayOf` top-level `val` — kare basina tahsis edilmez, bir kez kurulur.
+val BEAM_BAND_LAYER_FACTORS = floatArrayOf(1.0f, 0.72f, 0.46f, 0.22f)
+// Kat basina alfa. 4 kat x 0.26 = merkezde ~1.04 x bandAlpha, yani eski
+// gradyanin TEPE degeriyle ayni mertebe — bant bilerek parlaklastirilmadi.
+const val BEAM_BAND_LAYER_ALPHA = 0.26f
+const val BEAM_CORE_LAYER_ALPHA = 0.26f
+
+// ============ Faz 161: ALL CLEAR (madde 3) ============
+// Tam ekran altin isinlarin sayisi. 14: 12'de isinlar arasi bosluk fazla
+// "carkifelek" gibi duruyordu, 20'de ekran altin bir diske donusup tahtayi
+// okunamaz yapiyordu.
+const val ALL_CLEAR_RAY_COUNT = 14
+// Kutlama suresi (ms). Parcacik penceresinden (950) UZUN secildi ki isinlar
+// molozun son karesinden sonra da bir an daha yasasin — "kapanis" hissi.
+const val ALL_CLEAR_DURATION_MS = 1250
+// Kutlamada havuzdan ek alinacak parcacik sayisi. ParticlePool kapasitesi 200,
+// normal patlama en fazla MAX_BLAST_PARTICLES (128) kullanir; 64 ekleyince
+// tavan 192 < 200 — yani havuz TASMIYOR ve tek bir yeni nesne bile
+// tahsis edilmiyor (acquire() null donerse zaten sessizce atlaniyor).
+const val ALL_CLEAR_PARTICLES = 64
+// NOT: "ALL CLEAR" yazisi da tahtanin ORTASINDA duruyor, yani ovgu banner'iyla
+// (madde 2'den sonra o da ortada) ayni pikselleri paylasirdi. Cozum kod
+// tarafinda: ALL CLEAR olan hamlede ovgu banner'i HIC gosterilmiyor (ALL CLEAR
+// zaten daha buyuk bir mesaj ve kendi bonus rakamini tasiyor). Ovgu SESI
+// calmaya devam ediyor — ses kanali bos, orayi susturmak icin sebep yok.
+// Ovgu banner'inin kendi omru (900ms bekleme + 300ms sonme, Faz 115j) HIC
+// DEGISTIRILMEDI.
 
 const val PK_DIAMOND = 0
 const val PK_CIRCLE = 1
@@ -989,11 +1062,11 @@ data class BlockThemeOption(
 val BLOCK_THEMES = listOf(
     BlockThemeOption(
         id = "CLASSIC",
-        titleTr = "Klasik 3D Kabartma",
-        titleEn = "Classic 3D Bevel",
-        titleIt = "Rilievo 3D Classico",
-        titleFr = "Relief 3D Classique",
-        titleEs = "Relieve 3D Clásico",
+        titleTr = "3D Kabartma",
+        titleEn = "3D Bevel",
+        titleIt = "Rilievo 3D",
+        titleFr = "Relief 3D",
+        titleEs = "Relieve 3D",
         icon = "🧊",
         descriptionTr = "3D kabartmalı kristal bloklar",
         descriptionEn = "3D embossed crystal blocks",
@@ -1019,11 +1092,11 @@ val BLOCK_THEMES = listOf(
     BlockThemeOption(
         id = "SWEETS",
         tokenPrice = 100,
-        titleTr = "Şekerleme & Tatlı",
-        titleEn = "Sweets & Donuts",
-        titleIt = "Dolci & Ciambelle",
-        titleFr = "Bonbons & Donuts",
-        titleEs = "Dulces y Donuts",
+        titleTr = "Şekerleme",
+        titleEn = "Sweets",
+        titleIt = "Dolci",
+        titleFr = "Bonbons",
+        titleEs = "Dulces",
         icon = "🍩",
         descriptionTr = "Donut, çikolata, bisküvi ve şeker",
         descriptionEn = "Donut, chocolate, cookie, candy",
@@ -1353,6 +1426,15 @@ fun BlastTheBlocksGame(
     var beamRows by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var beamCols by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val beamProgress = remember { Animatable(0f) }
+    // Faz 161 (madde 3): ALL CLEAR. Kodda daha once `allClear/perfectClear/
+    // boardClear` diye HICBIR sey yoktu — rakibin en guclu ani bizde tamamen
+    // eksikti. `allClearBonusText` bos degilken kutlama ekranda demektir
+    // (isinlar + yogun parcacik + tahta ortasinda dev yazi).
+    // Metin State'te tutuluyor cunku bonus rakami (ALL_CLEAR_BONUS *
+    // scoreMultiplier) Pro Mode'da farkli.
+    var allClearBonusText by remember { mutableStateOf("") }
+    val allClearProgress = remember { Animatable(0f) }
+
     var scorePopups by remember { mutableStateOf<List<ScorePopup>>(emptyList()) }
     val popupProgress = remember { Animatable(0f) }
 
@@ -1426,7 +1508,30 @@ fun BlastTheBlocksGame(
     // Faz 22: skor degisince anlik ziplama yerine eski degerden yeniye SAYARAK
     // artiyor + kisa bir "pop" (kullanicinin degerlendirmesi: rakip oyunlarda
     // standart olan bu geri bildirim bizde yoktu).
-    val animatedScore by animateIntAsState(targetValue = score, animationSpec = tween(450), label = "scoreCountUp")
+    //
+    // Faz 161 (1/4) — ODUL ANLATISI HIZALAMASI. Eski hal: `tween(450)`, duz
+    // (varsayilan FastOutSlowIn) egri. Patlamanin gorsel govdesi ise cok daha
+    // uzun: parcacik penceresi PARTICLE_WINDOW_MS = 950ms, huzme 620ms. Yani
+    // skor, moloz DAHA HAVADAYKEN (450ms'de) susuyordu — oyuncu "patlama
+    // devam ediyor ama odul bitti" hissi aliyordu, odul anlatisi yarida
+    // kesiliyordu. Rakip kayitta sayac patlama BOYUNCA tirmaniyor
+    // (124->144->156->164->168->169, ~1sn).
+    //
+    // Iki degisiklik:
+    //  1) Sure 450 -> PARTICLE_WINDOW_MS (950). Sabite baglandi, boylece
+    //     parcacik penceresi bir daha ayarlanirsa sayac otomatik hizali kalir.
+    //  2) Easing FastOutSlowIn -> EaseOutQuartBoom. FastOutSlowIn BASTA da
+    //     yavastir; sayacin ilk 150ms'i neredeyse hic ilerlemiyordu, yani
+    //     vurus aninda sayi donmus gorunuyordu. easeOutQuart hizli baslayip
+    //     yavaslar — "sayiyor" hissini veren egri budur ve buyuk patlamalarda
+    //     rakamlar ONCE hizla akip SONRA son basamaklarda oyalanir.
+    //     Yan fayda: patlamasiz kucuk hamlelerde (+4 gibi) artis ilk ~250ms'de
+    //     fiilen tamamlanir, yani 950ms'lik pencere kucuk anlari yavaslatmaz.
+    val animatedScore by animateIntAsState(
+        targetValue = score,
+        animationSpec = tween(durationMillis = PARTICLE_WINDOW_MS, easing = EaseOutQuartBoom),
+        label = "scoreCountUp"
+    )
     val scoreScale = remember { Animatable(1f) }
     LaunchedEffect(score) {
         scoreScale.snapTo(1.2f)
@@ -2054,6 +2159,11 @@ fun BlastTheBlocksGame(
         continuesUsedInAttempt = 0
         endlessContinuesUsed = 0
         lastClearedText = ""
+        // Faz 161: ALL CLEAR kutlamasi da sifirlanmali. Aksi halde kutlama
+        // suresi (1250ms) icinde yapilan bir "TEKRAR DENE"den sonra isinlar
+        // ve dev yazi YENI tahtanin uzerinde asili kalirdi — Faz 107b'de
+        // `levelCompleteRevealed` icin duzeltilen hatanin AYNISI.
+        allClearBonusText = ""
         generateNewTray()
     }
 
@@ -2370,6 +2480,28 @@ fun BlastTheBlocksGame(
             rowsToClear.forEach { r -> for (c in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
             colsToClear.forEach { c -> for (r in 0 until gridSize) clearedIndices.add(r * gridSize + c) }
 
+            // ===== Faz 161 (madde 3): ALL CLEAR TESPITI =====
+            // Tahta bu hamleden sonra TAMAMEN bosaliyor mu? Board'un fiilen
+            // sifirlanmasi asagidaki coroutine'de ~150-210ms sonra oluyor, ama
+            // sonucu SIMDIDEN bilebiliyoruz: dolu kalan tek bir hucre bile
+            // temizlenecekler kumesinin DISINDA degilse tahta bosalacak demektir.
+            //
+            // Neden senkron (coroutine'de degil): bonus puani burada eklemek
+            // zorundayiz, cunku hemen asagidaki seviye-tamamlama kontrolu
+            // (`score >= targetScore`) placeShape govdesinde SENKRON calisiyor.
+            // Bonusu coroutine'e ertelemek, ALL CLEAR ile hedefi geçen oyuncunun
+            // bolumu O hamlede bitirememesine yol acardi.
+            // Kural SAF bir fonksiyonda (AllClearRules.kt) duruyor — bu dosyanin
+            // geri kalanindan farkli olarak birim testiyle dogrulanabiliyor
+            // (bkz. AllClearRulesTest). Yeni bir SKOR KAYNAGI ekliyoruz; onu
+            // sadece cihazda goz kararıyla dogrulamak yeterli degil.
+            val isAllClear = willBoardBeAllClear(board, clearedIndices)
+            // Bonus, diger tum puan kaynaklariyla AYNI desende scoreMultiplier'a
+            // tabi (Pro Mode 1.5x). Puanlama kurallarindan hicbiri degismedi;
+            // bu SADECE yeni bir kaynak.
+            val allClearBonus = if (isAllClear) allClearBonusFor(scoreMultiplier) else 0
+            if (isAllClear) score += allClearBonus
+
             // Once hucreler HALA DOLUYKEN kisa bir neon glow gosterilir ("patlamaya
             // kilitlendi" hissi, Block Blast referansi — kullanici geri bildirimi:
             // "3'lü patlamak üzereyken glow efekti falan ekliyor"). Gercek temizleme
@@ -2468,8 +2600,15 @@ fun BlastTheBlocksGame(
                 // hissiyle senkron.
                 dragCoroutineScope.launch {
                     delay(200)
-                    lastClearedText = pendingPraiseText
-                    lastClearWasCelebration = pendingWasCelebration
+                    // Faz 161 (madde 3): ALL CLEAR olan hamlede ovgu YAZISI
+                    // gosterilmiyor — ikisi de artik tahtanin ORTASINDA
+                    // duruyor (madde 2) ve ust uste binerlerdi. ALL CLEAR
+                    // hem daha buyuk bir mesaj hem kendi bonus rakamini
+                    // tasiyor. Ovgu SESI kesilmedi: ses kanali bos.
+                    if (!isAllClear) {
+                        lastClearedText = pendingPraiseText
+                        lastClearWasCelebration = pendingWasCelebration
+                    }
                     if (pendingWasCelebration && soundEnabled) {
                         SoundManager.playPraise(soundEnabled, excitement)
                     }
@@ -2676,6 +2815,51 @@ fun BlastTheBlocksGame(
                 }
                 // Faz 5: ParticlePool kendi state'ini yönetiyor, activeParticles atıyor yok
 
+                // ===== Faz 161 (madde 3): ALL CLEAR ek parcacik dalgasi =====
+                // Ayri bir parcacik sistemi KURULMADI — mevcut havuzdan ek
+                // parcacik aliniyor, boylece:
+                //   - sicak dongude tek bir tahsis yok (havuz zaten 200'luk),
+                //   - ayni `particleProgress` zaman tabanini paylasiyorlar,
+                //     yani normal molozla AYNI karede dogup birlikte yasiyorlar
+                //     (iki ayri animasyon senkronsuz gorunurdu).
+                // Fark: bunlar temizlenen satirdan degil TUM TAHTA yuzeyinden
+                // dogar, daha genis sacilir ve altin/beyaz olur — moloz degil
+                // "konfeti" rolundeler.
+                if (isAllClear) {
+                    repeat(ALL_CLEAR_PARTICLES) {
+                        val p = particlePool.acquire() ?: return@repeat
+                        val roll = Random.nextFloat()
+                        // Yildiz orani normal patlamadan yuksek (%30): altin
+                        // isinlarin ustunde okunan sey kivilcim, kup degil.
+                        p.kind = when {
+                            roll < 0.30f -> PK_STAR
+                            roll < 0.62f -> PK_DIAMOND
+                            roll < 0.82f -> PK_MOTE
+                            else -> PK_CIRCLE
+                        }
+                        p.x = Random.nextFloat() * gridSize
+                        p.y = Random.nextFloat() * gridSize
+                        // Yatay menzil normal patlamanin (3.0) iki kati: burada
+                        // amac sutun icinde suzulmek DEGIL, tahtayi tamamen
+                        // bosaltmis olmayi tum ekrana yaymak.
+                        p.vx = (Random.nextFloat() - 0.5f) * 6.0f
+                        p.vy = -(3.2f + Random.nextFloat() * 2.6f)
+                        p.rot = Random.nextFloat() * 360f
+                        p.spin = if (p.kind == PK_DIAMOND) (Random.nextFloat() - 0.5f) * 620f else 0f
+                        p.size = when (p.kind) {
+                            PK_DIAMOND -> 0.24f
+                            PK_MOTE -> 0.12f
+                            PK_CIRCLE -> 0.13f
+                            else -> 0.30f
+                        }
+                        // Pencerenin (950ms) tamamina yayilan gecikme: kutlama
+                        // tek bir "puf" degil, akan bir yagmur olsun.
+                        p.delay = Random.nextFloat() * 0.45f
+                        p.life = 0.45f + Random.nextFloat() * 0.45f
+                        p.color = if (p.kind == PK_STAR) Color.White else NeonGold
+                    }
+                }
+
                 // Clear cells
                 rowsToClear.forEach { r ->
                     for (c in 0 until gridSize) {
@@ -2686,6 +2870,58 @@ fun BlastTheBlocksGame(
                     for (r in 0 until gridSize) {
                         board[r * gridSize + c] = 0
                     }
+                }
+
+                // ===== Faz 161 (madde 3): ALL CLEAR KUTLAMASI =====
+                // Tahta GERCEKTEN bosaldiktan sonra tetikleniyor (yukaridaki
+                // sifirlamadan hemen sonra) — isinlar bos tahtanin uzerinde
+                // aciliyor, dolu tahtanin degil.
+                //
+                // ONEMLI KAPSAM NOTU: bu blok SADECE placeShape'in temizleme
+                // coroutine'inde. "Reklamla devam" akisindaki
+                // clearDensestRowForContinue() ve guclendiriciler
+                // (applyBoosterAt) tahtayi DOGRUDAN sifirlar, bu coroutine'i
+                // hic calistirmaz — yani onlar zaten normal patlamayi da
+                // tetiklemiyordu, ALL CLEAR'i da tetikleyemezler. Ayni koruma,
+                // ayni mekanizma: ek bir bayrak GEREKMIYOR.
+                if (isAllClear) {
+                    allClearBonusText = "+$allClearBonus"
+                    dragCoroutineScope.launch {
+                        allClearProgress.snapTo(0f)
+                        // LINEAR sart: cizim tarafi bu degeri ZAMAN olarak
+                        // kullaniyor (isin uzunlugu, donus acisi ve parlaklik
+                        // zarfi ayri ayri kendi egrilerini bu zamandan turetiyor).
+                        // Egrili bir tween hepsini birden bukerdi.
+                        allClearProgress.animateTo(
+                            1f,
+                            animationSpec = tween(ALL_CLEAR_DURATION_MS, easing = LinearEasing)
+                        )
+                        allClearBonusText = ""
+                    }
+                    // Sarsinti tablosunun EN UST kademesi (28px) — tablo Faz
+                    // 153/158'de cihazda ayarlandi, yeni bir deger uydurulmadi.
+                    // Normal patlamanin kendi sarsintisi asagida ayrica
+                    // calisiyor; bu onun UZERINE binmiyor, cunku ikisi de ayni
+                    // `shakeOffset` Animatable'ini surer ve Compose'da son
+                    // baslatilan animasyon oncekini iptal eder. Bu kasitli:
+                    // ALL CLEAR anında tek ve en buyuk vurus duyulur.
+                    dragCoroutineScope.launch {
+                        val amp = SHAKE_AMPLITUDES_PX.last()
+                        shakeOffset.snapTo(0f)
+                        shakeOffset.animateTo(amp, animationSpec = tween(40))
+                        shakeOffset.animateTo(-amp, animationSpec = tween(60))
+                        shakeOffset.animateTo(amp * 0.55f, animationSpec = tween(60))
+                        shakeOffset.animateTo(-amp * 0.35f, animationSpec = tween(60))
+                        shakeOffset.animateTo(0f, animationSpec = tween(70))
+                    }
+                    // Ses + titresim, gorsel ile AYNI karede (skill kurali:
+                    // ses bir kare gecikirse oyuncu bunu "gecikmeli kontrol"
+                    // olarak algilar). Titresim icin en ust kademe: mevcut
+                    // HapticManager arayuzu satir/kombo sayisi aliyor, o yuzden
+                    // tablonun tavanini tetikleyen degerler veriliyor (yeni bir
+                    // haptic API eklemedik — o dosya bu gorevin kapsaminda degil).
+                    SoundManager.playSuccess(soundEnabled)
+                    HapticManager.playClearHaptic(hapticsEnabled, totalLinesCleared = 4, comboCount = 3)
                 }
 
                 // Faz 41: checkGameOver() ONCEDEN placeShape'in sonunda, SENKRON
@@ -2722,9 +2958,20 @@ fun BlastTheBlocksGame(
                 // kucukten overshoot ile GIRIYOR, sonra elastik oturuyor.
                 // Yay: Compose varsayilani stiffness=1500 kutlama icin fazla
                 // keskin — 400/0.5 elastic.easeOut'a cok daha yakin.
+                //
+                // Faz 161 (madde 2): yazi artik tahtanin ORTASINDA ve cok daha
+                // buyuk. Ayni giris egrisi buyuk puntoda daha "yumusak"
+                // hissettiriyordu (buyuk bir nesnenin %12 overshoot'u kucuk bir
+                // nesnenin %12'sinden daha az fark edilir). Giris sertlestirildi:
+                //   baslangic olcegi 0.62 -> 0.50 (daha uzun yol = daha cok hiz)
+                //   overshoot tepesi   1.12 -> 1.18
+                //   firlama suresi      100 -> 110ms
+                // Oturma yayi (dampingRatio 0.5 / stiffness 400) DEGISMEDI —
+                // Compose varsayilani (1500) kutlama icin fazla keskin, bu
+                // degerler elastic.easeOut'a yakin diye secilmisti.
                 dragCoroutineScope.launch {
-                    comboTextScale.snapTo(0.62f)
-                    comboTextScale.animateTo(1.12f, animationSpec = tween(100, easing = EaseOutBackBoom))
+                    comboTextScale.snapTo(0.50f)
+                    comboTextScale.animateTo(1.18f, animationSpec = tween(110, easing = EaseOutBackBoom))
                     comboTextScale.animateTo(
                         1f,
                         animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f)
@@ -2748,7 +2995,14 @@ fun BlastTheBlocksGame(
                 // anla karistirilamaz. Kucuk anlarda salinim da kisaltildi
                 // (5 donus yerine 2), boylece tek satir temizlemesi 280ms
                 // boyunca ekrani mesgul etmiyor.
-                dragCoroutineScope.launch {
+                //
+                // Faz 161: ALL CLEAR olan hamlede bu blok ATLANIR. Ikisi de ayni
+                // `shakeOffset` Animatable'ini surer; bu blok SONRA basladigi
+                // icin ALL CLEAR'in (en ust kademe, 28px) sarsintisini iptal
+                // ederdi ve tam ekran kutlama, tek satirlik bir "tik" ile
+                // acilirdi. ALL CLEAR sarsintisi yukarida, tahta bosaldigi anda
+                // tetikleniyor.
+                if (!isAllClear) dragCoroutineScope.launch {
                     // Eiserloh modeli: siddet DOGRUSAL degil, trauma^2 ile
                     // artar — kucuk anlarda neredeyse hissedilmez, buyuk anda
                     // vurur. Tavan 24f -> 20f'ye cekildi (urun karari: buyuk
@@ -3561,8 +3815,6 @@ fun BlastTheBlocksGame(
                         }
                         val bandAlpha = bandGlow * 0.60f
                         val coreHalf = cell * 0.30f * 0.5f
-                        val bandColor = clearAccentColor.copy(alpha = bandAlpha)
-                        val coreColor = Color.White.copy(alpha = core)
                         val clear = Color.Transparent
 
                         // Patlama anindaki hucre flash'i (110ms) — eskiden hucre
@@ -3584,61 +3836,156 @@ fun BlastTheBlocksGame(
                             }
                         }
 
+                        // ===== Faz 161 (madde 4): GOKKUSAGI SUPURME =====
+                        // Handover'daki acik karar ("huzme sabit ALTIN mi,
+                        // patlatan parcanin rengi mi") UCUNCU secenekle
+                        // kapatildi: rakipte huzme, satir boyunca AKAN cok
+                        // renkli bir gradyan (bkz. BEAM_SWEEP_COLORS).
+                        //
+                        // NE DEGISMEDI: BlendMode.Plus (Faz 155'in "mat leke ->
+                        // isik" duzeltmesi), `bp`'nin LINEER zaman tabani olmasi,
+                        // `bandGlow` parlaklik zarfi (hizli tutusma / uzun plato /
+                        // gec sonme) ve `bandHalf` genislik rampasi. Yeni olan
+                        // SADECE bandin rengi ve ustune eklenen supurme BASI.
+                        //
+                        // PERFORMANS — bu degisiklik tahsisi AZALTIYOR. Eski kod
+                        // her satir/sutun icin AYRI `Brush` uretiyordu (8 satir +
+                        // 8 sutun x bant + cekirdek = kare basina 32 nesne, 620ms
+                        // boyunca ~1100 nesne). Yeni kod gradyan koordinatlarinin
+                        // TUM satirlarda ayni oldugunu kullaniyor (hepsi 0..width
+                        // boyunca ciziliyor) — kare basina EN FAZLA 4 brush.
+                        // Bantin/cekirdegin dikey yumusakligi ise brush yerine
+                        // ic ice gecmis birkac DUZ dikdortgenin additive
+                        // toplamiyla elde ediliyor: SIFIR tahsis.
+                        // (N kat esit alfa ust uste binince merkezde N*a,
+                        // kenarda a olan bir merdiven cikar; 4 kat gozle duz
+                        // bir rampadan ayirt edilmiyor.)
+                        val layerAlpha = bandAlpha * BEAM_BAND_LAYER_ALPHA
+                        val coreLayerAlpha = core * BEAM_CORE_LAYER_ALPHA
+
+                        // Akis: gradyan bir palet boyu (span) kadar, huzmenin
+                        // omru boyunca tam bir palet kayar. TileMode.Repeated
+                        // sart — palet iki ucta da BEYAZ oldugu icin tekrar
+                        // dikisi gorunmez.
+                        val rainbowRows = if (beamRows.isNotEmpty() && bandAlpha > 0.004f) {
+                            val span = size.width / BEAM_SWEEP_CYCLES
+                            val shift = -bp * span
+                            Brush.horizontalGradient(
+                                colors = BEAM_SWEEP_COLORS,
+                                startX = shift,
+                                endX = shift + span,
+                                tileMode = TileMode.Repeated
+                            )
+                        } else null
+                        val rainbowCols = if (beamCols.isNotEmpty() && bandAlpha > 0.004f) {
+                            val span = size.height / BEAM_SWEEP_CYCLES
+                            val shift = -bp * span
+                            Brush.verticalGradient(
+                                colors = BEAM_SWEEP_COLORS,
+                                startY = shift,
+                                endY = shift + span,
+                                tileMode = TileMode.Repeated
+                            )
+                        } else null
+
+                        // SUPURME BASI: satirin bir ucundan otekine kosan parlak
+                        // topak — "supurme satir boyunca ilerlesin" istegi bu.
+                        // Varsayilan Clamp tileMode sayesinde topagin disinda
+                        // brush TAMAMEN saydam, yani tek bir tam genislikte
+                        // dikdortgen yetiyor; ayrica clipRect gerekmiyor.
+                        val headLive = bp < BEAM_HEAD_PHASE
+                        val headT = if (headLive) bp / BEAM_HEAD_PHASE else 1f
+                        // Sinus zarfi (ucgen degil): bas girerken ve cikarken
+                        // yumusak soner, yolun ortasinda en parlaktir.
+                        val headAlpha = if (headLive) sin(headT * BEAM_HEAD_PI) * 0.85f else 0f
+                        val headHalf = cell * BEAM_HEAD_HALF_CELLS
+                        val headColor = Color.White.copy(alpha = headAlpha)
+                        val headBrushRows = if (headLive && beamRows.isNotEmpty()) {
+                            val hx = size.width * headT
+                            Brush.horizontalGradient(
+                                colors = listOf(clear, headColor, clear),
+                                startX = hx - headHalf,
+                                endX = hx + headHalf
+                            )
+                        } else null
+                        val headBrushCols = if (headLive && beamCols.isNotEmpty()) {
+                            val hy = size.height * headT
+                            Brush.verticalGradient(
+                                colors = listOf(clear, headColor, clear),
+                                startY = hy - headHalf,
+                                endY = hy + headHalf
+                            )
+                        } else null
+
                         beamRows.forEach { r ->
                             val cy = (r + 0.5f) * cell
-                            if (bandAlpha > 0.004f) {
-                                // Faz 155: BlendMode.Plus — bant artik koyu
-                                // zeminin uzerine BOYA gibi degil ISIK gibi
-                                // biniyor. Duz kaynak-uzeri cizimde dusuk alfali
-                                // altin, lacivertle karisip camur rengi veriyordu.
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(clear, bandColor, clear),
-                                        startY = cy - bandHalf,
-                                        endY = cy + bandHalf
-                                    ),
-                                    topLeft = Offset(0f, cy - bandHalf),
-                                    size = Size(size.width, bandHalf * 2f),
-                                    blendMode = BlendMode.Plus
-                                )
+                            if (rainbowRows != null) {
+                                for (f in BEAM_BAND_LAYER_FACTORS) {
+                                    val h = bandHalf * f
+                                    drawRect(
+                                        brush = rainbowRows,
+                                        topLeft = Offset(0f, cy - h),
+                                        size = Size(size.width, h * 2f),
+                                        alpha = layerAlpha,
+                                        blendMode = BlendMode.Plus
+                                    )
+                                }
                             }
                             if (core > 0.004f) {
+                                // Cekirdek BEYAZ kalmali: gokkusagi bandin isi,
+                                // cekirdek vurusun isi. Faz 107'den beri
+                                // patlamanin "keskin ilk karesi" bu.
+                                for (f in BEAM_BAND_LAYER_FACTORS) {
+                                    val h = coreHalf * f
+                                    drawRect(
+                                        color = Color.White,
+                                        topLeft = Offset(0f, cy - h),
+                                        size = Size(size.width, h * 2f),
+                                        alpha = coreLayerAlpha,
+                                        blendMode = BlendMode.Plus
+                                    )
+                                }
+                            }
+                            if (headBrushRows != null) {
                                 drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(clear, coreColor, clear),
-                                        startY = cy - coreHalf,
-                                        endY = cy + coreHalf
-                                    ),
-                                    topLeft = Offset(0f, cy - coreHalf),
-                                    size = Size(size.width, coreHalf * 2f),
+                                    brush = headBrushRows,
+                                    topLeft = Offset(0f, cy - bandHalf),
+                                    size = Size(size.width, bandHalf * 2f),
                                     blendMode = BlendMode.Plus
                                 )
                             }
                         }
                         beamCols.forEach { c ->
                             val cx = (c + 0.5f) * cell
-                            if (bandAlpha > 0.004f) {
-                                // Faz 155: satir bandiyla ayni gerekce (Plus).
-                                drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(clear, bandColor, clear),
-                                        startX = cx - bandHalf,
-                                        endX = cx + bandHalf
-                                    ),
-                                    topLeft = Offset(cx - bandHalf, 0f),
-                                    size = Size(bandHalf * 2f, size.height),
-                                    blendMode = BlendMode.Plus
-                                )
+                            if (rainbowCols != null) {
+                                for (f in BEAM_BAND_LAYER_FACTORS) {
+                                    val h = bandHalf * f
+                                    drawRect(
+                                        brush = rainbowCols,
+                                        topLeft = Offset(cx - h, 0f),
+                                        size = Size(h * 2f, size.height),
+                                        alpha = layerAlpha,
+                                        blendMode = BlendMode.Plus
+                                    )
+                                }
                             }
                             if (core > 0.004f) {
+                                for (f in BEAM_BAND_LAYER_FACTORS) {
+                                    val h = coreHalf * f
+                                    drawRect(
+                                        color = Color.White,
+                                        topLeft = Offset(cx - h, 0f),
+                                        size = Size(h * 2f, size.height),
+                                        alpha = coreLayerAlpha,
+                                        blendMode = BlendMode.Plus
+                                    )
+                                }
+                            }
+                            if (headBrushCols != null) {
                                 drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(clear, coreColor, clear),
-                                        startX = cx - coreHalf,
-                                        endX = cx + coreHalf
-                                    ),
-                                    topLeft = Offset(cx - coreHalf, 0f),
-                                    size = Size(coreHalf * 2f, size.height),
+                                    brush = headBrushCols,
+                                    topLeft = Offset(cx - bandHalf, 0f),
+                                    size = Size(bandHalf * 2f, size.height),
                                     blendMode = BlendMode.Plus
                                 )
                             }
@@ -3821,78 +4168,10 @@ fun BlastTheBlocksGame(
                 // YERINDE nabiz atar ve dekorasyon degil OYNANIS ipucudur
                 // (bkz. yukaridaki hucre dongusu, Faz 22). O korunuyor.
 
-                // Faz 66: Combo Text Banner — kombo arttıkça büyüyor ve renk değiştiriyor.
-                // Grid'in olcumunu etkilememesi icin (bkz. yukaridaki not) burada, grid'in
-                // KENDI Box'i icinde bir overlay olarak, TopCenter'a hizalanmis sekilde
-                // ciziliyor — hicbir zaman grid'i sikistirmiyor/kaydirmiyor.
-                if (lastClearedText.isNotEmpty()) {
-                    // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
-                    // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
-                    // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
-                    // gorunuyordu). Taban renk artik yesil, kombo yukseldikce turuncu/altina donuyor.
-                    val comboColor = when {
-                        comboCount >= 4 -> NeonGold
-                        comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
-                        else -> NeonGreen
-                    }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 10.dp)
-                            // Faz 1 (performans): `Modifier.scale(v)` degeri
-                            // kompozisyonda okuyordu — kombo banner'inin
-                            // "pop" animasyonu (100ms + geri donus) boyunca
-                            // grid Card'inin TUM content'i her karede yeniden
-                            // derileniyordu. `scale(x, y)` zaten
-                            // `graphicsLayer(scaleX, scaleY, clip = false)`.
-                            .graphicsLayer {
-                                val s = comboTextScale.value
-                                scaleX = s
-                                scaleY = s
-                                alpha = comboTextAlpha.value
-                            }
-                    ) {
-                        // Faz 50: rakip oyunun kayittaki "Perfect!" yazisinda kalin bir
-                        // golge vardi, bizimki duz renkti — daha "punchy" hissetmesi icin
-                        // golge eklendi (kombo yukseldikce golge de belirginlesiyor).
-                        Text(
-                            text = lastClearedText,
-                            // Faz 159: kullanici "tebrik yazilari oyunun genel
-                            // fontuyla ayni degil ve puntosu buyumeli" dedi.
-                            //  - Font AILESI zaten AppFontFamily'ydi (Baloo 2),
-                            //    ama AGIRLIK Bold (700) idi; oyunun basliklari
-                            //    (SONSUZ, mod adlari...) FontWeight.Black (900 =
-                            //    Baloo 2 ExtraBold, tombul hali) kullaniyor. Fark
-                            //    buydu — agirlik Black'e cekilip basliklarla
-                            //    ayni "karakter"e getirildi.
-                            //  - Punto buyutuldu: taban 13 -> 20, kombo adimi
-                            //    2 -> 3. Tek satir 15sp -> 23sp; 5x kombo 23 -> 35.
-                            fontSize = (20 + comboCount.coerceAtMost(5) * 3).sp,
-                            fontWeight = FontWeight.Black,
-                            color = comboColor,
-                            // Faz 115p: bkz. SCORE duzeltmesi yorumu.
-                            style = TextStyle(
-                                fontFamily = AppFontFamily,
-                                shadow = Shadow(
-                                    color = Color.Black.copy(alpha = 0.5f),
-                                    offset = Offset(2f, 3f),
-                                    blurRadius = 4f
-                                )
-                            )
-                        )
-                        // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
-                        // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
-                        if (comboCount >= 2) {
-                            Text(
-                                text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeonGold
-                            )
-                        }
-                    }
-                }
+                // Faz 161 (madde 2): "Combo Text Banner" (Faz 66) BURADAYDI —
+                // tahtanin USTUNDE, TopCenter'da. Kaldirildi ve kok seviyeye,
+                // tahtanin TAM ORTASINA tasindi. Gerekce ve yeni yeri icin
+                // asagida "KOMBO / ALL CLEAR YAZI KATMANI" diye arayin.
               }
             }
             }
@@ -4122,6 +4401,354 @@ fun BlastTheBlocksGame(
                     }) {
                         // Additive: kivilcim hizla beyaza patlar.
                         drawPath(sparkStarPath, p.color, blendMode = BlendMode.Plus)
+                    }
+                }
+            }
+        }
+
+        // Faz 161: asagidaki iki kutlama katmani zIndex 5f/7f'te, oyun ici
+        // modallar ise varsayilan 0'da — yani hicbir sey yapilmazsa kutlama
+        // "SEVIYE TAMAMLANDI" diyalogunun siyah perdesinin USTUNE cizilirdi.
+        // Somut vaka: ALL CLEAR ile bolumu bitiren hamle. Kutlama 1250ms,
+        // diyalog 860ms'de aciliyor — arada ~390ms boyunca isinlar ve dev yazi
+        // diyalogun uzerinde asili kalirdi.
+        //
+        // Diyalog acilinca kutlama GORUNMEZ olur ama animasyonlar iptal
+        // EDILMEZ: kendi surelerinde sessizce biter ve State'lerini temizler
+        // (allClearBonusText = "" ...). Iptal etseydik, diyalog kisa surede
+        // kapanirsa yazi yarim kalirdi.
+        val celebrationOverlaysBlocked = levelCompleteRevealed || isGameOver ||
+            showContinueDialog || showExitConfirmDialog || showSettingsDialog || showThemeDialog
+
+        // ============ Faz 161 (madde 3): ALL CLEAR ISIN KATMANI ============
+        // Kok seviyede, tahta Card'inin KARDESI (Faz 154'teki parcacik
+        // katmaniyla ayni gerekce): isinlar tahtanin disina tasmali, Card'in
+        // 16dp yuvarlatilmis kosesinde kirpilmamali.
+        //
+        // zIndex 5f: tahtanin (0) USTUNDE, parcaciklarin (6f) ALTINDA. Sira
+        // kasitli — moloz isinlarin ONUNDE ucar, arkasinda degil.
+        //
+        // TUM animasyon degerleri SADECE draw lambda'sinda okunuyor
+        // (allClearProgress, gridOriginPx, cellSizePx, fxOriginPx), yani
+        // 1250ms'lik kutlama boyunca TEK bir recomposition bile olmuyor —
+        // Faz 1'de bu dosyaya konan kural.
+        if (allClearBonusText.isNotEmpty() && !celebrationOverlaysBlocked) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(5f)
+            ) {
+                val p = allClearProgress.value
+                if (p >= 1f) return@Canvas
+                val cell = cellSizePx
+                if (cell <= 0f) return@Canvas
+                val boardHalf = gridSize * cell * 0.5f
+                val center = Offset(
+                    gridOriginPx.x - fxOriginPx.x + boardHalf,
+                    gridOriginPx.y - fxOriginPx.y + boardHalf
+                )
+                // Parlaklik zarfi — huzmedeki (Faz 155) ayni desen: ani
+                // tutusma, uzun plato, gec ve yumusak sonme. Tek bir
+                // `1-p` inisi kutlamayi daha basindan soluklastiriyordu.
+                val glow = when {
+                    p < 0.08f -> p / 0.08f
+                    p < 0.45f -> 1f
+                    else -> {
+                        val x = ((p - 0.45f) / 0.55f).coerceIn(0f, 1f)
+                        1f - x * x
+                    }
+                }
+                if (glow <= 0.004f) return@Canvas
+                // Isin boyu easeOutCubic ile aciliyor: ilk karede firlar,
+                // sonra yavaslar. Hedef uzunluk ekran kosegeninden buyuk,
+                // yani isinlar HER ZAMAN ekrani terk eder (kisa kalan bir
+                // isin "cizgi" gibi durur, "isin" gibi degil).
+                val inv = 1f - p
+                val reach = 1f - inv * inv * inv
+                val maxLen = (size.width + size.height) * 0.9f
+                val len = maxLen * reach
+                // Tek brush, TUM isinlar icin ortak: her isin kendi
+                // dondurulmus koordinat sisteminde ayni yerel eksende
+                // ciziliyor, bu yuzden gradyan koordinatlari degismiyor.
+                // (Kare basina 1 tahsis; isin basina degil.)
+                val rayBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        NeonGold.copy(alpha = 0.45f * glow),
+                        Color.White.copy(alpha = 0.85f * glow)
+                    ),
+                    startY = center.y - len,
+                    endY = center.y
+                )
+                val step = 360f / ALL_CLEAR_RAY_COUNT
+                // Yavas donme (kutlama boyunca ~20 derece): sabit isinlar
+                // basili bir desen gibi duruyordu, hafif donus "yasiyor".
+                val spin = p * 20f
+                for (i in 0 until ALL_CLEAR_RAY_COUNT) {
+                    rotate(i * step + spin, center) {
+                        // Genis/sonuk taban + dar/parlak cekirdek = konik
+                        // izlenimi. Gercek konik icin Path gerekirdi; sicak
+                        // dongude Path tahsisi bu dosyada yasak (bkz.
+                        // sparkStarPath notu).
+                        val wideHalf = cell * 0.55f
+                        drawRect(
+                            brush = rayBrush,
+                            topLeft = Offset(center.x - wideHalf, center.y - len),
+                            size = Size(wideHalf * 2f, len),
+                            alpha = 0.5f,
+                            blendMode = BlendMode.Plus
+                        )
+                        val narrowHalf = cell * 0.16f
+                        drawRect(
+                            brush = rayBrush,
+                            topLeft = Offset(center.x - narrowHalf, center.y - len),
+                            size = Size(narrowHalf * 2f, len),
+                            blendMode = BlendMode.Plus
+                        )
+                    }
+                }
+                // Merkezdeki altin yikama — isinlarin ciktigi yeri "kaynak"
+                // gibi gosterir, aksi halde isinlar hicligin icinden
+                // baslamis gibi duruyordu.
+                val washR = boardHalf * (0.6f + 1.1f * reach)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.30f * glow),
+                            NeonGold.copy(alpha = 0.22f * glow),
+                            Color.Transparent
+                        ),
+                        center = center,
+                        radius = washR
+                    ),
+                    radius = washR,
+                    center = center,
+                    blendMode = BlendMode.Plus
+                )
+                // Disa acilan tek halka — patlamanin "sok" cerçevesi.
+                val ringR = boardHalf * 0.25f + maxLen * 0.42f * reach
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.35f * glow * (1f - reach)),
+                    radius = ringR,
+                    center = center,
+                    style = Stroke(width = 3.dp.toPx()),
+                    blendMode = BlendMode.Plus
+                )
+            }
+        }
+
+        // ============ Faz 161 (madde 2+3): KOMBO / ALL CLEAR YAZI KATMANI ============
+        // ESKI YER: tahta Card'inin ICINDE, TopCenter (Faz 66). Sorun oynanis
+        // sorunuydu, estetik degil: oyuncunun gozu patlayan satirda, yani
+        // tahtanin ORTASINDA. Yazi tahtanin ustunde kalinca cevresel gorusteydi
+        // ve pratikte hic okunmuyordu — "combo combo gibi hissettirmiyor"
+        // geri bildiriminin somut sebeplerinden biri. Rakipte yazi oyuncunun
+        // ZATEN BAKTIGI yerde: tahtanin ortasinda, dev, italik.
+        //
+        // NEDEN KOK SEVIYE (Card'in icinde .align(Center) DEGIL):
+        //   1) Card icerigini yuvarlatilmis kosesine KIRPAR; buyutulmus yazi
+        //      ve pop overshoot'u tahtanin kenarinda kesilirdi.
+        //   2) Card `.offset { shakeOffset }` ile sarsiliyor. Yazi disarida
+        //      kalinca sarsintiyla birlikte titremiyor — sarsilan bir metnin
+        //      okunabilirligi duser (bkz. "surekli sarsinti okunabilirligi
+        //      bozar" kurali). Tahta sarsilir, mesaj sabit durur.
+        //
+        // NE DEGISMEDI: gorunurlugu hala TEK bir yerden, Faz 115j'de eklenen
+        // `LaunchedEffect(lastClearedText)` yonetiyor (900ms bekle + 300ms son
+        // + metni bosalt). O mekanizmaya DOKUNULMADI — "yazi ekranda takili
+        // kaliyor" hatasi geri gelmez.
+        //
+        // Konumlandirma: tahtanin merkezi, `graphicsLayer` icinde (CIZIM fazi)
+        // hesaplaniyor. gridOriginPx/cellSizePx/fxOriginPx kompozisyonda
+        // okunsaydi tahta her sarsildiginda bu katman yeniden derlenirdi.
+        if ((allClearBonusText.isNotEmpty() || lastClearedText.isNotEmpty()) &&
+            !celebrationOverlaysBlocked
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(7f)
+            ) {
+                if (allClearBonusText.isNotEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .graphicsLayer {
+                                val cell = cellSizePx
+                                val boardHalf = gridSize * cell * 0.5f
+                                translationX =
+                                    (gridOriginPx.x - fxOriginPx.x + boardHalf) - size.width * 0.5f
+                                translationY =
+                                    (gridOriginPx.y - fxOriginPx.y + boardHalf) - size.height * 0.5f
+                                val p = allClearProgress.value
+                                // Giris: kucukten overshoot'la firlar
+                                // (easeOutBack karakteri), sonra oturur.
+                                // Cikis: hafifce buyuyerek solar — kucularak
+                                // kaybolmak "geri alindi" gibi duruyordu.
+                                val s = when {
+                                    p < 0.10f -> 0.55f + 0.75f * (p / 0.10f)
+                                    p < 0.20f -> 1.30f - 0.30f * ((p - 0.10f) / 0.10f)
+                                    p < 0.80f -> 1f
+                                    else -> 1f + 0.10f * ((p - 0.80f) / 0.20f)
+                                }
+                                scaleX = s
+                                scaleY = s
+                                alpha = if (p < 0.80f) 1f else 1f - ((p - 0.80f) / 0.20f)
+                            }
+                    ) {
+                        Text(
+                            text = language.pick(
+                                tr = "TAM TEMİZ!",
+                                en = "ALL CLEAR!",
+                                it = "TUTTO PULITO!",
+                                fr = "PLATEAU VIDE!",
+                                es = "¡TABLERO LIMPIO!"
+                            ),
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.Black,
+                            fontStyle = FontStyle.Italic,
+                            color = NeonGold,
+                            textAlign = TextAlign.Center,
+                            // Faz 115p deseni: fontFamily acikca verilmezse
+                            // Roboto'ya duser. Golge burada normalden KOYU/
+                            // GENIS — yazi artik renkli bloklarin uzerinde
+                            // duruyor, duz golge yeterli kontrast vermiyordu.
+                            style = TextStyle(
+                                fontFamily = AppFontFamily,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    offset = Offset(0f, 4f),
+                                    blurRadius = 10f
+                                )
+                            )
+                        )
+                        Text(
+                            text = "$allClearBonusText ${language.pick(tr = "BONUS", en = "BONUS", it = "BONUS", fr = "BONUS", es = "BONO")}",
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            style = TextStyle(
+                                fontFamily = AppFontFamily,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    offset = Offset(0f, 3f),
+                                    blurRadius = 8f
+                                )
+                            )
+                        )
+                    }
+                } else {
+                    // Bu oyunda "patlama" HER ZAMAN olumlu bir olay — kirmizi/magenta
+                    // gibi "hata/tehlike" hissi veren bir renk asla kullanilmamali
+                    // (kullanici geri bildirimi: tekli patlama "kotu bir sey olmus gibi"
+                    // gorunuyordu). Taban renk yesil, kombo yukseldikce turuncu/altina donuyor.
+                    val comboColor = when {
+                        comboCount >= 4 -> NeonGold
+                        comboCount >= 2 || lastClearWasCelebration -> Color(0xFFFF6B35)
+                        else -> NeonGreen
+                    }
+                    // Faz 161: metin "KELIME +N" tek parca olarak uretiliyor
+                    // (bkz. pendingPraiseText). Ortada, dev puntoda tek satir
+                    // olarak birakmak onu ekran genisligini asan bir seride
+                    // ceviriyordu; iki satira BOLUNUYOR — kelime dev/italik,
+                    // rakam altinda daha kucuk.
+                    //
+                    // Neden ayri bir State degil de burada bolme: gorunurlugu
+                    // yoneten LaunchedEffect'in ANAHTARI `lastClearedText`.
+                    // Ikinci bir State eklemek anahtar semantigini degistirir
+                    // ve Faz 115j'nin "ayni metin ust uste gelirse sure
+                    // uzamaz" davranisini sessizce bozardi.
+                    val splitAt = lastClearedText.lastIndexOf(" +")
+                    val praisePart =
+                        if (splitAt > 0) lastClearedText.substring(0, splitAt) else lastClearedText
+                    val bonusPart =
+                        if (splitAt > 0) lastClearedText.substring(splitAt + 1) else ""
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .graphicsLayer {
+                                val cell = cellSizePx
+                                val boardHalf = gridSize * cell * 0.5f
+                                translationX =
+                                    (gridOriginPx.x - fxOriginPx.x + boardHalf) - size.width * 0.5f
+                                translationY =
+                                    (gridOriginPx.y - fxOriginPx.y + boardHalf) - size.height * 0.5f
+                                val s = comboTextScale.value
+                                scaleX = s
+                                scaleY = s
+                                alpha = comboTextAlpha.value
+                            }
+                    ) {
+                        Text(
+                            text = praisePart,
+                            // Faz 159: font ailesi/agirligi oyunun baslikariyla
+                            // ayni (Baloo 2 Black) — o karar korundu.
+                            // Faz 161: punto tabani 20 -> 30, kombo adimi 3
+                            // (tek satir 23sp -> 33sp, 5x kombo 35sp -> 45sp).
+                            // Ustune ITALIK geldi: rakipteki yazi egik ve bu
+                            // egiklik "hiz/vurus" okumasi veriyor.
+                            // Neden daha da buyuk degil: 5 dilin en uzun ovgu
+                            // kelimesi 15 karakter ("EXTRAORDINAIRE!",
+                            // "EXTRAORDINARIO!"); daha buyuk puntoda bunlar dar
+                            // ekranda iki satira sariyor ve "tek vurus" hissi
+                            // dagiliyor.
+                            fontSize = (30 + comboCount.coerceAtMost(5) * 3).sp,
+                            fontWeight = FontWeight.Black,
+                            fontStyle = FontStyle.Italic,
+                            color = comboColor,
+                            textAlign = TextAlign.Center,
+                            // Faz 115p: bkz. SCORE duzeltmesi yorumu.
+                            // Faz 161: yazi artik tahtanin ustunde degil
+                            // ICINDE, yani renkli bloklarin uzerinde duruyor —
+                            // golge koyulastirildi ve yumusatildi
+                            // (0.5/2,3/4 -> 0.7/0,4/9), aksi halde acik renkli
+                            // bloklarin uzerinde okunmuyordu.
+                            style = TextStyle(
+                                fontFamily = AppFontFamily,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.70f),
+                                    offset = Offset(0f, 4f),
+                                    blurRadius = 9f
+                                )
+                            )
+                        )
+                        if (bonusPart.isNotEmpty()) {
+                            Text(
+                                text = bonusPart,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                style = TextStyle(
+                                    fontFamily = AppFontFamily,
+                                    shadow = Shadow(
+                                        color = Color.Black.copy(alpha = 0.70f),
+                                        offset = Offset(0f, 3f),
+                                        blurRadius = 7f
+                                    )
+                                )
+                            )
+                        }
+                        // "Block Blast!" referansindaki sari COMBO rozeti — sadece gercek
+                        // bir kombo (art arda ikinci+ temizleme) oldugunda gosterilir.
+                        if (comboCount >= 2) {
+                            Text(
+                                text = "${comboCount}x ${language.pick(tr = "KOMBO", en = "COMBO", it = "COMBO", fr = "COMBO", es = "COMBO")}",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonGold,
+                                style = TextStyle(
+                                    fontFamily = AppFontFamily,
+                                    shadow = Shadow(
+                                        color = Color.Black.copy(alpha = 0.70f),
+                                        offset = Offset(0f, 2f),
+                                        blurRadius = 6f
+                                    )
+                                )
+                            )
+                        }
                     }
                 }
             }

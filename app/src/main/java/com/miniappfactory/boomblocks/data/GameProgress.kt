@@ -124,6 +124,22 @@ const val AD_TOKEN_REWARD = 80
 // ilk temasini hemen alabiliyor, dukkanin nasil calistigini bedelsiz ogreniyor.
 const val STARTING_TOKENS = 100
 
+// Faz 161: ALL CLEAR (tam tahta temizleme) bonusu — oyunun TEK yeni skor
+// kaynagi; diger tum puanlama kurallari (1 hucre = 1 puan, satir bonusu,
+// kombo/coklu-satir carpanlari) AYNEN korundu.
+//
+// Deger neden 64: Faz 45'ten beri olcek "1 hucre = 1 puan" ve tahta 8x8 = 64
+// hucre. Yani bonus = "bosalttigin tahtanin tam degeri" — sihirli bir sayi
+// degil, mevcut olcegin dogrudan turevi. Buyukluk kontrolu:
+//   - tek satir temizleme (kombo 1)          =  8 puan
+//   - TEK hamlede 4 satir (en iyi gercekci)  = 80 puan
+//   - ALL CLEAR                              = 64 puan + o hamlenin satir bonusu
+// Yani tek basina bile en buyuk normal patlamayla ayni mertebede, ama ustune
+// BINDIGI icin toplamda acik ara en yuksek odul — "jackpot" hissi veriyor.
+// Daha yuksek bir deger (or. 200) Seviye 1 hedefini (100) tek hamlede
+// gecirirdi ve bolum dengesini bozardi; bu deger dengeye dokunmuyor.
+const val ALL_CLEAR_BONUS = 64
+
 enum class MissionType { COMPLETE_LEVELS, CLEAR_LINES, USE_BOOSTERS, SCORE_POINTS, MULTI_CLEARS }
 
 // Faz 73: her gorev artik TEK hedef/odul yerine kademeli 3 milestone'luk bir

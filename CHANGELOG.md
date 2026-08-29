@@ -1,5 +1,108 @@
 # Boom Blocks Changelog
 
+## [Unreleased] - Faz 162 (Gorsel tur: zemin/kart doygunlugu, 3B ucusan parcalar, neon kenarlik)
+
+### Changed
+- **MADDE 1 — Zemin gradyani doyuruldu.** Cihaz ile hedef mockup arasindaki
+  fark TON degil DOYGUNLUK'tu: olculen zemin `#253F6D` (uc kanal birbirine
+  yakin = tanim geregi gri), hedef `#01267C` (kirmizi kanal ~0).
+  - Yeni `saturateDeep()` (`ui/theme/GameSurfaces.kt`): rengin GRI (akromatik)
+    bilesenini soker — `min(r,g,b) * amount` her kanaldan cikarilir. Hue ve en
+    guclu kanalin parlakligi korunur, yani renk kararmaz, kirlilikten arinir.
+  - `gameSurfaces()` turetmesi "doyur -> accent tint -> TEKRAR doyur" sirasina
+    gecti. Ikinci gecis, Oklab lerp'inin tint ile birlikte getirdigi gri payi
+    soker. Accent tint'i bu sayede 0.30 -> 0.56'ya CIKARILABILDI (hedefin
+    parlakligi ancak boyle yakalaniyor).
+  - Olculen sonuc (SM-G950F): ust zemin `#253F6D` (sat %66) -> `#0E2A63`
+    (sat %86); ic istatistik paneli `#080D18` (sat %67) -> `#0B1A33` (sat %78).
+- **MADDE 2 — Kart govdesi doyuruldu ve koyulastirildi.** `panel`, `bandEven`,
+  `bandOdd` ve `sunken` ayni `purify` katmanindan geciyor; `sunken` artik ham
+  `bg` yerine doyurulmus `deepBg`den turuyor ve siyaha 0.45 yerine 0.10
+  gidiyor (hedefteki lacivert korunuyor, komurlesmiyor).
+  - `NeonCard` tonlama katsayilari dusuruldu (0.24 -> 0.16, 0.08 -> 0.05):
+    kart govdesi `#163C58` -> `#122B46`, DESIGN_SPEC'in `#0E1835` degerine
+    yaklasti ve camgobegi kaymasi kalkti. Mod kimligi kenarlik / dis hale /
+    madalyon / baslikta tasindigi icin kaybolmuyor.
+- **MADDE 3 — Ucusan parcalar artik 3B kup varligi.**
+  `ui/common/WanderingPiecesBackground.kt` duz `drawRoundRect` yerine
+  `R.drawable.kb_block_*` varliklarini ciziyor.
+  - ⚠️ HAREKET DAVRANISI DEGISMEDI: `fx/fy/seed/speed` ve salinim formulu
+    Faz 122'den beri aynen duruyor. Degisen yalnizca cizilen sey.
+  - ⚠️ `ColorFilter.tint` UYGULANMIYOR — varliklar kendi golgesini tasiyor.
+    `WanderingPiece.color` alani kalkti, yerine `asset` geldi.
+  - Katman dokunma yakalamiyor (Canvas'ta `clickable`/`pointerInput` yok).
+  - Varliklar `distinct()` ile tekillestirilip bir kez cozuluyor.
+- **MADDE 4 — Neon kenarlik gucu parametrik.** `gameOuterGlow` artik
+  `spreadStepDp` ve `coreAlpha` aliyor; VARSAYILANLAR ESKI GORUNUMU BIREBIR
+  KORUR (3 katman / 2.2dp / 0.30), yani mod secim kartlari degismedi.
+  - `NeonCard(bloom = ...)` eklendi (varsayilan `1f` = eski davranis);
+    `bloom > 1` genis hale + ic kontur ("cift cizgi") getiriyor.
+  - Onboarding/dil secim karti (`ui/onboarding/OnboardingScreen.kt`) artik
+    14 katman x 1.3dp hale + parlak dis kenarlik + ic kontur kullaniyor.
+    Ilk denemede 7 x 2.6dp verilmisti ve CIHAZDA ayri ayri halkalar olarak
+    okundu (konturlar arasi ~7.8px, kalinlik 6px); aralik daraltilinca
+    konturlar ortustu ve surekli bir hale olustu.
+- **Ust serit parca yaricapi 22dp -> 16dp** (`ui/modeselect/ModeSelectScreen.kt`).
+  Kup varliklari daha genis cizildigi icin en dar desteklenen ekranda (292dp)
+  4'lu parcanin SAG KENARI x=0.194'e ulasiyor, yani `HEADER_TEXT_LEFT` (0.18)
+  sinirini asip alt baslik sutununa giriyordu. Pim konumu (0.045) KORUNDU —
+  0.02'ye cekmek denendi ve cihazda geri alindi (parcalar ekran disina kayip
+  kenarda "dilim" olarak okunuyordu).
+
+### Fixed
+- `ModeSelectLayoutTest` ust serit tasma testi artik parcanin GERCEK CIZIM
+  GENISLIGINI de hesaba katiyor. Onceden yalnizca MERKEZ kontrol ediliyordu;
+  varliklar buyudugunde merkez sinirda kalirken kenar metin sutununa
+  girebiliyordu — yani test yesil kalirken hata cihazda gorunur olacakti.
+
+### Notes
+- 94 test yesil, `lintDebug` temiz, `assembleDebug` yesil.
+- 6 skin guvencesi: `GameSurfacesSkinTest` 12 kombinasyonu tariyor ve gecti.
+  `purify` bant tonlarinin parlaklik farkini daraltiyordu; SUNSET (0.0036) ve
+  PURPLE_NIGHT (0.0023) testin 0.004 esiginin ALTINA dusmustu — `bandOdd`
+  artik doyurmadan SONRA sabit bir aciklastirma aliyor, en dusuk fark 0.0121.
+- ACIK TEMA DEGISMEDI: `purify` acik yuzeylerde girdiyi oldugu gibi dondurur
+  ve `sunken`in acik dali eski ifadeyle ayni. DEFAULT-light turetmesi iki
+  olcumde de birebir ayni degerleri verdi (`skyTop #EAEFFB`, `panel #F1F4F8`,
+  `sunken #B2B3B5`). Cihazda da dogrulandi.
+- Cihazda dogrulandi (SM-G950F): mod secim, ayarlar, dil secim + onboarding,
+  acik tema, Gun Batimi skini.
+- Oynanis, skor, denge, reklam ve `versionCode` DEGISMEDI.
+
+## [Unreleased] - Faz 161 (Ayarlar: ses siddeti satiri)
+
+### Changed
+- **Ses Siddeti satiri tek satira indi.** Onceki hali uc katliydi:
+  (1) ikon + etiket + yuzde kapsulu, (2) tam genislik kaydirici,
+  (3) altinda `0%` / `50%` / `100%` kademe etiketleri. Kart komsu ayar
+  satirlarinin ~3 kati yuksekligindeydi ve ayni deger AYNI ANDA iki yerde
+  yaziyordu (kapsul + ortadaki kademe etiketi).
+  - Yeni `SettingsSliderRow` (`ui/settings/SettingsScreen.kt`): ikon + etiket +
+    kaydirici + kapsul tek satirda. Etiket OLCULEN sabit genisligini alir,
+    `weight(1f)` KAYDIRICIDA — tersi yapilirsa uzun ceviri satiri yer ve
+    kaydiriciya 0dp kalir (Faz 159'da Loadout'ta yasanan hata).
+  - Sigmazsa sikistirma yok: etiket + `SLIDER_MIN_TRACK` (76dp) + kapsul
+    satira sigmiyorsa alt alta duzene duser. `SLIDER_MIN_TRACK` cihazda
+    olcularak secildi (SM-G950F / 360dp: satir butcesi 308dp).
+  - Kademe etiketleri kaldirildi (`GameSlider(showTicks = false)`); deger
+    yalnizca sagdaki kapsulde. `GameSlider.showTicks` VARSAYILANI `true`,
+    yani bilesenin baska kullanimlari degismiyor.
+  - Kapsul her zaman `"100%"` genisligine gore olculuyor; boylece surukleme
+    sirasinda kaydiricinin genisligi oynamiyor.
+  - Kaydiricinin dokunma hedefi 48dp olarak korundu.
+
+### Added
+- `ui/settings/SettingsSliderRowTest.kt` (3 test): en uzun TR/EN/IT/FR/ES
+  cevirilerinde kaydiricinin kullanilamaz genislige dusmemesi ve 48dp dokunma
+  hedefi; degerin ekranda TAM BIR kez yazilmasi; `GameSlider`in kademe
+  etiketlerini varsayilan olarak gostermeye devam etmesi.
+
+### Notes
+- Cihazda olculen degerler (SM-G950F, 360dp, satir butcesi 308dp):
+  TR `Ses Siddeti` 275dp, IT `Volume Suoni` 292dp, FR `Volume Sonore` 302dp —
+  ucu de TEK SATIR. ES `Volumen de Sonido` 331dp — sigmiyor, alt alta duzene
+  duser (iki satir; eskisi gibi uc degil).
+
 ## [1.0.8] - 2026-08-16 (Faz 114, Play politika uyumu)
 
 **versionCode 9 → 10, versionName 1.0.7 → 1.0.8.**

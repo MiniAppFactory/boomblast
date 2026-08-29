@@ -1,78 +1,97 @@
 package com.miniappfactory.boomblocks.ui.modeselect
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AllInclusive
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AD_TOKEN_REWARD
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
-import com.miniappfactory.boomblocks.ui.theme.BlastPalette
-import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
-import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.common.DEFAULT_WANDERING_PIECES
+import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
+import com.miniappfactory.boomblocks.ui.components.FitToHeight
+import com.miniappfactory.boomblocks.ui.components.GamePill
+import com.miniappfactory.boomblocks.ui.components.screenBodyTextColor
+import com.miniappfactory.boomblocks.ui.components.GoldPillAccent
+import com.miniappfactory.boomblocks.ui.components.GameImageIconButton
+import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
+import com.miniappfactory.boomblocks.ui.components.IconMedallion
+import com.miniappfactory.boomblocks.ui.components.NeonCard
 import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
+import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.ComfortTeal
+import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
 import com.miniappfactory.boomblocks.ui.theme.NeonPurple
-import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 
 // Oyunun asil giris ekrani: kullanici once "Sonsuz Mod" mu "Seviyeli Mod" mu
-// oynayacagina karar veriyor. Onceden Sonsuz Mod, seviye listesinin icine
-// sikistirilmis bir kart olarak gosteriliyordu — bu iki esdeger oyun modunu
-// birbirinden ayirip her ikisine de esit agirlik veriyor.
+// oynayacagina karar veriyor.
+//
+// Faz 158 — GORSEL YENILEME (kullanici: "hic oyun menusu gibi degil",
+// "biz sanki websitesi hissi veriyoruz"). Degisen SADECE gorsel katman;
+// modlar, istatistikler, navigasyon ve reklam akisi aynen korundu.
+//   - duz `palette.background` -> `GameScreenBackground` (gok + kose bloklari
+//     + zemin bandi)
+//   - baslik satiri -> uygulama ikonu kutucugu + wordmark + jeton pill'i +
+//     kupa/dişli TUSLARI (seffaf IconButton yerine gorunur tuslar)
+//   - mod kartlari -> `NeonCard` + `IconMedallion`: her mod KENDI rengini
+//     kartin her katmaninda tasiyor (kenarlik, zemin tonu, madalyon, baslik)
+//
+// 6 SKIN: kartlarin mod renkleri (yesil/camgobegi/mor/turkuaz) mod KIMLIGI
+// oldugu icin sabit; kart zemini/kenarligi ise `GameSurfaces` uzerinden
+// skin'in kendi paletinden turuyor, yani hicbir skinde yabanci durmuyor.
 @Composable
 fun ModeSelectScreen(
     language: AppLanguage,
@@ -81,8 +100,7 @@ fun ModeSelectScreen(
     tokens: Int,
     endlessBestScore: Int,
     highestUnlockedLevel: Int,
-    // Faz 77: Pro Mode (eski "Challenge") artik oynanabilir — kart YAKINDA/
-    // kilitli degil, kendi ilerlemesini gosteriyor.
+    // Faz 77: Pro Mode (eski "Challenge") artik oynanabilir.
     highestChallengeLevel: Int,
     // Faz 128: Comfort Mode (TR "KOLAY MOD") — Retro Modu'nun yerini aldi.
     comfortHighestLevel: Int,
@@ -92,12 +110,12 @@ fun ModeSelectScreen(
     onOpenComfort: () -> Unit,
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit,
-    // Faz 145: jeton rozetine basinca odullu reklam. isWatchAdLoading rozette
-    // spinner gosterir (reklam yuklemesi 3-8 sn surebiliyor).
+    // Faz 145: jeton rozetine basinca odullu reklam.
     isWatchAdLoading: Boolean = false,
     onWatchAdForTokens: () -> Unit = {}
 ) {
     val palette = blastPalette(skin, darkMode)
+    val surfaces = rememberGameSurfaces(skin, darkMode)
     // Faz 145: rozete dokununca once onay — reklam dogrudan acilmiyor.
     var showWatchAdDialog by remember { mutableStateOf(false) }
 
@@ -154,189 +172,262 @@ fun ModeSelectScreen(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.background)
-            .padding(16.dp)
-    ) {
-        // Faz 115h: v11 mockup'taki dagilmis, dondurulmus "konfeti kupleri" ile
-        // basladi. Faz 120-123'te gercek oyun parcasi geometrilerine, donmeyen
-        // gezinme animasyonuna ve 9 parca cesidine evrildi. Faz 124'te
-        // TermsAcceptScreen/OnboardingScreen'de de AYNI istek gelince ortak
-        // composable'a cikarildi — bkz. `ui/common/WanderingPiecesBackground.kt`.
-        WanderingPiecesBackground(modifier = Modifier.matchParentSize())
+    Box(modifier = Modifier.fillMaxSize()) {
+        GameScreenBackground(
+            skin = skin,
+            darkMode = darkMode,
+            modifier = Modifier.matchParentSize()
+        )
+        // Faz 115h/120-124: gezinen oyun parcalari katmani — zemin bloklarinin
+        // ONUNDE, icerigin ARKASINDA duruyor.
+        //
+        // Faz 161 — DEKORASYON METNIN UZERINE GELMEZ. Cihazda turuncu tek kup
+        // "Bir oyun modu seç" yazisinin icine giriyordu. Alfa dusurmek bunu
+        // COZMEZ: parca gezindigi icin bazen tam harfin uzerinde durur ve
+        // okunurluk ANA ekranda kumara birakilamaz. Cozum konum: ust serit
+        // (wordmark + alt baslik) dekorasyona KAPALI.
+        WanderingPiecesBackground(
+            pieces = ModeSelectWanderingPieces,
+            modifier = Modifier.matchParentSize()
+        )
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Faz 44: logo+isim ve jeton/görevler/ayarlar oncede İKİ AYRI satirdi —
-            // kullanici "logo ve isim üste taşınmalı ki altta yer açılsın, böyle
-            // tasarım kötü gözüküyor" dedi. Artik TEK satirda: logo+isim sola,
-            // jeton/görevler/ayarlar saga (LevelMapHeader/oyun ekrani basligindaki
-            // ayni desen) — bir satir yuksekliginde alan mod kartlarina geri
-            // kazandiriliyor.
-            // Faz 60: kullanici ekran goruntusuyle "sagdaki jeton/kupa/ayarlar
-            // kumesi sag kenara yapisik degil, bosluk var" dedi — kok neden
-            // `weight(1f, fill = false)` idi: fill=false, bu Row'un icerigi
-            // (ikon+baslik) kadar KUCULMESINE izin veriyordu, bu yuzden Row
-            // kendi payinin tamamini KAPLAMIYOR, hemen ardindan gelen
-            // jeton/ayarlar kumesi de sag kenara degil, kucuk Row'un hemen
-            // sagina (ekranin ortalarina yakin bir yere) yerlesiyordu.
-            // fill=true (varsayilan) ile Row artik kalan TUM genisligi
-            // kapliyor, boylece sagdaki kume gercekten sag kenara yapisiyor.
-            // "Boom Blocks" sabit/kisa bir metin oldugu icin ellipsis riski yok.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                // Faz 161: dikey dolgu 16 -> 10dp, yatay 16 -> 14dp. Kazanilan
+                // her dp izgaraya gidiyor. Sistem cubuklari zaten
+                // MainActivity'de windowInsetsPadding ile disarida.
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            // Olculer docs/UI_TARGET.md bolum 5'ten (referans cerce 941x1672).
+            // ORANLAR kullaniliyor, piksel degil.
+            val boxWidth = maxWidth
+            val boxHeight = maxHeight
+
+            // UST BAR BUTCESI — bu ekranin en onemli sayisi.
+            //
+            // Cihazda olculdu: wordmark ortaya alinip buyutuldugunde ust serit
+            // ekran yuksekliginin ~%25'ini yiyordu ve izgara eziliyordu.
+            // Hedefte ust bar yuksekligin ~%9'u (y 88-240 / 1672). Punto hem
+            // genislige hem yuksekliğe bagli; iki satir BITISIK oldugu icin
+            // (`tightLines`) blok yuksekligi ~2 x punto.
+            //
+            // Wordmark VARLIGI 720x511 (en-boy 1.41). Yuksekligi hem ust bar
+            // butcesinden hem de GENISLIK payindan turemek zorunda: yalnizca
+            // yukseklige baglansaydi dar bir ekranda logo jeton kapsulunun
+            // uzerine binerdi. Genislik payi = ekranin ~%30'u.
+            // Logo artik ust barin TEK marka ogesi (ayri uygulama ikonu yok),
+            // o yuzden genislik payi %30 -> %38.
+            val wordmarkHeight = minOf(
+                boxHeight.value * 0.135f,
+                (boxWidth.value * 0.38f) / KB_LOGO_ASPECT
+            ).coerceIn(36f, 96f).dp
+
+            // Mod adlari 4 kart icin TEK punto ile olcekleniyor: en uzun
+            // ceviri hangisiyse hepsi ona gore kuculur. Kart kart farkli
+            // punto "bozuk dizgi" gibi okunurdu.
+            val modeTitles = listOf(
+                language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO"),
+                language.pick(tr = "KARİYER", en = "CAREER", it = "CARRIERA", fr = "CARRIÈRE", es = "CARRERA"),
+                language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO"),
+                language.pick(tr = "KOLAY MOD", en = "COMFORT MODE", it = "MODALITÀ COMFORT", fr = "MODE CONFORT", es = "MODO CONFORT")
+            )
+            val statLabelLevel = language.pick(
+                tr = "EN YÜKSEK SEVİYE",
+                en = "HIGHEST LEVEL",
+                it = "LIVELLO PIÙ ALTO",
+                fr = "NIVEAU LE PLUS HAUT",
+                es = "NIVEL MÁS ALTO"
+            )
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ---------------------------------------------------------------
+                // 1) UST BAR — TEK SATIR: [ikon][wordmark] ... [jeton][kupa][disli]
+                //
+                //    Ikon ve wordmark TEK MARKA BLOGU: ayri satirlara
+                //    bolundugunde ikon oksuz kaliyor, wordmark da ekranin
+                //    kimligi olmak yerine basibos bir baslik gibi duruyordu.
+                //    Sag taraf arac tuslari; ikisinin arasindaki `weight`
+                //    bosluğu wordmark'in tasmasini da engelliyor.
+                // ---------------------------------------------------------------
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
+                    // Faz 161 — WORDMARK ARTIK METIN DEGIL, VARLIK.
+                    //
+                    // "Kaboom Blocks" bir MARKA ADI: bes dilde de ayni, yani
+                    // basliklarin metin olma gerekcesi (ceviri) burada gecerli
+                    // degil. Varlik gradyani, konturu, kabartmayi ve satir
+                    // araligini KENDI ICINDE tasiyor — "renklerinin alakasi
+                    // yok" ve "aralarinda kocaman bosluk var" sikayetlerinin
+                    // ikisini birden kapatiyor.
+                    //
+                    // AYRI UYGULAMA IKONU YOK: yeni logo patlayan "B" blogunu
+                    // ve cevresindeki renkli bloklari zaten iceriyor. Yanina
+                    // bir de `kb_app_icon` koymak ayni amblemi iki kez
+                    // gostermek olurdu.
+                    //
+                    // Ekran BASLIKLARI (AYARLAR, HAFTALIK GOREVLER) metin
+                    // tabanli kalmaya devam ediyor; onlar CEVRILIYOR.
+                    Image(
+                        painter = painterResource(R.drawable.kb_logo),
+                        contentDescription = "Kaboom Blocks",
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(palette.card)
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = painterResource(R.drawable.ic_launcher_foreground),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Kaboom Blocks",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Black,
-                        color = palette.textPrimary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            .height(wordmarkHeight)
+                            .aspectRatio(KB_LOGO_ASPECT)
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    ModeSelectHeaderActions(
+                        language = language,
+                        tokens = tokens,
+                        isWatchAdLoading = isWatchAdLoading,
+                        onTokenPillClick = { showWatchAdDialog = true },
+                        surfaces = surfaces,
+                        onOpenMissions = onOpenMissions,
+                        onOpenSettings = onOpenSettings
                     )
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                ModeSelectHeaderActions(
-                    language = language,
-                    tokens = tokens,
-                    isWatchAdLoading = isWatchAdLoading,
-                    onTokenPillClick = { showWatchAdDialog = true },
-                    palette = palette,
-                    onOpenMissions = onOpenMissions,
-                    onOpenSettings = onOpenSettings
-                )
-            }
+                // Ortalanmis alt baslik, iki yaninda kucuk eskenar dortgen parilti.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SubtitleSparkle(surfaces)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = language.pick(
+                            tr = "Bir oyun modu seç",
+                            en = "Choose a game mode",
+                            it = "Scegli una modalità di gioco",
+                            fr = "Choisissez un mode de jeu",
+                            es = "Elige un modo de juego"
+                        ),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        // Faz 161: `accentText` (camgobegi) DEGIL. Zemin de ayni
+                        // renk ailesinden geldigi icin metin zemine gomuluyordu.
+                        // Vurgu rengi kimlik tasir, OKUNAN metin notr kalir.
+                        // Parilti kareleri accent'te kaldi — dekorasyon orada.
+                        color = screenBodyTextColor(surfaces),
+                        textAlign = TextAlign.Center,
+                        // TASMA: "Scegli una modalità di gioco" / "Choisissez un
+                        // mode de jeu" dar ekranda tek satira sigmaz — iki satira
+                        // taser, kirpilmaz. weight ile parilti simgeleri sikismaz.
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    SubtitleSparkle(surfaces)
+                }
 
-            Text(
-                text = language.pick(tr = "Bir oyun modu seç", en = "Choose a game mode", it = "Scegli una modalità di gioco", fr = "Choisissez un mode de jeu", es = "Elige un modo de juego"),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = palette.textSecondary,
-                modifier = Modifier.padding(start = 50.dp, top = 2.dp)
-            )
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Faz 71: kullanici "oyun tipi secimi 2x2 olsun, asagi dogru
-            // (kaydirma) olmasin" dedi — 4 moda (Sonsuz/Seviyeli/Challenge/
-            // Retro) hazirlik olarak dikey tek-sutunluk liste yerine 2x2 grid.
-            // Butun modlar kaydirmadan tek bakista goruluyor. Challenge ve
-            // Retro henuz oynanabilir olmadigi icin "YAKINDA" kilitli
-            // tasarim olarak eklendi — grid'in tamamlanmis gorunmesi ve
-            // gelecek modlarin onizlemesi icin.
-            // Faz 72: kullanici "kareler olsun, gridde ortalansinlar alttan
-            // ustten bosluk esit kalacak sekilde" dedi — eskiden bu Column
-            // weight(1f) ile kalan TUM dikey alani zorla dolduruyor, kartlar
-            // da fillMaxHeight() ile o alana GERiliyordu (genis dikdortgen).
-            // Artik disaridaki Box weight(1f) alani aliyor ama iceride kartlar
-            // aspectRatio(1f) ile KARE kalip, Box'un contentAlignment=Center'i
-            // sayesinde ust/alt bosluk otomatik esitleniyor.
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        ModeCard(
-                            title = language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO"),
-                            statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
-                            statValue = "$endlessBestScore",
-                            icon = Icons.Default.AllInclusive,
-                            accent = NeonGreen,
-                            palette = palette,
-                            onClick = onOpenEndless,
-                            testTag = "mode_select_endless_button",
-                            modifier = Modifier.weight(1f).aspectRatio(1f),
-                            iconRes = R.drawable.icon_endless
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        ModeCard(
-                            // Faz 104: "SEVİYELİ" -> "KARİYER". Eski ad yavan ve islevsel
-                            // duruyordu. Kullanici "Rekabetçi/Competitive" onerdi ama o ad
-                            // olmayan bir sey vaat ederdi (lider tablosu/rakip/siralama yok,
-                            // mod tek kisilik bir bolum haritasi) ve zaten rekabet cagrisimi
-                            // tasiyan PRO MOD ile cakisirdi. "Kariyer" ilerleme/yolculuk
-                            // fikrini dogru veriyor, PRO ile net bir cift olusturuyor
-                            // (KARİYER = normal yolculuk, PRO = zorlu versiyonu) ve 5 dilde
-                            // de kisa. NOT: kod icindeki eski yorumlarda gecen "Seviyeli Mod"
-                            // ifadesi bu moddur — sadece gorunen metinler degistirildi.
-                            title = language.pick(tr = "KARİYER", en = "CAREER", it = "CARRIERA", fr = "CARRIÈRE", es = "CARRERA"),
-                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
-                            statValue = "$highestUnlockedLevel",
-                            icon = Icons.Default.Extension,
-                            accent = NeonCyan,
-                            palette = palette,
-                            onClick = onOpenLevels,
-                            testTag = "mode_select_levels_button",
-                            modifier = Modifier.weight(1f).aspectRatio(1f),
-                            iconRes = R.drawable.icon_career
-                        )
-                    }
+                // ---------------------------------------------------------------
+                // 3) 2x2 mod izgarasi — KALAN ALANIN TAMAMI
+                // ---------------------------------------------------------------
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Faz 161 — OLU BOSLUK. Kartlar `aspectRatio(1f)` ile KARE
+                    // idi ve kenar SADECE genislikten cikiyordu; dikeyde artan
+                    // her sey bosluga gidiyordu. Cihazda olculdu: alt basligin
+                    // altinda ~270px, izgaranin altinda ~250px — ekranin dortte
+                    // biri bos, kartlar da bu yuzden kucuk.
+                    //
+                    // Kart artik hucrenin TAMAMINI kapliyor (`weight` ile
+                    // yukseklik paylasimi). Tablet YATAY korumasi KAYBOLMADI,
+                    // aksine guclendi: kart yuksekligi hucre yuksekliginin
+                    // uzerine CIKAMAZ, yani iki sira her zaman tam siger ve
+                    // etkilesilebilir hicbir kart ekran disina tasmaz.
+                    // Tek ek sinir asiri oran (bkz. `modeGridMetrics`).
+                    val metrics = modeGridMetrics(maxWidth, maxHeight)
+                    // Mod adi puntosu 4 kart icin TEK sefer, EN UZUN ceviriye
+                    // gore ve GERCEK olcumle bulunuyor (bkz. fonksiyonun
+                    // basindaki not — karakter butcesi tahmini cihazda
+                    // "MODE CONF..." olarak kirpildi).
+                    val titleSp = rememberModeTitleFontSize(
+                        titles = modeTitles,
+                        // Hedefte mod adi ~40px / 480px kart yuksekligi = %8.3.
+                        maxFontSize = (metrics.cardHeight.value * 0.095f)
+                            .coerceIn(11f, 22f).sp,
+                        availableWidth = metrics.cardWidth - ModeCardTextInset
+                    )
+                    Column(
+                        modifier = Modifier
+                            .width(metrics.cardWidth * 2 + ModeGridColumnGap)
+                            .height(metrics.cardHeight * 2 + ModeGridRowGap)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            ModeCard(
+                                title = modeTitles[0],
+                                titleFontSize = titleSp,
+                                statLabel = language.pick(tr = "EN YÜKSEK SKOR", en = "BEST SCORE", it = "MIGLIOR PUNTEGGIO", fr = "MEILLEUR SCORE", es = "MEJOR PUNTUACIÓN"),
+                                statValue = "$endlessBestScore",
+                                accent = NeonGreen,
+                                surfaces = surfaces,
+                                onClick = onOpenEndless,
+                                testTag = "mode_select_endless_button",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                iconRes = R.drawable.kb_mode_endless
+                            )
+                            Spacer(modifier = Modifier.width(ModeGridColumnGap))
+                            ModeCard(
+                                // Faz 104: "SEVİYELİ" -> "KARİYER".
+                                title = modeTitles[1],
+                                titleFontSize = titleSp,
+                                statLabel = statLabelLevel,
+                                statValue = "$highestUnlockedLevel",
+                                accent = NeonCyan,
+                                surfaces = surfaces,
+                                onClick = onOpenLevels,
+                                testTag = "mode_select_levels_button",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                iconRes = R.drawable.kb_mode_career
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(ModeGridRowGap))
 
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        ModeCard(
-                            title = language.pick(tr = "PRO MOD", en = "PRO MODE", it = "MODALITÀ PRO", fr = "MODE PRO", es = "MODO PRO"),
-                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
-                            statValue = "$highestChallengeLevel",
-                            icon = Icons.Default.LocalFireDepartment,
-                            // Faz 117: kullanici "retronun ikonu mor oldugu icin
-                            // (kart da mor zeminliydi) gözükmüyor" dedi — cozum
-                            // olarak Pro/Retro accent renkleri TAKAS edildi (ikon
-                            // asset'lerine dokunmadan): Pro artik mor, Retro
-                            // eskiden Pro'nun rengi olan turuncu. Boylece morrenkli
-                            // retro ikonu artik turuncu zeminde kontrastli gorunuyor.
-                            accent = NeonPurple,
-                            palette = palette,
-                            onClick = onOpenChallenge,
-                            testTag = "mode_select_challenge_button",
-                            locked = false,
-                            modifier = Modifier.weight(1f).aspectRatio(1f),
-                            emoji = "🔥",
-                            iconRes = R.drawable.icon_pro
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        // Faz 128: RETRO kartinin yerini COMFORT MODE (TR "KOLAY MOD")
-                        // aldi. Kariyer'in kopyasi: ayni harita/loadout/oyun ekranlari,
-                        // ama cok yumusak hedef egrisi (100 puan, +1/bolum) ve
-                        // tahta-farkindali pozitif onyargi. Amac: oyuncu akiciyca cok
-                        // bolum gecsin, her geciste reklam gorsun.
-                        ModeCard(
-                            title = language.pick(tr = "KOLAY MOD", en = "COMFORT MODE", it = "MODALITÀ COMFORT", fr = "MODE CONFORT", es = "MODO CONFORT"),
-                            statLabel = language.pick(tr = "EN YÜKSEK SEVİYE", en = "HIGHEST LEVEL", it = "LIVELLO PIÙ ALTO", fr = "NIVEAU LE PLUS HAUT", es = "NIVEL MÁS ALTO"),
-                            statValue = "$comfortHighestLevel",
-                            icon = Icons.Default.Favorite,
-                            accent = ComfortTeal,
-                            palette = palette,
-                            onClick = onOpenComfort,
-                            testTag = "mode_select_comfort_button",
-                            locked = false,
-                            modifier = Modifier.weight(1f).aspectRatio(1f),
-                            emoji = "🪶",
-                            iconRes = R.drawable.icon_comfort
-                        )
+                        Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            ModeCard(
+                                title = modeTitles[2],
+                                titleFontSize = titleSp,
+                                statLabel = statLabelLevel,
+                                statValue = "$highestChallengeLevel",
+                                // Faz 117: Pro mor, Retro turuncuydu (ikon kontrasti).
+                                accent = NeonPurple,
+                                surfaces = surfaces,
+                                onClick = onOpenChallenge,
+                                testTag = "mode_select_challenge_button",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                iconRes = R.drawable.kb_mode_pro
+                            )
+                            Spacer(modifier = Modifier.width(ModeGridColumnGap))
+                            // Faz 128: RETRO kartinin yerini COMFORT MODE (TR "KOLAY MOD") aldi.
+                            ModeCard(
+                                title = modeTitles[3],
+                                titleFontSize = titleSp,
+                                statLabel = statLabelLevel,
+                                statValue = "$comfortHighestLevel",
+                                accent = ComfortTeal,
+                                surfaces = surfaces,
+                                onClick = onOpenComfort,
+                                testTag = "mode_select_comfort_button",
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                iconRes = R.drawable.kb_mode_easy
+                            )
+                        }
                     }
                 }
             }
@@ -344,35 +435,236 @@ fun ModeSelectScreen(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Faz 161 — IZGARA OLCULERI (saf fonksiyon, testten dogrudan cagriliyor)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Hazir varliklarin en-boy oranlari (genislik / yukseklik).
+//
+// Varliklar KARE DEGIL ve kendi golge/parlama paylarini tasiyor. Oran elle
+// yazilmazsa `Image` kendi ic olcusunu dayatir ve ust bar satirinda tasma
+// uretir; `aspectRatio` ile yukseklikten guvenle turetiliyor.
+// ---------------------------------------------------------------------------
+
+/**
+ * kb_logo — 535 x 380. Ikon + wordmark TEK varlik: patlayan "B" blogu ve
+ * cevresindeki renkli bloklar logonun icinde, ayrica uygulama ikonu konmuyor.
+ */
+internal const val KB_LOGO_ASPECT = 535f / 380f
+
+/** Sutunlar arasi bosluk — hedefte ~32/941 = genisligin %3.4'u. */
+internal val ModeGridColumnGap: Dp = 12.dp
+
+/** Satirlar arasi bosluk — hedefte ~50/1672 = yuksekligin %3'u. */
+internal val ModeGridRowGap: Dp = 16.dp
+
+/**
+ * Hedef mockup'taki kart en-boy orani (genislik / yukseklik).
+ * 390 x 480 = 0.8125 — kart KARE DEGIL, enden uzun.
+ */
+internal const val MODE_CARD_ASPECT = 0.8125f
+
+internal data class ModeGridMetrics(val cardWidth: Dp, val cardHeight: Dp)
+
+/**
+ * 2x2 izgaranin kart olculeri.
+ *
+ * ONCE SEKIL, SONRA SIGDIRMA:
+ *  1. Kart hedefteki orani (0.81) alir ve genisligi hucrenin tamamidir.
+ *  2. Bu yukseklik alana sigmiyorsa kart YUKSEKLIKTEN turer ve genisligi
+ *     ORANI KORUYARAK kuculur.
+ *
+ * Iki dalda da `cardWidth <= cellWidth` ve `cardHeight <= cellHeight`, yani
+ * `2*kart + bosluk <= kullanilabilir olcu`. Kart ekran disina TASAMAZ —
+ * eski `aspectRatio(1f)` cozumunun tablet-yatay korumasi burada da var
+ * (kisa bir pencerede kartlar oranini koruyarak kuculur), ustelik kartlar
+ * artik kareye kilitli olmadigi icin dikeyde olu bosluk birakmiyor.
+ *
+ * KAYDIRMA YOK: bu ekran hicbir zaman kaydirilmaz, sigdirma tamamen bu
+ * fonksiyonun isi.
+ */
+internal fun modeGridMetrics(
+    maxWidth: Dp,
+    maxHeight: Dp,
+    columnGap: Dp = ModeGridColumnGap,
+    rowGap: Dp = ModeGridRowGap
+): ModeGridMetrics {
+    val cellWidth = ((maxWidth - columnGap) / 2).coerceAtLeast(0.dp)
+    val cellHeight = ((maxHeight - rowGap) / 2).coerceAtLeast(0.dp)
+
+    var width = cellWidth
+    var height = width / MODE_CARD_ASPECT
+    if (height > cellHeight) {
+        height = cellHeight
+        width = minOf(cellWidth, height * MODE_CARD_ASPECT)
+    }
+    return ModeGridMetrics(width, height)
+}
+
+/** Mod adinin iki yanindaki dolgu (kart ic dolgusu 8dp x 2). */
+internal val ModeCardTextInset: Dp = 18.dp
+
+/** Mod adi puntosunun alt siniri — bunun altinda ad okunmaz olurdu. */
+internal const val MODE_TITLE_MIN_SP = 10f
+
+/**
+ * Verilen kosula uyan EN BUYUK punto.
+ *
+ * Arama saf tutuldu (olcum disaridan `fits` ile geliyor) ki testten
+ * dogrudan cagrilabilsin; gercek cagrida `fits` bir `TextMeasurer` ile
+ * GERCEK metin genisligini olcer.
+ *
+ * NEDEN TAHMIN DEGIL OLCUM: ilk denemede karakter BUTCESI kullanilmisti
+ * (12 karakter). Fransizca "MODE CONFORT" tam 12 karakter oldugu icin
+ * kucultulmedi ve cihazda "MODE CONF..." diye KIRPILDI. Karakter sayisi
+ * genisligin vekili degil: harf genisligi, yazi tipi ve `letterSpacing`
+ * hesaba girmiyordu.
+ */
+internal fun fitFontSize(maxSp: Float, minSp: Float, fits: (Float) -> Boolean): Float {
+    var size = maxSp
+    while (size > minSp) {
+        if (fits(size)) return size
+        size -= 1f
+    }
+    return minSp
+}
+
+/**
+ * Mod adlarinin ORTAK puntosu: 4 kart icin TEK sefer, EN UZUN cevirisine
+ * gore. Kart kart farkli punto "bozuk dizgi" gibi okunurdu.
+ */
+@Composable
+private fun rememberModeTitleFontSize(
+    titles: List<String>,
+    maxFontSize: TextUnit,
+    availableWidth: Dp
+): TextUnit {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(titles, maxFontSize, availableWidth, density.density, density.fontScale) {
+        val limitPx = with(density) { availableWidth.toPx() }
+        if (limitPx <= 0f) return@remember maxFontSize
+        fitFontSize(maxFontSize.value, MODE_TITLE_MIN_SP) { candidate ->
+            titles.all { title ->
+                measurer.measure(
+                    text = AnnotatedString(title),
+                    style = TextStyle(
+                        fontFamily = AppFontFamily,
+                        fontSize = candidate.sp,
+                        fontWeight = FontWeight.Black
+                    ),
+                    maxLines = 1,
+                    softWrap = false
+                ).size.width <= limitPx
+            }
+        }.sp
+    }
+}
+
+/** Ust serit: wordmark ve alt basligin durdugu bolge (ekranin ust %42'si). */
+internal const val HEADER_BAND_BOTTOM = 0.42f
+
+/** Ust seritte parcalarin GIREMEYECEGI orta sutun (metin burada). */
+internal const val HEADER_TEXT_LEFT = 0.18f
+internal const val HEADER_TEXT_RIGHT = 0.82f
+
+/**
+ * Ust seritteki parcalarin kenara pimlendigi konum ve kisitli gezinme yaricapi.
+ *
+ * FAZ 162 — MADDE 3 ILE BIRLIKTE YARICAP KISILDI (22dp -> 16dp).
+ * Pim konumu (`EDGE`) KASITLI OLARAK 0.045'te BIRAKILDI.
+ *
+ * Parcalar artik duz kare degil 3B kup VARLIGI ve okunabilmeleri icin daha
+ * genis ciziliyorlar (bkz. `WanderingPiece.widthDp`). Eski degerlerle en dar
+ * desteklenen ekranda (292dp) 4'lu parcanin SAG KENARI x=0.194'e ulasiyordu —
+ * yani `HEADER_TEXT_LEFT` (0.18) sinirini asip "Bir oyun modu seç" yazisinin
+ * sutununa giriyordu. Merkez sinirda kaliyordu, TASAN sey cizim genisligiydi.
+ *
+ * ILK DENEMEDE PIM 0.02'YE CEKILDI VE CIHAZDA GERI ALINDI: fy=0.38'deki
+ * parcalar (ki bunlar alt basligin cok altinda, karta kadar olan bos
+ * seritte duruyorlar) ekran disina kayip kenarda birer "dilim" olarak
+ * okunuyordu. Sadece YARICAPI kismak ayni tasma guvencesini veriyor ve
+ * parcalarin yerini degistirmiyor:
+ *   0.045 + 16/292 + 21.6/292 = 0.174  <  0.18  ✓
+ *
+ * Yani Faz 161'de konan kural (ust serit dekorasyona kapali) aynen gecerli;
+ * olcu buyudugu icin yalnizca salinim genligi daraltildi.
+ * ModeSelectLayoutTest artik cizim genisligini de hesaba katiyor.
+ */
+private const val HEADER_PIECE_EDGE = 0.045f
+private const val HEADER_PIECE_RANGE_DP = 16f
+
+/**
+ * Ana menunun gezinen parca listesi.
+ *
+ * Hedef gorselde (docs/ui_mockups/hedef_modsecim.png) UST KOSELERDE de blok
+ * var — mavi sag ustte, mor sagda, turuncu solda. Yani parcalari ust seritten
+ * TAMAMEN silmek hedeften uzaklastirirdi.
+ *
+ * Ama cihazda yakalanan hata gercek: turuncu tek kup "Bir oyun modu seç"
+ * yazisinin icine giriyordu. Sebep gezinme yaricapiydi — parca fx = 0.08'de
+ * duruyor ama +-55dp gezindigi icin metnin uzerine kadar suruklenebiliyordu.
+ * Alfa dusurmek bunu COZMEZ: parca hareketli oldugu icin er ya da gec tam
+ * harfin uzerinde durur ve okunurluk kumara birakilamaz.
+ *
+ * Cozum hedefle uyumlu: ust serittteki parcalar EN KENARA pimleniyor ve
+ * gezinme yaricaplari kisiliyor; boylece kosede kaliyorlar, metin sutununa
+ * (x %18-%82) hicbir salinimda giremiyorlar. Alt seritteki parcalar aynen
+ * kaliyor.
+ */
+internal val ModeSelectWanderingPieces = DEFAULT_WANDERING_PIECES.map { piece ->
+    if (piece.fy >= HEADER_BAND_BOTTOM) {
+        piece
+    } else {
+        piece.copy(
+            fx = if (piece.fx < 0.5f) HEADER_PIECE_EDGE else 1f - HEADER_PIECE_EDGE,
+            rangeDp = minOf(piece.rangeDp, HEADER_PIECE_RANGE_DP)
+        )
+    }
+}
+
+// Alt basligin iki yanindaki kucuk parilti.
+//
+// Hedef gorselde bunlar EKSENE PARALEL kare degil, 45 derece dondurulmus
+// ELMAS. Kare hali "eksik yuklenmis bir ikon" gibi duruyordu.
+@Composable
+private fun SubtitleSparkle(surfaces: GameSurfaces) {
+    Box(
+        modifier = Modifier
+            .size(9.dp)
+            .rotate(45f)
+            .clip(RoundedCornerShape(2.dp))
+            .background(surfaces.accentPrimary)
+    )
+}
+
 @Composable
 private fun ModeSelectHeaderActions(
     language: AppLanguage,
     tokens: Int,
-    palette: BlastPalette,
+    surfaces: GameSurfaces,
     isWatchAdLoading: Boolean = false,
     onTokenPillClick: () -> Unit = {},
     onOpenMissions: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        // Dokunma hedefleri arasi >= 6dp bosluk (48dp kural: tuslar 40dp
+        // gorsel, cevrelerindeki bosluklarla birlikte rahat hedef).
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Surface(
-            color = NeonGold.copy(alpha = 0.18f),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                // Faz 145: rozet artik bir buton — dokununca odullu reklam onayi
-                // aciliyor. Reklam yuklenirken tekrar basilamiyor.
-                .clickable(enabled = !isWatchAdLoading) { onTokenPillClick() }
-                .testTag("mode_select_token_pill")
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        // Jeton kapsulu ayni zamanda bir BUTON (Faz 145: odullu reklam).
+        // Yukleme sirasinda spinner gosteriyor, tekrar basilamiyor.
+        GamePill(
+            surfaces = surfaces,
+            accent = GoldPillAccent,
+            onClick = if (isWatchAdLoading) null else onTokenPillClick,
+            modifier = Modifier.testTag("mode_select_token_pill"),
+            leading = {
                 if (isWatchAdLoading) {
-                    // Faz 43'teki ders: reklam yuklemesi 3-8 sn surebiliyor ve
+                    // Faz 43 dersi: reklam yuklemesi 3-8 sn surebiliyor,
                     // sessiz bekleme "buton bozuk" hissi veriyor.
                     CircularProgressIndicator(
                         color = NeonGold,
@@ -380,310 +672,219 @@ private fun ModeSelectHeaderActions(
                         modifier = Modifier.size(14.dp)
                     )
                 } else {
-                    // Faz 115i: emoji yerine gercek asset (icon_coin.webp).
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(com.miniappfactory.boomblocks.R.drawable.icon_coin),
+                    Image(
+                        painter = painterResource(R.drawable.kb_coin),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                    text = "$tokens",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = NeonGold
-                )
             }
+        ) {
+            Text(
+                text = "$tokens",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (surfaces.isLightSurface) {
+                    lerp(GoldPillAccent, Color.Black, 0.45f)
+                } else {
+                    GoldPillAccent
+                },
+                maxLines = 1
+            )
         }
 
-        // Faz 44: tek satira sigdirmak icin ikon dugmeleri de (oyun ekrani basligindaki
-        // Faz 28 desenine benzer) 48dp varsayilan dokunma alani yerine 36dp'ye daraltildi.
-        IconButton(
+        // Faz 161: Material vektor yerine hazir varliklar. Tus GOVDESI ayni
+        // kaldi (koyu kare + accent kenarlik) — degisen sadece icerik.
+        GameImageIconButton(
+            iconRes = R.drawable.kb_trophy,
+            contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
             onClick = onOpenMissions,
-            modifier = Modifier.size(36.dp).testTag("mode_select_missions_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.EmojiEvents,
-                contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
-                tint = NeonPurple,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+            surfaces = surfaces,
+            accent = NeonPurple,
+            size = 40.dp,
+            modifier = Modifier.testTag("mode_select_missions_button")
+        )
 
-        IconButton(
+        GameImageIconButton(
+            iconRes = R.drawable.kb_settings,
+            contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
             onClick = onOpenSettings,
-            modifier = Modifier.size(36.dp).testTag("mode_select_settings_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
-                tint = palette.textPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+            surfaces = surfaces,
+            size = 40.dp,
+            modifier = Modifier.testTag("mode_select_settings_button")
+        )
     }
 }
 
-// Faz 71: 2x2 grid'e gecince kart artik genis/yatay degil, kareye yakin bir
-// tile — eski yatay Row (ikon+baslik+alt yazi solda, istatistik sagda) dar
-// tile'da sikisip taniz duruyordu. Ikon ortada ustte, baslik altinda, istatistik
-// en altta — dikey, ortalanmis bir duzen. `subtitle` kaldirildi (dar tile'da
-// yer yok, zaten baslik + ikon modu yeterince anlatiyor). `locked` (Faz 71,
-// Challenge/Retro icin) true oldugunda kart soluk gorunuyor, kucuk bir kilit
-// rozeti + "YAKINDA" etiketi gosteriyor, tiklama hicbir sey yapmiyor.
+// Mod karti: madalyon + baslik + istatistik kapsulu.
+//
+// TASMA (2026-08-16'da cihazda yakalanmisti): kart aspectRatio(1f) yani
+// ekran genisligine BAGLI bir kare. 320dp bir ekranda kart ~136dp'ye duser
+// ve sabit olculer tasar — o zaman istatistik DEGERI sessizce kirpilmisti.
+// Bu yuzden olculer artik SABIT DEGIL: madalyon ve yazi boyutlari
+// BoxWithConstraints ile kartin gercek yuksekligine gore olcekleniyor.
+// Boylece 320dp telefonda da, tablet yatay modunda da tasma olmuyor.
 @Composable
 private fun ModeCard(
     title: String,
     statLabel: String,
     statValue: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    accent: androidx.compose.ui.graphics.Color,
-    palette: BlastPalette,
+    accent: Color,
+    surfaces: GameSurfaces,
     onClick: () -> Unit,
     testTag: String,
-    locked: Boolean = false,
     modifier: Modifier = Modifier,
-    // Faz 89: kullanici Pro Mod/Retro icin "renkli" ikon istedi — Icon()
-    // composable'i her zaman tek renkte (Color.White) tint ediyor, emoji ise
-    // kendi dogal cok-renkli goruntusunu koruyor. Verilirse Icon yerine bu
-    // emoji metni gosteriliyor (kilitliyken hala Icons.Default.Lock kullanilir).
-    emoji: String? = null,
-    // Faz 115f: gorsel yenileme — ChatGPT ile uretilen gercek ikon varliklari
-    // (drawable-nodpi/icon_*.webp). Verilirse emoji/Icon'un YERINE gecer;
-    // asset uretim istemi docs/asset_prompt_for_image_model.md'de. Kilitliyken
-    // hala Icons.Default.Lock kullanilir (asset'lerde kilit hali yok).
+    // Punto DISARIDAN geliyor: 4 kart ayni puntoyu paylasmak zorunda ve
+    // en uzun ceviriye gore GERCEK olcumle bulunuyor (bkz. fitFontSize).
+    titleFontSize: TextUnit = 16.sp,
+    locked: Boolean = false,
     @androidx.annotation.DrawableRes iconRes: Int? = null
 ) {
-    val effectiveAccent = if (locked) palette.textSecondary else accent
-    // Faz 72: kullanici "transparan cerceve uzerinde durmasinlar, canli
-    // renklerle dolu olsun, zeminleri buton gibi olsun" dedi — kilit acik
-    // kartlar artik notr palette.card yerine kendi accent renginin
-    // gradyaniyla DOLU (gercek bir buton gibi). Kilitli (Challenge/Retro)
-    // kartlar eskisi gibi notr/soluk kaliyor, sadece unlocked kartlar
-    // canli dolgu aliyor.
-    // Faz 115: KOYU GOVDE + ACCENT KENARLIK/GLOW (v11 mockup yonu).
-    //
-    // Faz 72'de kullanici "transparan cerceve uzerinde durmasinlar, canli
-    // renklerle dolu olsun, zeminleri buton gibi olsun" demisti. 2026-08-16'da
-    // mockup'lari gorup "mod sectigimiz kartlara bak, onun yaptiklari mukemmel"
-    // dedi — yani koyu govdeli yon ACIKCA secildi. Faz 72 sessizce degil,
-    // kullanici talimatiyla geri alindi.
-    //
-    // Kazanci: doygun dolgu uzerinde beyaz metin ve altin deger birbirini
-    // boguyordu; koyu zeminde accent renk kontrast kazaniyor.
-    val fillBrush = if (locked) {
-        SolidColor(palette.card)
-    } else {
-        Brush.verticalGradient(
-            listOf(
-                lerp(palette.card, accent, 0.34f),
-                lerp(palette.card, accent, 0.12f),
-                palette.card
-            )
-        )
-    }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(modifier)
-            .background(fillBrush, RoundedCornerShape(20.dp))
-            .border(
-                2.dp,
-                if (locked) {
-                    SolidColor(palette.cardBorder)
-                } else {
-                    // Accent kenarlik: mockup'ta karti tanimlayan asil oge bu.
-                    // Ustte parlak, altta soluk — isik yukaridan geliyor hissi.
-                    Brush.verticalGradient(
-                        listOf(
-                            lerp(accent, Color.White, 0.35f),
-                            accent,
-                            accent.copy(alpha = 0.55f)
-                        )
-                    )
-                },
-                RoundedCornerShape(20.dp)
-            )
-            .clickable(enabled = !locked, onClick = onClick)
-            .testTag(testTag)
+    val effectiveAccent = if (locked) surfaces.panelBorder else accent
+    NeonCard(
+        surfaces = surfaces,
+        accent = effectiveAccent,
+        glow = if (locked) 0f else 1f,
+        cornerRadius = 20.dp,
+        contentPadding = 0.dp,
+        onClick = if (locked) null else onClick,
+        modifier = modifier.testTag(testTag)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Ikonun arkasindaki accent isima — mockup'ta ikon "kendi isigini
-            // yayan" bir nesne gibi duruyor. Radyal gradyan, illustrasyon
-            // olmadan o hissi veren en ucuz yol.
-            if (!locked) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.55f)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(accent.copy(alpha = 0.30f), Color.Transparent)
-                            )
-                        )
-                )
-            }
-            // TASMA UYARISI (2026-08-16'da cihazda yakalandi): kart aspectRatio(1f),
-            // yani ~190dp kare. Ilk denemede ikon 58dp + bosluklar 9dp + baslik 16sp
-            // + serit toplami ~189dp tutmustu ve istatistik DEGERI (0/1/5) sessizce
-            // kirpildi — etiket goruniyor, sayi yok. Asagidaki olculer toplami
-            // ~136dp'de tutuyor. Bu blogu buyutursen S8'de (1080x2220) TEKRAR
-            // dogrula; ozellikle "EN YUKSEK SEVIYE" / "NIVEAU LE PLUS HAUT" gibi
-            // uzun etiketlerle.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            // Ic olculer docs/UI_TARGET.md bolum 5.4'ten, kart 390x480 kabul
+            // edilerek. Madalyon kart GENISLIGINDEN, yazilar kart
+            // YUKSEKLIGINDEN turuyor — hedefte oyle olculdu.
+            val cardHeight = maxHeight
+            val cardWidth = maxWidth
+            // Hedef: cap ~195 / 390 genislik = %50.
+            val medallion = (cardWidth * 0.54f).coerceIn(36.dp, 128.dp)
+            val titleSp = titleFontSize
+            // Hedef: deger ~48 / 480 = %10, etiket ~22 / 480 = %4.6.
+            val valueSp = (cardHeight.value * 0.100f).coerceIn(13f, 26f).sp
+            val labelSp = (cardHeight.value * 0.050f).coerceIn(8.5f, 12f).sp
+
+            // TASMA SINIFI OLARAK COZULUYOR: yukaridaki oranlar 1.0 fontScale
+            // icin dengeli, ama sistemde buyuk yazi tipi secili bir cihazda
+            // (fontScale 1.3) ya da cok kisa bir kartta toplam icerik kart
+            // yuksekligini asabilir. `FitToHeight` icerigi kartin icine
+            // sigdirir; tek tek deger kirpmaya gerek yok.
+            FitToHeight(modifier = Modifier.fillMaxSize(), minScale = 0.62f) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 9.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Ikon kuyusu: accent halka + ic isima
-                // Faz 117: kullanici "ikonlar biraz büyümesi" dedi — kuyu 48->54dp
-                // yapilmisti. Faz 119'da kullanici "sayilar kaydi, yuvarlaklar eski
-                // boyuna donmeli, ikon yuvarlak icinde daha cok yer kaplayabilir"
-                // dedi — kuyu 48dp'ye GERI alindi (kart butcesini bozan buydu),
-                // asset ise 30->40dp'ye buyutuldu (kuyunun cogunu dolduruyor,
-                // kenarlik halkasi hala goruluyor).
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    if (locked) effectiveAccent.copy(alpha = 0.12f) else accent.copy(alpha = 0.42f),
-                                    if (locked) effectiveAccent.copy(alpha = 0.05f) else accent.copy(alpha = 0.10f)
-                                )
-                            )
-                        )
-                        .border(
-                            width = 1.5.dp,
-                            color = if (locked) effectiveAccent.copy(alpha = 0.30f) else accent.copy(alpha = 0.75f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!locked && iconRes != null) {
-                        androidx.compose.foundation.Image(
-                            painter = painterResource(iconRes),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    } else if (!locked && emoji != null) {
-                        Text(text = emoji, fontSize = 24.sp)
-                    } else {
+                // Faz 161 — MADALYON ARTIK VARLIGIN KENDISI.
+                //
+                // Yeni mod varliklari TAM BIR MADALYON: 360x360 tuval, disk
+                // merkezi (180,180), cap 292 — dordu de birebir ayni. (Onceki
+                // surumde tuval yukseklikleri 350/350/315/315 idi ve kullanici
+                // "Kolay Mod kaymis" diye yakalamisti.)
+                //
+                // Bu yuzden `IconMedallion` artik yalnizca KILITLI durumun
+                // yer tutucusu: varligin ustune bir de kod ciziminden disk +
+                // halka koymak ayni halkayi iki kez gostermek olurdu.
+                //
+                // HIZA KURALI: dordu de AYNI kutuya konuyor. Farkli boyut
+                // verilirse varliklarin sagladigi hiza yeniden bozulur.
+                if (!locked && iconRes != null) {
+                    Image(
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(medallion)
+                    )
+                } else {
+                    IconMedallion(
+                        accent = effectiveAccent,
+                        size = medallion,
+                        dimmed = locked
+                    ) {
                         Icon(
-                            imageVector = if (locked) Icons.Default.Lock else icon,
+                            imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            // Faz 115g: emoji/iconRes yoksa buraya dusen yedek yol —
-                            // ayni acik-zemin kontrast kurali burada da gecerli.
-                            tint = when {
-                                locked -> effectiveAccent
-                                palette.card.luminance() > 0.5f -> lerp(accent, Color.Black, 0.35f)
-                                else -> Color.White
-                            },
-                            modifier = Modifier.size(if (locked) 20.dp else 24.dp)
+                            tint = surfaces.panelBorder,
+                            modifier = Modifier.size(medallion * 0.45f)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Faz 115g — HATA DUZELTMESI (kullanici cihazda buldu: "light
-                // mode'da kartların yazıları okunmuyor").
-                //
-                // Kok sebep: baslik rengi `lerp(accent, White, 0.45f)` — koyu
-                // temadaki `palette.card` (#1E293B, lacivert) uzerinde parlak
-                // duruyordu ama hic test edilmemis LIGHT temada `palette.card`
-                // neredeyse beyaz (#EEF2F7) ve baslik da beyaza dogru cekilmis
-                // acik bir renk: acik-uzerine-acik, pratikte gorunmuyordu.
-                //
-                // Duzeltme: zeminin PARLAKLIGINA gore (renk kodlanmis bir
-                // "darkMode" bayragina degil — boylece Orman/Okyanus/Gun Batimi/
-                // Mor Gece skin'lerinde de doğru davranir) baslik ya beyaza ya
-                // siyaha dogru cekilir. Acik zeminde koyu, koyu zeminde acik.
-                val isLightCard = palette.card.luminance() > 0.5f
+                // Faz 115g dersi: baslik rengi ZEMININ parlakligina gore
+                // secilir, sabit degil — acik temada accent+beyaz okunmuyordu.
+                val titleColor = when {
+                    locked -> surfaces.hairline
+                    surfaces.isLightSurface -> lerp(accent, Color.Black, 0.45f)
+                    else -> lerp(accent, Color.White, 0.55f)
+                }
                 Text(
                     text = title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    color = when {
-                        locked -> palette.textSecondary
-                        isLightCard -> lerp(accent, Color.Black, 0.35f)
-                        else -> lerp(accent, Color.White, 0.45f)
-                    },
-                    // Faz 115p — HATA DUZELTMESI (kullanici: "mode secim kartlarini
-                    // guncellememissin"). Kok sebep: `Text()`e DOGRUDAN bir `TextStyle(...)`
-                    // verildiginde bu, `LocalTextStyle.current`in (Fredoka'nin aktigi
-                    // yer) YERINE geciyor, ustune merge OLMUYOR — fontFamily acikca
-                    // verilmezse alan bos kalip Android'in sistem varsayilanina
-                    // (Roboto) duşuyordu. Tum uygulamada boyle 4 yer bulundu.
-                    style = androidx.compose.ui.text.TextStyle(
+                    style = TextStyle(
                         fontFamily = AppFontFamily,
+                        fontSize = titleSp,
+                        fontWeight = FontWeight.Black,
+                        color = titleColor,
+                        textAlign = TextAlign.Center,
                         shadow = androidx.compose.ui.graphics.Shadow(
-                            color = accent.copy(alpha = if (locked || isLightCard) 0f else 0.75f),
+                            color = accent.copy(alpha = if (locked || surfaces.isLightSurface) 0f else 0.8f),
                             offset = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            blurRadius = 20f
+                            blurRadius = 22f
                         )
                     ),
                     maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Istatistik seridi: mockup'taki koyu ic pill. Faz 115g: zemin
-                // artik `palette.card`'in tonuna gore DEGISEN bir siyah-alfa
-                // karisimi degil, SABIT koyu lacivert — aynı hatanin burada da
-                // tekrarlanmasini engelliyor. Acik temada `Color.Black alpha
-                // 0.32` sadece orta gri veriyordu (kontrasti yetersiz); sabit
-                // koyu zemin, uzerindeki beyaz metnin HER iki temada da ayni
-                // kontrasti garanti etmesini sagliyor — light mode icin ayrica
-                // dal acmaya gerek yok.
+                // Istatistik kapsulu: koyu ic kutu + kucuk etiket + buyuk sayi.
+                // Zemin SABIT koyu degil, `surfaces.sunken` — yani acik temada
+                // da koyu-uzerine-beyaz degil, temaya uygun bir oyuk yuzey.
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (locked) palette.cardAlt.copy(alpha = 0.55f)
-                            else Color(0xFF0F172A).copy(alpha = 0.82f)
-                        )
+                        .background(surfaces.sunken.copy(alpha = 0.85f))
                         .border(
                             1.dp,
-                            (if (locked) palette.cardBorder else accent).copy(alpha = 0.42f),
+                            effectiveAccent.copy(alpha = 0.45f),
                             RoundedCornerShape(12.dp)
                         )
-                        .padding(vertical = 5.dp),
+                        .padding(vertical = 5.dp, horizontal = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    // Faz 119: kullanici "yazının altındaki rakamla arasındaki
-                    // boşluk biraz daraltılabilir" dedi — etiket ile deger metni
-                    // arasinda Spacer yoktu, bosluk sadece iki Text'in kendi
-                    // font satir yuksekliginden geliyordu. Kucuk negatif bosluk
-                    // metinleri hafifce yaklastiriyor.
                     verticalArrangement = Arrangement.spacedBy((-2).dp)
                 ) {
+                    // Faz 161: etiket OKUNMASI gereken bir metin, dekorasyon
+                    // degil — alfa 0.72 -> 0.88. Renk yine zeminden turuyor
+                    // (`sunken` acik temada acik), sabit beyaz gomulmuyor.
+                    val onWell = if (surfaces.sunken.luminance() > 0.45f) {
+                        Color(0xFF12161F).copy(alpha = 0.88f)
+                    } else {
+                        Color.White.copy(alpha = 0.88f)
+                    }
                     Text(
                         text = statLabel,
-                        fontSize = 9.sp,
-                        color = if (locked) palette.textSecondary else Color.White.copy(alpha = 0.70f),
+                        fontSize = labelSp,
+                        color = onWell,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
+                        letterSpacing = 0.4.sp,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (statValue.isNotEmpty()) {
                         Text(
                             text = statValue,
-                            fontSize = 17.sp,
+                            fontSize = valueSp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (locked) NeonGold else lerp(accent, Color.White, 0.55f),
+                            color = if (locked) NeonGold else lerp(accent, Color.White, 0.6f),
                             maxLines = 1
                         )
                     }
                 }
+            }
             }
         }
     }

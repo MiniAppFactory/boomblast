@@ -1,36 +1,35 @@
 package com.miniappfactory.boomblocks.ui.missions
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,25 +39,64 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
+import com.miniappfactory.boomblocks.data.MissionType
 import com.miniappfactory.boomblocks.data.WeeklyMissionDef
 import com.miniappfactory.boomblocks.data.WeeklyMissionProgress
 import com.miniappfactory.boomblocks.data.pick
-import com.miniappfactory.boomblocks.ui.theme.BlastPalette
+import com.miniappfactory.boomblocks.ui.components.GameButton
+import com.miniappfactory.boomblocks.ui.components.GameCoinPill
+import com.miniappfactory.boomblocks.ui.components.GamePanel
+import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
+import com.miniappfactory.boomblocks.ui.components.GameScreenHeader
+import com.miniappfactory.boomblocks.ui.components.GameScrollHint
+import com.miniappfactory.boomblocks.ui.components.GameTierState
+import com.miniappfactory.boomblocks.ui.components.GameTieredProgressBar
+import com.miniappfactory.boomblocks.ui.components.GoldPillAccent
+import com.miniappfactory.boomblocks.ui.components.IconMedallion
+import com.miniappfactory.boomblocks.ui.components.NeonCard
+import com.miniappfactory.boomblocks.ui.components.gameButtonColors
+import com.miniappfactory.boomblocks.ui.components.mutedGameButtonColors
+import com.miniappfactory.boomblocks.ui.components.roleTint
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGold
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
-import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.ui.theme.NeonPurple
+import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 
+// Faz 158 — GOREVLER: LISTEDEN PANOYA.
+//
+// Kullanicinin teshisi: "gorevler menusu cok tekduze, kurumsal bir sirketin
+// pptx'i gibi". Ekran goruntusunde uc kart BIREBIR aynidiy: ayni yukseklik,
+// ayni kenarlik, ayni gri "TOPLA" butonu. Yani TAMAMLANMIS gorev ile
+// TAMAMLANMAMIS gorev arasinda gorsel fark neredeyse yoktu — odul ani
+// tamamen kayipti.
+//
+// Yeni yapi:
+//   1. USTTE OZET PANOSU — kac basamagin toplandigi, genel ilerleme cubugu ve
+//      bu hafta kalan toplam odul. Liste bir "pano"ya donuyor.
+//   2. HER GOREV KENDI KIMLIGINDE — tipine gore ikon madalyonu + renk
+//      (`MissionType` uzerinden; uydurma degil, veri modelinden).
+//   3. DURUM AYRIMI — kartin kenarlik PARLAKLIGI ilerlemeyle artiyor:
+//      * hazir  -> canli yesil kenarlik + CANLI "TOPLA" butonu (kabartmali)
+//      * devam  -> ilerleme kadar parlayan accent kenarlik + dolu cubuk
+//      * alindi -> altin kenarlik + onay isareti, sonuk
+//      Fark renk-disi kanallarda da var (dolgu miktari, ikon, buton kabartmasi)
+//      — renk korlugunde de okunuyor.
+//   4. ODUL — "20 🪙" emoji yerine gercek `icon_coin` varligi + altin sayi.
+//   5. KAYDIRMA IPUCU — liste dibinde chevron.
+//
+// DEGISMEYEN: gorev tanimlari, kademeler, odul miktarlari, claim mantigi.
 @Composable
 fun MissionsScreen(
     missionProgress: WeeklyMissionProgress,
@@ -68,106 +106,205 @@ fun MissionsScreen(
     onClaim: (String, Int) -> Unit,
     onBack: () -> Unit
 ) {
-    val palette = blastPalette(skin, darkMode)
-    val allClaimed = missionProgress.missions.isNotEmpty() &&
-        missionProgress.missions.all { mission ->
-            mission.tiers.indices.all { tierIndex -> "${mission.id}#$tierIndex" in missionProgress.claimed }
-        }
+    val surfaces = rememberGameSurfaces(skin, darkMode)
+    val listState = rememberLazyListState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.background)
-            .padding(16.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top Bar Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.testTag("missions_back_button")
+    val totalTiers = missionProgress.missions.sumOf { it.tiers.size }
+    val claimedTierCount = missionProgress.missions.sumOf { mission ->
+        mission.tiers.indices.count { "${mission.id}#$it" in missionProgress.claimed }
+    }
+    val allClaimed = totalTiers > 0 && claimedTierCount == totalTiers
+    // Bu hafta HENUZ toplanmamis odul toplami — sahte sayi degil, gercek
+    // tier odullerinden hesaplaniyor.
+    val remainingReward = missionProgress.missions.sumOf { mission ->
+        mission.tiers.filterIndexed { index, _ ->
+            "${mission.id}#$index" !in missionProgress.claimed
+        }.sumOf { it.rewardTokens }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        GameScreenBackground(
+            skin = skin,
+            darkMode = darkMode,
+            modifier = Modifier.matchParentSize()
+        )
+
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            GameScreenHeader(
+                title = language.pick(
+                    tr = "HAFTALIK GÖREVLER",
+                    en = "WEEKLY MISSIONS",
+                    it = "MISSIONI SETTIMANALI",
+                    fr = "MISSIONS HEBDOMADAIRES",
+                    es = "MISIONES SEMANALES"
+                ),
+                surfaces = surfaces,
+                onBack = onBack,
+                backDescription = language.pick(tr = "Geri", en = "Back", it = "Indietro", fr = "Retour", es = "Atrás"),
+                backTestTag = "missions_back_button",
+                // TASMA: "MISSIONS HEBDOMADAIRES" (FR) ve "MISIONES SEMANALES"
+                // uzun — GameTitle maxLines = 2, baslik iki satira taser.
+                titleFontSize = 20.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // -----------------------------------------------------------
+            // Ozet panosu
+            // -----------------------------------------------------------
+            MissionsSummaryBoard(
+                claimedTierCount = claimedTierCount,
+                totalTiers = totalTiers,
+                remainingReward = remainingReward,
+                allClaimed = allClaimed,
+                language = language,
+                surfaces = surfaces
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = palette.textPrimary
-                    )
-                }
-
-                Text(
-                    text = language.pick(tr = "HAFTALIK GÖREVLER", en = "WEEKLY MISSIONS", it = "MISSIONI SETTIMANALI", fr = "MISSIONS HEBDOMADAIRES", es = "MISIONES SEMANALES"),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    color = NeonCyan,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                // Spacer to balance the back button so the title stays centered
-                Spacer(modifier = Modifier.width(48.dp))
-            }
-
-            if (allClaimed) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    color = NeonGreen.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("missions_all_claimed_banner")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.EmojiEvents,
-                            contentDescription = null,
-                            tint = NeonGreen
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = language.pick(
-                                tr = "Bu haftaki tüm görevler tamamlandı!",
-                                en = "All missions completed this week!",
-                                it = "Tutte le missioni di questa settimana completate!",
-                                fr = "Toutes les missions de la semaine sont terminées !",
-                                es = "¡Todas las misiones de esta semana completadas!"
-                            ),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonGreen
+                    items(missionProgress.missions) { mission ->
+                        MissionCard(
+                            mission = mission,
+                            currentCount = missionProgress.progress[mission.id] ?: 0,
+                            claimedTiers = mission.tiers.indices
+                                .filter { "${mission.id}#$it" in missionProgress.claimed }
+                                .toSet(),
+                            language = language,
+                            surfaces = surfaces,
+                            onClaim = { tierIndex -> onClaim(mission.id, tierIndex) }
                         )
                     }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(missionProgress.missions) { mission ->
-                    MissionCard(
-                        mission = mission,
-                        currentCount = missionProgress.progress[mission.id] ?: 0,
-                        claimedTiers = mission.tiers.indices.filter { "${mission.id}#$it" in missionProgress.claimed }.toSet(),
-                        language = language,
-                        palette = palette,
-                        onClaim = { tierIndex -> onClaim(mission.id, tierIndex) }
-                    )
-                }
+                GameScrollHint(
+                    visible = listState.canScrollForward,
+                    surfaces = surfaces
+                )
             }
         }
     }
+}
+
+// Ozet panosu: kupa madalyonu + toplanan basamak + genel ilerleme +
+// kalan odul. Hepsi gercek veriden.
+@Composable
+private fun MissionsSummaryBoard(
+    claimedTierCount: Int,
+    totalTiers: Int,
+    remainingReward: Int,
+    allClaimed: Boolean,
+    language: AppLanguage,
+    surfaces: GameSurfaces
+) {
+    val accent = if (allClaimed) NeonGreen else surfaces.accentPrimary
+    val fraction = if (totalTiers == 0) 0f else claimedTierCount.toFloat() / totalTiers
+    GamePanel(
+        surfaces = surfaces,
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (allClaimed) Modifier.testTag("missions_all_claimed_banner") else Modifier),
+        emphasis = if (allClaimed) 1f else 0.5f,
+        accent = accent,
+        contentPadding = 12.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconMedallion(accent = accent, size = 46.dp) {
+                Icon(
+                    imageVector = Icons.Filled.EmojiEvents,
+                    contentDescription = null,
+                    tint = if (surfaces.isLightSurface) lerp(accent, Color.Black, 0.35f) else lerp(accent, Color.White, 0.35f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (allClaimed) {
+                        language.pick(
+                            tr = "Bu haftaki tüm görevler tamamlandı!",
+                            en = "All missions completed this week!",
+                            it = "Tutte le missioni di questa settimana completate!",
+                            fr = "Toutes les missions de la semaine sont terminées !",
+                            es = "¡Todas las misiones de esta semana completadas!"
+                        )
+                    } else {
+                        language.pick(
+                            tr = "Toplanan basamak",
+                            en = "Tiers claimed",
+                            it = "Livelli riscossi",
+                            fr = "Paliers réclamés",
+                            es = "Niveles reclamados"
+                        )
+                    },
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = surfaces.accentText,
+                    // TASMA: tamamlanma metni 5 dilde de uzun (IT/FR ozellikle)
+                    // — iki satira taser, kart uzar, kirpilmaz.
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "$claimedTierCount / $totalTiers",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (surfaces.isLightSurface) lerp(accent, Color.Black, 0.4f) else lerp(accent, Color.White, 0.45f),
+                    maxLines = 1
+                )
+            }
+            if (remainingReward > 0) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = language.pick(tr = "KALAN", en = "LEFT", it = "RESTA", fr = "RESTE", es = "QUEDA"),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.6.sp,
+                        color = surfaces.hairline,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    GameCoinPill(amount = "$remainingReward", surfaces = surfaces, fontSize = 14.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        GameTieredProgressBar(
+            fraction = fraction,
+            tierMarkers = emptyList(),
+            surfaces = surfaces,
+            accent = accent
+        )
+    }
+}
+
+// Gorev tipinin kimligi: ikon + renk. `MissionType` veri modelinden geliyor,
+// gorev metinleri uydurulmuyor.
+private fun missionIcon(type: MissionType): ImageVector = when (type) {
+    MissionType.COMPLETE_LEVELS -> Icons.Filled.Flag
+    MissionType.CLEAR_LINES -> Icons.Filled.Bolt
+    MissionType.USE_BOOSTERS -> Icons.Filled.RocketLaunch
+    MissionType.SCORE_POINTS -> Icons.Filled.Star
+    MissionType.MULTI_CLEARS -> Icons.Filled.AutoAwesome
+}
+
+private fun missionRole(type: MissionType): Color = when (type) {
+    MissionType.COMPLETE_LEVELS -> NeonCyan
+    MissionType.CLEAR_LINES -> NeonGold
+    MissionType.USE_BOOSTERS -> Color(0xFFFF6B35)
+    MissionType.SCORE_POINTS -> NeonPurple
+    MissionType.MULTI_CLEARS -> NeonGreen
 }
 
 @Composable
@@ -176,75 +313,92 @@ private fun MissionCard(
     currentCount: Int,
     claimedTiers: Set<Int>,
     language: AppLanguage,
-    palette: BlastPalette,
+    surfaces: GameSurfaces,
     onClaim: (tierIndex: Int) -> Unit
 ) {
-    // Faz 73: her gorev artik 3 milestone'li bir merdiven — kart HER ZAMAN
-    // bir sonraki claim edilmemis tier'i "aktif" olarak gosterir (progress
-    // bar/hedef/odul o tier'e gore), ustte 3 kucuk nokta ile hangi tier'lerin
-    // claim edildigini/ulasildigini/henuz ulasilmadigini ozetler.
+    // Faz 73: her gorev 3 milestone'li bir merdiven; kart HER ZAMAN bir
+    // sonraki claim edilmemis tier'i "aktif" gosterir.
     val activeTierIndex = mission.tiers.indices.firstOrNull { it !in claimedTiers }
     val allTiersClaimed = activeTierIndex == null
     val activeTier = activeTierIndex?.let { mission.tiers[it] } ?: mission.tiers.last()
     val isComplete = currentCount >= activeTier.target
-    // Faz 76: kullanici "milestone kriterleri hicbir yerde yazmiyor" dedi —
-    // karttaki baslik/ilerleme sadece AKTIF tier'i gosteriyordu, 3 tier'in
-    // tamamini gormenin bir yolu yoktu. Kucuk bir "i" ikonu tiklayinca
-    // 3 tier'in tamamini (hedef+odul) listeleyen kisa bir overlay aciliyor.
-    var showInfo by remember { mutableStateOf(false) }
     val isClaimable = !allTiersClaimed && isComplete
-    val isClaimed = allTiersClaimed
+    // Faz 76: "i" ikonu 3 tier'in tamamini gosteren overlay aciyor.
+    var showInfo by remember { mutableStateOf(false) }
 
-    // Faz 70: kullanici "haftalik gorevler sayfasinin gorseli cirkin, kabartmali
-    // gibi olsun" dedi. Duz Material3 Card yerine — CFO-Catch projesindeki
-    // EmbossedCard deseninden esinlenerek — golge + dikey gradyan arka plan +
-    // ust kenari acik/alt kenari koyu bir gradyan kenarlik ile "kabartilmis
-    // panel" hissi verildi. Tamamlanan gorevlerde kenarlik altin renge donuyor,
-    // kucuk bir "basarildi" isareti.
-    val borderTopColor = if (isComplete) NeonGold.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.16f)
-    val borderBottomColor = if (isComplete) NeonGold.copy(alpha = 0.35f) else palette.cardBorder
-    Box(
+    val role = roleTint(missionRole(mission.type), surfaces)
+    val maxTarget = mission.tiers.last().target.coerceAtLeast(1)
+    val overallFraction = (currentCount.toFloat() / maxTarget).coerceIn(0f, 1f)
+
+    // KART DURUMU: kenarlik parlakligi (glow) ve accent rengi durumu tasiyor.
+    val cardAccent = when {
+        isClaimable -> NeonGreen
+        allTiersClaimed -> NeonGold
+        else -> role
+    }
+    val glow = when {
+        isClaimable -> 1f
+        allTiersClaimed -> 0.55f
+        // Ilerleme yoksa kart bilerek SONUK — hedef mockup'ta da boyle.
+        else -> (0.20f + overallFraction * 0.65f)
+    }
+
+    NeonCard(
+        surfaces = surfaces,
+        accent = cardAccent,
+        glow = glow,
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(16.dp), spotColor = Color.Black)
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(palette.card, palette.card.copy(alpha = 0.88f))
-                )
-            )
-            .border(
-                width = 1.5.dp,
-                brush = Brush.verticalGradient(colors = listOf(borderTopColor, borderBottomColor)),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .testTag("mission_card_${mission.id}")
+            .testTag("mission_card_${mission.id}"),
+        contentPadding = 14.dp
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconMedallion(
+                accent = cardAccent,
+                size = 42.dp,
+                dimmed = allTiersClaimed
             ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Icon(
+                    imageVector = if (allTiersClaimed) Icons.Filled.Check else missionIcon(mission.type),
+                    contentDescription = null,
+                    tint = if (surfaces.isLightSurface) {
+                        lerp(cardAccent, Color.Black, 0.35f)
+                    } else {
+                        lerp(cardAccent, Color.White, 0.40f)
+                    },
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = mission.title(language, if (allTiersClaimed) mission.tiers.last().target else activeTier.target),
+                        text = mission.title(
+                            language,
+                            if (allTiersClaimed) mission.tiers.last().target else activeTier.target
+                        ),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Black,
-                        color = palette.textPrimary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        color = if (surfaces.isLightSurface) Color(0xFF12161F) else Color.White,
+                        // TASMA: "Esegui 15 Cancellazioni Multiple" (IT) ve
+                        // "Marquer 1000 Points au Total" (FR) tek satira
+                        // sigmaz — iki satira taser, kart uzar. "i" rozeti
+                        // sabit genislikte oldugu icin baslik weight(1f) alir.
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Box(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(20.dp)
                             .clip(CircleShape)
-                            .background(palette.cardAlt)
+                            .background(surfaces.sunken)
                             .clickable { showInfo = true }
                             .testTag("mission_info_${mission.id}"),
                         contentAlignment = Alignment.Center
@@ -252,132 +406,122 @@ private fun MissionCard(
                         Icon(
                             imageVector = Icons.Filled.Info,
                             contentDescription = language.pick(tr = "Görev detayı", en = "Mission details", it = "Dettagli missione", fr = "Détails de la mission", es = "Detalles de la misión"),
-                            tint = palette.textSecondary,
-                            modifier = Modifier.size(13.dp)
+                            tint = surfaces.accentText,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(com.miniappfactory.boomblocks.R.drawable.icon_coin),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${activeTier.rewardTokens}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = NeonGold
-                    )
-                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            // Faz 75: kullanici "3 ayri yuvarlak + ayri bir ilerleme cubugu
-            // yerine, TEK bir cubuk olsun, milestone'lar o cubugun UZERINDE
-            // duran noktalar olsun" dedi (elle cizilmis bir referans gonderdi:
-            // tek çizgi + üzerinde 2 nokta). Tek TieredProgressBar: tum gorevin
-            // 0..sonTier.target araligini kaplayan bir cubuk, 2 ara-tier
-            // sinirinda (3 tier = 2 sinir) ustune binen yuvarlak isaretlerle.
-            TieredProgressBar(
-                mission = mission,
-                currentCount = currentCount,
-                claimedTiers = claimedTiers,
-                palette = palette
+            // Odul: emoji degil, gercek jeton varligi + altin sayi.
+            GameCoinPill(
+                amount = "${activeTier.rewardTokens}",
+                surfaces = surfaces,
+                fontSize = 15.sp,
+                iconSize = 18.dp
             )
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
+        // Faz 159 — KART YUKSEKLIGI DUSURULDU.
+        //
+        // Kullanicinin sikayeti: "gorevlerin kutu yukseklikleri cok fazla
+        // buyuk, cok scroll gerekiyor." Kart dort katmandan olusuyordu:
+        // baslik satiri / ilerleme cubugu / "0 / 3" KENDI satirinda / tam
+        // genislikte TOPLA butonu.
+        //
+        // Birinci kazanc: ilerleme sayaci artik cubugun SAG UCUNDA, kendi
+        // satirinda degil. Bir satir + iki bosluk kazanildi.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Faz 75: TEK cubuk, uzerinde ara-tier dugumleri.
+            GameTieredProgressBar(
+                fraction = overallFraction,
+                tierMarkers = mission.tiers.dropLast(1).mapIndexed { tierIndex, tier ->
+                    val position = (tier.target.toFloat() / maxTarget).coerceIn(0f, 1f)
+                    val state = when {
+                        tierIndex in claimedTiers -> GameTierState.CLAIMED
+                        currentCount >= tier.target -> GameTierState.READY
+                        else -> GameTierState.LOCKED
+                    }
+                    position to state
+                },
+                surfaces = surfaces,
+                accent = role,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            // Ilerleme metni: ilerleme VARSA accent, yoksa sonuk. Hedef
+            // mockup'ta "21 / 50" canli cyan, "0 / 3" gri.
             Text(
                 text = if (allTiersClaimed) {
                     "${mission.tiers.last().target} / ${mission.tiers.last().target}"
                 } else {
                     "${currentCount.coerceAtMost(activeTier.target)} / ${activeTier.target}"
                 },
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = palette.textSecondary
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = when {
+                    allTiersClaimed -> surfaces.hairline
+                    currentCount > 0 -> surfaces.accentText
+                    else -> surfaces.hairline
+                },
+                maxLines = 1
             )
+        }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            when {
-                isClaimed -> {
-                    Surface(
-                        color = palette.cardAlt,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("claim_mission_${mission.id}")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = palette.textSecondary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = language.pick(tr = "Alındı", en = "Claimed", it = "Riscosso", fr = "Réclamé", es = "Reclamado"),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = palette.textSecondary
-                            )
-                        }
-                    }
-                }
-
-                isClaimable -> {
-                    Button(
-                        onClick = { activeTierIndex?.let(onClaim) },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("claim_mission_${mission.id}")
-                    ) {
-                        Text(
-                            text = language.pick(tr = "TOPLA", en = "CLAIM", it = "RISCUOTI", fr = "RÉCLAMER", es = "RECLAMAR"),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.Black
-                        )
-                    }
-                }
-
-                else -> {
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = palette.cardAlt,
-                            disabledContainerColor = palette.cardAlt
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("claim_mission_${mission.id}")
-                    ) {
-                        Text(
-                            text = language.pick(tr = "TOPLA", en = "CLAIM", it = "RISCUOTI", fr = "RÉCLAMER", es = "RECLAMAR"),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
-                            color = palette.textSecondary
-                        )
-                    }
+        // Ikinci ve ASIL kazanc: TOPLA butonu artik SADECE toplanabilir
+        // durumda ciziliyor.
+        //
+        // Onceden gorev devam ederken de tam genislikte, 46dp yuksekliginde
+        // PASIF bir buton duruyordu — hicbir ise yaramiyor, sadece yer
+        // kapliyordu. Bu ayni zamanda daha onceki bir sikayeti de kendiliginden
+        // cozuyor ("TOPLA ucunde de ayni ve pasif, tamamlanmisla tamamlanmamis
+        // ayirt edilmiyor"): artik BUTON VARSA toplanacak bir sey var demektir,
+        // goz dogrudan oraya gidiyor.
+        when {
+            allTiersClaimed -> {
+                // Alindi hali: buton DEGIL, kompakt bir rozet. Dokunulabilir
+                // bir sey olmadigi icin buton gorunumu zaten yaniltiyordu.
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = GoldPillAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = language.pick(tr = "Alındı", en = "Claimed", it = "Riscosso", fr = "Réclamé", es = "Reclamado"),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        color = GoldPillAccent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
+
+            isClaimable -> {
+                // ODUL ANI: canli yesil, kabartmali, basinca cokuyor. Ekranda
+                // TEK basina duran buton bu — hiyerarsi kendiliginden kuruluyor.
+                Spacer(modifier = Modifier.height(10.dp))
+                GameButton(
+                    text = language.pick(tr = "TOPLA", en = "CLAIM", it = "RISCUOTI", fr = "RÉCLAMER", es = "RECLAMAR"),
+                    onClick = { activeTierIndex?.let(onClaim) },
+                    colors = gameButtonColors(NeonGreen),
+                    fontSize = 15.sp,
+                    minHeight = 48.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("claim_mission_${mission.id}")
+                )
+            }
+            // Devam eden gorevde HICBIR SEY cizilmiyor: kart bir katman
+            // eksiliyor, ekrana belirgin bicimde daha fazla gorev sigiyor.
         }
     }
 
@@ -405,100 +549,14 @@ private fun MissionCard(
                             else -> language.pick(tr = "🔒 Kilitli", en = "🔒 Locked", it = "🔒 Bloccato", fr = "🔒 Verrouillé", es = "🔒 Bloqueado")
                         }
                         Text(
-                            text = "${tierIndex + 1}. ${mission.title(language, tier.target)} — ${tier.rewardTokens} 🪙",
+                            text = "${tierIndex + 1}. ${mission.title(language, tier.target)} — ${tier.rewardTokens}",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = tierStatus,
-                            fontSize = 12.sp
-                        )
+                        Text(text = tierStatus, fontSize = 12.sp)
                     }
                 }
             }
         )
-    }
-}
-
-private enum class TierDotState { CLAIMED, READY, LOCKED }
-
-// Faz 75: kullanici elle cizilmis bir referans gonderdi — TEK bir cubuk,
-// uzerinde ara-tier sinirlarini isaretleyen yuvarlaklar (3 dot + ayri
-// progress bar yerine). Cubugun 0..son-tier.target araligi doluyor,
-// ara-tier sinirlarinda (3 tier = 2 sinir) TierDot'lar cubugun UZERINE
-// biniyor.
-@Composable
-private fun TieredProgressBar(
-    mission: WeeklyMissionDef,
-    currentCount: Int,
-    claimedTiers: Set<Int>,
-    palette: BlastPalette
-) {
-    val maxTarget = mission.tiers.last().target.coerceAtLeast(1)
-    val fillFraction = (currentCount.toFloat() / maxTarget.toFloat()).coerceIn(0f, 1f)
-    val barColor = if (currentCount >= maxTarget) NeonGreen else NeonCyan
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(16.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(palette.cardAlt)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxWidth(fillFraction)
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(barColor)
-        )
-        mission.tiers.dropLast(1).forEachIndexed { tierIndex, tier ->
-            val markerFraction = (tier.target.toFloat() / maxTarget.toFloat()).coerceIn(0f, 1f)
-            val dotState = when {
-                tierIndex in claimedTiers -> TierDotState.CLAIMED
-                currentCount >= tier.target -> TierDotState.READY
-                else -> TierDotState.LOCKED
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .offset(x = maxWidth * markerFraction - 8.dp)
-            ) {
-                TierDot(state = dotState, palette = palette)
-            }
-        }
-    }
-}
-
-@Composable
-private fun TierDot(state: TierDotState, palette: BlastPalette) {
-    val fill = when (state) {
-        TierDotState.CLAIMED -> NeonGold
-        TierDotState.READY -> NeonGreen
-        TierDotState.LOCKED -> palette.cardAlt
-    }
-    Box(
-        modifier = Modifier
-            .size(16.dp)
-            .clip(CircleShape)
-            .background(fill)
-            .border(2.dp, palette.card, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        if (state == TierDotState.CLAIMED) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(10.dp)
-            )
-        }
     }
 }

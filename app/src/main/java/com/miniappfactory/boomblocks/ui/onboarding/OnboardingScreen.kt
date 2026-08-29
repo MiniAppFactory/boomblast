@@ -3,12 +3,10 @@ package com.miniappfactory.boomblocks.ui.onboarding
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +18,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.TrackChanges
@@ -41,23 +41,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import com.miniappfactory.boomblocks.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.flag
 import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
+import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -186,17 +192,64 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
                     .padding(16.dp)
+                    // FAZ 162 — MADDE 4. Kullanici: "dil seciminden sonraki 3
+                    // ekranin kenar cizgileri daha neon efekti alabilir, cok
+                    // tekduze hissediliyor."
+                    //
+                    // CIHAZDA GORULEN: kenarlik TEK, sabit parlaklikta ince
+                    // bir camgobegi cizgiydi — cam tup degil, cizilmis bir
+                    // cerceve. Hedef mockup'larda kenarlik disa dogru yayilan
+                    // gercek bir hale tasiyor.
+                    //
+                    // `Modifier.blur` KULLANILAMAZ (API 31+, minSdk 24);
+                    // NeonCard/GamePanel ile AYNI paylasilan katmanli cozum
+                    // kullaniliyor.
+                    //
+                    // CIHAZDA GORULEN VE DUZELTILEN: ilk denemede 7 katman x
+                    // 2.6dp verildi ve hale SUREKLI degil AYRI AYRI HALKALAR
+                    // olarak okundu (katmanlar arasi ~7.8px, kontur kalinligi
+                    // 6px — aralarinda bosluk kaliyordu). Katman sayisi
+                    // artirilip aralik daraltildi: 14 x 1.3dp = ayni ~18dp
+                    // yayilim, ama komsu konturlar artik ORTUSUYOR ve
+                    // gercek bir bulanik hale gibi okunuyor.
+                    // Kart `padding(16.dp)` icinde durdugu icin hale
+                    // kirpilmadan disariya tasabiliyor.
+                    .gameOuterGlow(
+                        accent = NeonCyan,
+                        cornerRadius = 20.dp,
+                        intensity = 1f,
+                        layers = 14,
+                        spreadStepDp = 1.3f,
+                        coreAlpha = 0.52f
+                    )
                     .border(
                         2.dp,
                         Brush.verticalGradient(
                             listOf(
-                                lerp(NeonCyan, Color.White, 0.35f),
+                                lerp(NeonCyan, Color.White, 0.55f),
                                 NeonCyan,
-                                NeonCyan.copy(alpha = 0.55f)
+                                lerp(NeonCyan, Color.White, 0.20f)
                             )
                         ),
                         RoundedCornerShape(20.dp)
                     )
+                    // Ic kontur: parlak dis kenarligin hemen icinde daha
+                    // sonuk ikinci bir cizgi — "cift cizgi" hissini veren
+                    // ve kenarligi CIZGI olmaktan cikarip CERCEVE yapan oge.
+                    .drawBehind {
+                        val inset = 3.5f * density
+                        drawRoundRect(
+                            color = lerp(NeonCyan, Color.White, 0.35f)
+                                .copy(alpha = 0.30f),
+                            topLeft = Offset(inset, inset),
+                            size = Size(
+                                size.width - inset * 2f,
+                                size.height - inset * 2f
+                            ),
+                            cornerRadius = CornerRadius(20.dp.toPx() - inset),
+                            style = Stroke(width = 1.2f * density)
+                        )
+                    }
             ) {
                 Column(
                     // Faz 104: savunma amacli verticalScroll. Kart sabit yukseklikte degil,
@@ -241,23 +294,54 @@ fun OnboardingScreen(
                         modifier = Modifier.size(116.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Dis parlama halkasi — rozete derinlik ve "gerçek bir
-                        // görsel" hissi katan yumusak glow.
-                        Box(
-                            modifier = Modifier
-                                .size(116.dp)
-                                .clip(CircleShape)
-                                .background(step.accent.copy(alpha = 0.16f))
-                        )
+                        // Faz 159 — CIHAZDA GORULEN: bu rozet YASSI idi. Duz
+                        // bir alfa halkasi + merkezden baslayan lineer gradyan;
+                        // kullanicinin "madalyonlar yassi, mat disk + gri
+                        // halka" teshisi tam olarak buydu.
+                        //
+                        // Artik GameKit'teki `IconMedallion` ile AYNI receteyi
+                        // kullaniyor:
+                        //   1. isik kaynagi UST-SOLDA (merkezde degil) — disk
+                        //      kure gibi okunuyor,
+                        //   2. halka tek renk degil, ustte parlak altta koyu,
+                        //   3. halkanin disinda KATMANLI parlama (Modifier.blur
+                        //      API 31+ oldugu icin kullanilamiyor, minSdk 24).
                         Box(
                             modifier = Modifier
                                 .size(88.dp)
+                                .drawBehind {
+                                    val r = size.minDimension / 2f
+                                    for (layer in 1..3) {
+                                        val spread = layer * 3.2f * density
+                                        drawCircle(
+                                            color = step.accent.copy(alpha = 0.30f / layer),
+                                            radius = r + spread,
+                                            style = Stroke(width = 2.5f * density)
+                                        )
+                                    }
+                                }
                                 .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(step.accent, NeonGold)))
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            lerp(step.accent, Color.White, 0.45f),
+                                            step.accent,
+                                            lerp(step.accent, NeonGold, 0.55f),
+                                            lerp(step.accent, Color.Black, 0.35f)
+                                        ),
+                                        // Isik ust-solda.
+                                        center = Offset(30f, 24f),
+                                        radius = 150f
+                                    )
+                                )
                                 .border(
-                                    width = 1.5.dp,
-                                    brush = Brush.linearGradient(
-                                        listOf(Color.White.copy(alpha = 0.55f), Color.Transparent)
+                                    width = 3.dp,
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            lerp(step.accent, Color.White, 0.70f),
+                                            lerp(step.accent, Color.White, 0.15f),
+                                            lerp(step.accent, Color.Black, 0.45f)
+                                        )
                                     ),
                                     shape = CircleShape
                                 ),

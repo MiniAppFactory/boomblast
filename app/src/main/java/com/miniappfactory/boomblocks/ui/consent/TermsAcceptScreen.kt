@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,10 +40,14 @@ import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
+import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
+import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
+import com.miniappfactory.boomblocks.ui.components.GameWordmark
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
+import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 
 // Faz 63: GitHub hesabi whatsthisapp -> MiniAppFactory olarak yeniden
 // adlandirildi, repo da blasttheblocks -> boomblast oldu (kullanici istegi).
@@ -59,6 +64,7 @@ fun TermsAcceptScreen(
     onAccept: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
+    val surfaces = rememberGameSurfaces(skin, darkMode)
     val context = LocalContext.current
 
     fun openPolicy() {
@@ -66,12 +72,19 @@ fun TermsAcceptScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.background)
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        // Faz 159 — CIHAZDA GORULEN: bu ekran uygulamanin ILK ekrani, ama
+        // Faz 158'in zemin yenilemesini hic almamisti: duz `palette.background`
+        // uzerinde duruyordu ve diger tum menulerden KOPUK, yikanmis
+        // gorunuyordu. Artik Ayarlar/Gorevler/Mod Secim ile AYNI zemini
+        // kullaniyor (derin gradyan + kosedeki 3B kupler + vinyet).
+        GameScreenBackground(
+            skin = skin,
+            darkMode = darkMode,
+            modifier = Modifier.matchParentSize()
+        )
         // ModeSelectScreen.kt'deki (Faz 115h -> 124) v11 "gezinen oyun parcasi"
         // deseninin AYNISI — kullanici bu ekranda da "farklı parçalar olsun,
         // hareket olabiliyorsa çok daha iyi" dedi (Faz 124). Ortak composable,
@@ -79,17 +92,41 @@ fun TermsAcceptScreen(
         WanderingPiecesBackground(modifier = Modifier.matchParentSize())
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = palette.card),
+            // FAZ 162: ham `palette.card` yerine `surfaces.panel`.
+            // Onceki hal doygunluk katmanini ATLIYORDU — zemin ve diger
+            // ekranlar derin maviye cekilirken bu kartin govdesi GRI kaliyor,
+            // yan yana gorulunce tutarsiz duruyordu.
+            colors = CardDefaults.cardColors(containerColor = surfaces.panel),
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier
+                // Kenar boslugu artik KARTIN uzerinde. Onceden dis Box'taydi,
+                // ama zemin (GameScreenBackground) tam kenara dayanmali —
+                // kose kupleri aksi halde 24dp iceriden baslardi.
+                .padding(24.dp)
                 .fillMaxWidth()
+                // FAZ 162: onboarding ve dil secim kartlariyla AYNI katmanli
+                // hale. Bu kart o gecisten disarida kalmisti (dosya baska bir
+                // elde duzenleniyordu) ve yan yana gorulunce tek, duz, ince
+                // cizgisiyle tutarsiz kaliyordu — oysa oyuncunun gordugu ILK
+                // ekran burasi.
+                //
+                // `Modifier.blur` KULLANILAMAZ (API 31+, minSdk 24); ayni
+                // paylasilan `gameOuterGlow` katmanli cozumu kullaniliyor.
+                .gameOuterGlow(
+                    accent = NeonCyan,
+                    cornerRadius = 20.dp,
+                    intensity = 1f,
+                    layers = 14,
+                    spreadStepDp = 1.3f,
+                    coreAlpha = 0.52f
+                )
                 .border(
                     2.dp,
                     Brush.verticalGradient(
                         listOf(
-                            lerp(NeonCyan, Color.White, 0.35f),
+                            lerp(NeonCyan, Color.White, 0.55f),
                             NeonCyan,
-                            NeonCyan.copy(alpha = 0.55f)
+                            lerp(NeonCyan, Color.White, 0.20f)
                         )
                     ),
                     RoundedCornerShape(20.dp)
@@ -109,33 +146,44 @@ fun TermsAcceptScreen(
                 // aninda "dogru uygulamayi actim" tanınırlığı kuruluyor.
                 // Onboarding'deki dil secme ekraninda da ayni desen kullanildi,
                 // orada 84dp; burasi asil karsilama oldugu icin biraz daha buyuk.
-                Box(
-                    modifier = Modifier.size(112.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(112.dp)
-                            .clip(RoundedCornerShape(28.dp))
-                            .background(NeonCyan.copy(alpha = 0.16f))
-                    )
-                    Image(
-                        painter = painterResource(R.drawable.logo_kaboom),
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .size(96.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .border(1.5.dp, NeonCyan.copy(alpha = 0.55f), RoundedCornerShape(22.dp))
-                    )
-                }
+                // Faz 161 — kullanicinin istegi: "burada da logoyu kullanabilirsin
+                // yazi ve appicon yerine."
+                //
+                // Onceki hal IKI ogeydi: yuvarlatilmis kutu icinde uygulama
+                // ikonu (`logo_kaboom`) + altinda metinle cizilen wordmark
+                // (`GameWordmark`). Yeni `kb_logo` varligi patlayan "B" blogunu
+                // ZATEN iceriyor, yani ikon + wordmark tek gorsel. Ikisini birden
+                // koymak ayni seyi iki kez gostermekti.
+                //
+                // Ana menu de ayni varligi kullaniyor — marka ilk ekranda ve
+                // menude birebir ayni goruniyor, ikisi asla ayrisamaz.
+                Image(
+                    painter = painterResource(R.drawable.kb_logo),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        // Not: bir ara 0.56'ya kucultulmustu ("K harfi kirpik"
+                        // sanilmisti); olcum harfin TAM oldugunu gosterdi, kirpik
+                        // olan yalnizca kenardaki hale payiydi. Kullanici geri
+                        // buyutulmesini istedi.
+                        .fillMaxWidth(0.72f)
+                        .aspectRatio(535f / 380f)   // varligin kendi orani
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
+                // Karsilama sozcugu AYRI satirda ve sade: wordmark'la
+                // yarismasin diye kalin/konturlu degil.
                 Text(
-                    text = language.pick(tr = "Kaboom Blocks'a Hoş Geldin!", en = "Welcome to Kaboom Blocks!", it = "Benvenuto in Kaboom Blocks!", fr = "Bienvenue dans Kaboom Blocks !", es = "¡Bienvenido a Kaboom Blocks!"),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
+                    text = language.pick(
+                        tr = "Hoş Geldin",
+                        en = "Welcome",
+                        it = "Benvenuto",
+                        fr = "Bienvenue",
+                        es = "Bienvenido"
+                    ),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     color = palette.textPrimary,
                     textAlign = TextAlign.Center
                 )
@@ -143,16 +191,62 @@ fun TermsAcceptScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
+                    // Faz 159 — metin kisaltildi (uc satirdan iki satira).
+                    //
+                    // HUKUKI ICERIK, dikkatle kirpildi. Play politikasi geregi
+                    // uc unsur KALDI:
+                    //   (a) Gizlilik Politikasi ve Kullanim Sartlari'na ACIK
+                    //       atif — asagidaki cumlede adlariyla geciyor,
+                    //   (b) calisan BAGLANTI — hemen altindaki tiklanabilir
+                    //       satir (openPolicy) degismedi,
+                    //   (c) acik KABUL eylemi — "KABUL ET" butonu degismedi.
+                    //
+                    // Atilan sey yalnizca doldurma ifadeler: "lutfen",
+                    // "devam etmeden once ... oku ve". Bes dilde birden
+                    // kisaltildi; biri uzun kalsaydi o dilde yine uc satir
+                    // olurdu.
                     text = language.pick(
-                        tr = "Devam etmeden önce lütfen Gizlilik Politikamızı ve Kullanım Şartlarımızı oku ve kabul et.",
-                        en = "Before you continue, please read and accept our Privacy Policy and Terms of Use.",
-                        it = "Prima di continuare, leggi e accetta la nostra Informativa sulla Privacy e i Termini di Utilizzo.",
-                        fr = "Avant de continuer, veuillez lire et accepter notre Politique de Confidentialité et nos Conditions d'Utilisation.",
-                        es = "Antes de continuar, lee y acepta nuestra Política de Privacidad y Términos de Uso."
+                        tr = "Devam etmek için Gizlilik Politikası ve Kullanım Şartları'nı kabul et.",
+                        en = "To continue, accept our Privacy Policy and Terms of Use.",
+                        it = "Per continuare, accetta l'Informativa sulla Privacy e i Termini di Utilizzo.",
+                        // Faz 160 — FR CIHAZDA OLCULDU: METIN UC SATIR, IKI DEGIL.
+                        //
+                        // Faz 159 bu metni 121 -> 89 karaktere indirip "iki
+                        // satira indi" DEDI ama DOGRULAMADI: bu ekran dil
+                        // seciminden ONCE render ediliyor, yani uygulama
+                        // icinden Fransizcaya gecip bakmak mumkun degil.
+                        // Faz 160'ta DataStore'a language=fr tohumlanarak
+                        // cihazda BAKILDI (SM-G950F, 1080x2220): metin UC
+                        // SATIR. Iddia yanlisti.
+                        //
+                        // METIN DAHA FAZLA KISALTILMADI — bilincli karar:
+                        // 3 satir bir TASMA DEGIL. Kart rahat siğiyor, hicbir
+                        // sey kirpilmiyor, ACCEPTER butonu tam gorunur.
+                        // "Iki satir" kozmetik bir hedefti, kusur degil.
+                        //
+                        // Iki satira inmenin bedeli olculdu: cihazda satira
+                        // ~34 karakter siğiyor, iki belge adi tek basina 55
+                        // karakter ("Confidentialité" tek basina 15'lik
+                        // bolunmez bir token). Iki satir ancak su uc yoldan
+                        // biriyle olurdu: (a) bir belge adini atmak,
+                        // (b) "CGU" kisaltmasina dusmek, (c) puntoyu 12sp'ye
+                        // indirmek. Ucu de HUKUKI ACIKLIGI ya da OKUNURLUGU
+                        // kozmetik bir satir icin takas ederdi — yapilmadi.
+                        // "Pour continuer" de korundu: kullaniciya NEDEN
+                        // kabul ettigini soyleyen kisim o.
+                        fr = "Pour continuer, acceptez la Politique de Confidentialité et les Conditions d'Utilisation.",
+                        es = "Para continuar, acepta la Política de Privacidad y los Términos de Uso."
                     ),
                     fontSize = 14.sp,
                     color = palette.textSecondary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    // Faz 160: FR govde metninin GERCEKTEN iki satira indigi
+                    // cihazda gorulemiyordu — bu ekran dil seciminden ONCE
+                    // render ediliyor, yani uygulama icinden Fransizcaya
+                    // gecip bakmak mumkun degil. Bu etiket sayesinde
+                    // `TermsConsentOverflowTest` satir sayisini 5 dilde de
+                    // OLCUYOR; "sigdi" iddiasi artik gozle degil sayiyla.
+                    modifier = Modifier.testTag("terms_body")
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
