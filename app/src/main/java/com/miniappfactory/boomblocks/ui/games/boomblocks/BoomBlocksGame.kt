@@ -77,6 +77,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,7 +147,6 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
-import android.view.Choreographer
 
 data class BlockShape(
     val id: Int,
@@ -2294,35 +2294,47 @@ fun BlastTheBlocksGame(
     }
 
     // Faz 5: withFrameNanos — her karede parçacık physics + floating score update.
-    // Choreographer callback'i, kare zamanını doğru şekilde yakalıyor.
+    // Kare zamanını doğru şekilde yakalar ve composable dispose olunca iptal olur.
     LaunchedEffect(Unit) {
-        val choreographer = Choreographer.getInstance()
-        var lastFrameTimeNanos = System.nanoTime()
+        // Faz 166 — SIZINTI DUZELTMESI. Burada ham bir Choreographer callback'i
+        // vardi ve KENDINI kosulsuz yeniden postluyordu; kod tabaninin
+        // tamaminda tek bir `removeFrameCallback` yoktu. LaunchedEffect'in
+        // govdesi callback'i kurup HEMEN donuyordu, yani Compose'un iptal
+        // edecegi asili bir is kalmiyordu: oyundan cikmak dongusu durdurmuyor,
+        // her yeni oyun girisi kalici bir kare-basi dongu daha ekliyordu.
+        // Girisler biriktikce her karede N tane `particlePool.update` calisiyor
+        // (her biri liste tahsis ediyor) -> giris sayisiyla dogru orantili GC
+        // baskisi, jank/ANR yonu.
+        //
+        // NOT: eski havuzlar `remember { ParticlePool() }` oldugu icin her
+        // giriste yenileniyordu; yani sizan callback'ler ARTIK CIZILMEYEN eski
+        // havuzlari guncelliyordu. Sizinti CPU/bellek tarafinda, gorsel
+        // katlanma DEGIL.
+        //
+        // withFrameNanos ayni kare zamanlamasini verir ama coroutine askida
+        // kaldigi icin composable dispose olunca Compose donguyu KENDILIGINDEN
+        // iptal eder. 15 satir yukaridaki "Faz 5: withFrameNanos" yorumunun
+        // bastan beri vaat ettigi sey de zaten buydu.
+        var lastFrameTimeNanos = withFrameNanos { it }
+        while (true) {
+            val frameTimeNanos = withFrameNanos { it }
+            val deltaTimeMs = (frameTimeNanos - lastFrameTimeNanos) / 1_000_000f
+            lastFrameTimeNanos = frameTimeNanos
 
-        choreographer.postFrameCallback(object : Choreographer.FrameCallback {
-            override fun doFrame(frameTimeNanos: Long) {
-                val deltaTimeNanos = frameTimeNanos - lastFrameTimeNanos
-                val deltaTimeMs = deltaTimeNanos / 1_000_000f
-                lastFrameTimeNanos = frameTimeNanos
+            // Faz 5: Physics güncelleme
+            particlePool.update(deltaTimeMs)
 
-                // Faz 5: Physics güncelleme
-                particlePool.update(deltaTimeMs)
-
-                // Faz 4: Radyal flash'i guncelle (progress += delta)
-                if (radialFlash != null) {
-                    val flash = radialFlash!!
-                    val newProgress = flash.progress + deltaTimeMs / radialFlashDurationMs
-                    if (newProgress >= 1f) {
-                        radialFlash = null  // Sifirlanir
-                    } else {
-                        radialFlash = flash.copy(progress = newProgress)
-                    }
+            // Faz 4: Radyal flash'i guncelle (progress += delta)
+            if (radialFlash != null) {
+                val flash = radialFlash!!
+                val newProgress = flash.progress + deltaTimeMs / radialFlashDurationMs
+                if (newProgress >= 1f) {
+                    radialFlash = null  // Sifirlanir
+                } else {
+                    radialFlash = flash.copy(progress = newProgress)
                 }
-
-                // Sonraki frame için tekrar kayıt
-                choreographer.postFrameCallback(this)
             }
-        })
+        }
     }
 
     // Basari rozeti kisa bir sure gosterilip kendiliginden kapanir.

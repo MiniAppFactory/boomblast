@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
         // acilmasina yol aciyordu — AB Kullanici Rizasi Politikasi acisindan
         // ihlal. Reklam gosterme yetkisi artik bu bayrakta degil,
         // AdsConsent.canRequestAds'te; ikisi ayrildi.
-        Handler(Looper.getMainLooper()).postDelayed({
+        mainHandler.postDelayed({
             if (!adsConsentResolved.value) adsConsentResolved.value = true
             warmUpAdsIfPossible()
         }, 4000)
@@ -159,7 +159,27 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    // Faz 166: TEK paylasilan ana-thread Handler'i.
+    //
+    // Cokme denetimi burada bir sizinti buldu: Activity'den cikan 4 async yol
+    // (2 postDelayed, MobileAds.initialize callback'i, UMP callback'i) hicbiri
+    // iptal edilmiyordu. Activity yikildiktan SONRA calisan herhangi biri
+    // `warmUpAdsIfPossible()` -> `BannerAdPool.warmUp(this, ...)` cagirip
+    // OLU Activity'yi surec-omurlu static alana yaziyordu. onDestroy'daki
+    // `BannerAdPool.destroy()` bunu ONCEDEN temizledigi icin geri alamiyor:
+    // sonraki acilista `adSizeKey` eslesince olu-context'li AdView canli
+    // gorunum agacina ekleniyordu.
+    //
+    // Kesin olan: Activity + WebView sizintisi (Faz 109'da olculen sizintinin
+    // ayni ailesi). "Banner bir daha hic dolmaz" iddiasi denetimde
+    // DOGRULANMADI, o yuzden burada iddia edilmiyor.
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun onDestroy() {
+        // Bekleyen tum gecikmeli isleri iptal et. Guard'la birlikte cift
+        // savunma: iptal edilebilenler hic calismaz, iptal EDILEMEYENLER
+        // (SDK'nin kendi callback'leri) guard'a takilir.
+        mainHandler.removeCallbacksAndMessages(null)
         TextToSpeechManager.shutdown()
         SoundManager.release()
         HapticManager.release()
@@ -190,7 +210,7 @@ class MainActivity : ComponentActivity() {
     // Google'in kendi onerisi de budur: MobileAds.initialize() disk ve ag I/O
     // yapar, arka planda cagrilmalidir.
     private fun scheduleAdsBootstrap() {
-        Handler(Looper.getMainLooper()).postDelayed({
+        mainHandler.postDelayed({
             Thread {
                 // Faz 38: gelistirici/ekip cihazlarinda RELEASE build test
                 // edilirken gercek kendi reklamlarimizi izlemis/tiklamis
@@ -224,12 +244,17 @@ class MainActivity : ComponentActivity() {
      * de 4 saniyelik guvenlik agindan cagrilir; hangisi son gelirse o tetikler.
      */
     private fun warmUpAdsIfPossible() {
+        // Faz 166: Activity oldukten sonra ISINMA YOK. Iptal edilemeyen
+        // callback'ler (MobileAds.initialize tamamlanmasi, UMP) buraya yine de
+        // varabiliyor; olu bir Activity'yi surec-omurlu BannerAdPool'a yazmak
+        // Activity + WebView sizintisi demek.
+        if (isDestroyed || isFinishing) return
         // AdView bir View'dir: kurulumu ANA THREAD'de olmak ZORUNDA. Bu metot
         // hem UMP callback'inden hem MobileAds init callback'inden cagriliyor;
         // ikisi de ana thread vaat eder ama garantiyi burada ucuza aliyoruz
         // (aksi halde CalledFromWrongThreadException ile aciliista cokerdik).
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            Handler(Looper.getMainLooper()).post { warmUpAdsIfPossible() }
+            mainHandler.post { warmUpAdsIfPossible() }
             return
         }
         if (adsWarmedUp) return
