@@ -112,7 +112,10 @@ fun ModeSelectScreen(
     onOpenSettings: () -> Unit,
     // Faz 145: jeton rozetine basinca odullu reklam.
     isWatchAdLoading: Boolean = false,
-    onWatchAdForTokens: () -> Unit = {}
+    onWatchAdForTokens: () -> Unit = {},
+    // Faz 166: dogrulanmis internet erisimi. Odullu reklam teklifini gizler;
+    // baska hicbir seyi etkilemez. Gerekce: `ConnectivityGate`.
+    adsReachable: Boolean = true
 ) {
     val palette = blastPalette(skin, darkMode)
     val surfaces = rememberGameSurfaces(skin, darkMode)
@@ -149,7 +152,23 @@ fun ModeSelectScreen(
                     color = palette.textSecondary
                 )
             },
+            // Faz 166: ag yoksa "IZLE" hic sunulmaz. Jeton rozeti tiklanabilir
+            // kalir (jeton sayisini gostermesi ise yariyor) ama diyalog bu kez
+            // sunamayacagi bir odulu vaat etmek yerine nedenini soyluyor.
             confirmButton = {
+                if (!adsReachable) {
+                    Text(
+                        text = language.pick(
+                            tr = "Bunun için internet bağlantısı gerekiyor.",
+                            en = "This needs an internet connection.",
+                            it = "Serve una connessione a internet.",
+                            fr = "Une connexion internet est nécessaire.",
+                            es = "Se necesita conexión a internet."
+                        ),
+                        color = palette.textSecondary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                } else
                 TextButton(onClick = {
                     showWatchAdDialog = false
                     onWatchAdForTokens()

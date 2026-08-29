@@ -27,6 +27,7 @@ import com.miniappfactory.boomblocks.ads.AdsConsent
 import com.miniappfactory.boomblocks.ads.BannerAdView
 import com.miniappfactory.boomblocks.ads.InterstitialAdManager
 import com.miniappfactory.boomblocks.ads.RewardedAdManager
+import com.miniappfactory.boomblocks.ads.rememberAdsReachable
 import com.miniappfactory.boomblocks.data.BoosterType
 import com.miniappfactory.boomblocks.ui.games.boomblocks.effectiveBlockTheme
 import com.miniappfactory.boomblocks.data.AppLanguage
@@ -139,6 +140,15 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
     val progress by viewModel.playerProgress.collectAsStateWithLifecycle()
     val missions by viewModel.weeklyMissions.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Faz 166: odullu reklam yuzeylerinin ag kapisi. TEK yerde olculup asagi
+    // geciriliyor — her ekranin kendi ConnectivityManager dinleyicisini kurmasi
+    // hem gereksiz hem de (bu denetimde bulunan MainActivity/Choreographer
+    // sizintilarinin gosterdigi gibi) iptal edilmeyi unutmaya acik olurdu.
+    //
+    // Kullanicinin buldugu istismari kapatir: ucak modunda "reklam izle devam
+    // et"e basip bedava devam kazanmak. Ayrinti: `ConnectivityGate`.
+    val adsReachable by rememberAdsReachable()
     val skin = BlastSkin.fromId(progress.uiSkin)
     val onSelectSkin: (BlastSkin) -> Unit = { viewModel.setUiSkin(it.name) }
 
@@ -175,6 +185,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             onOpenMissions = { navController.navigate(Routes.MISSIONS) },
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                             isWatchAdLoading = isTokenAdLoading,
+                            adsReachable = adsReachable,
                             onWatchAdForTokens = {
                                 val activity = context.findActivity()
                                 if (activity != null && !isTokenAdLoading) {
@@ -260,6 +271,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         skin = skin,
                         onBuyBooster = { type -> viewModel.buyBooster(type) },
                         isWatchAdLoading = isWatchAdLoading,
+                        adsReachable = adsReachable,
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
                             if (activity != null && !isWatchAdLoading) {
@@ -307,6 +319,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         hapticsEnabled = progress.hapticsEnabled,
                         darkMode = progress.darkMode,
                         effectIntensity = progress.effectIntensity,
+                        adsReachable = adsReachable,
                         initialBoosterCounts = progress.ownedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeBoosterFromInventory(type) },
@@ -462,6 +475,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         skin = skin,
                         onBuyBooster = { type -> viewModel.buyChallengeBooster(type) },
                         isWatchAdLoading = isWatchAdLoading,
+                        adsReachable = adsReachable,
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
                             if (activity != null && !isWatchAdLoading) {
@@ -500,6 +514,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         scoreMultiplier = definition.scoreMultiplier,
                         isChallengeMode = true,
                         effectIntensity = progress.effectIntensity,
+                        adsReachable = adsReachable,
                         // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
                         // "Yeniden Başlat" interstitial reklama baglandi.
                         // Faz 103: esik KALDIRILDI, artik HER yeniden baslatmada reklam.
@@ -686,6 +701,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         skin = skin,
                         onBuyBooster = { type -> viewModel.buyComfortBooster(type) },
                         isWatchAdLoading = isWatchAdLoading,
+                        adsReachable = adsReachable,
                         onWatchAdForTokens = {
                             val activity = context.findActivity()
                             if (activity != null && !isWatchAdLoading) {
@@ -734,6 +750,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         hapticsEnabled = progress.hapticsEnabled,
                         darkMode = progress.darkMode,
                         effectIntensity = progress.effectIntensity,
+                        adsReachable = adsReachable,
                         initialBoosterCounts = progress.comfortOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeComfortBoosterFromInventory(type) },
@@ -862,6 +879,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         hapticsEnabled = progress.hapticsEnabled,
                         darkMode = progress.darkMode,
                         effectIntensity = progress.effectIntensity,
+                        adsReachable = adsReachable,
                         initialBoosterCounts = progress.endlessOwnedBoosters,
                         onSelectTheme = { theme -> viewModel.setBlockTheme(theme) },
                         onUseBooster = { type -> viewModel.consumeEndlessBoosterFromInventory(type) },

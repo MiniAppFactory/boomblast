@@ -93,6 +93,9 @@ fun LoadoutScreen(
     onWatchAdForTokens: () -> Unit,
     // Faz 43: reklam yuklemesi 3-8 sn surebiliyor; gorsel geri bildirim sart.
     isWatchAdLoading: Boolean = false,
+    // Faz 166: dogrulanmis internet erisimi. Odullu reklam teklifini gizler;
+    // baska hicbir seyi etkilemez. Gerekce: `ConnectivityGate`.
+    adsReachable: Boolean = true,
     onStartLevel: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -195,12 +198,16 @@ fun LoadoutScreen(
                     )
                 }
 
-                WatchAdCard(
-                    language = language,
-                    surfaces = surfaces,
-                    isLoading = isWatchAdLoading,
-                    onWatchAdForTokens = onWatchAdForTokens
-                )
+                // Faz 166: ag yokken bu kart hic cizilmez — basildiginda kesin
+                // basarisiz olacak bir jeton teklifi sunmak yerine.
+                if (adsReachable) {
+                    WatchAdCard(
+                        language = language,
+                        surfaces = surfaces,
+                        isLoading = isWatchAdLoading,
+                        onWatchAdForTokens = onWatchAdForTokens
+                    )
+                }
             }
 
             FitToHeight(modifier = Modifier.weight(1f).fillMaxWidth()) { fits ->

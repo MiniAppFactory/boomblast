@@ -1337,7 +1337,20 @@ fun BlastTheBlocksGame(
     onFirstMoveMade: () -> Unit = {},
     // Faz 4: Ambient toz + radyal isin etki yogunlugu (Düşük/Normal/Yüksek).
     // Yuksek yogunlukta daha cok parca, daha sering yenileme; zayif cihazlar icin opsiyonel.
-    effectIntensity: EffectIntensity = EffectIntensity.NORMAL
+    effectIntensity: EffectIntensity = EffectIntensity.NORMAL,
+    // Faz 166: dogrulanmis internet erisimi var mi. Odullu reklam YUZEYLERINI
+    // (devam et / +1 guclendirici) acip kapatir; oynanisa, skora, bolum
+    // ilerlemesine HIC dokunmaz — cevrimdisi oyuncu oyunu normal oynar.
+    //
+    // Kullanicinin buldugu istismar: ucak modunda "reklam izle devam et"e
+    // basmak. Yukleme basarisiz olunca onFailure -> onDenied tetikleniyor ve
+    // Faz 95c/98'deki comert dal (`onRequestContinueAd(proceed, proceed)`)
+    // oyuncuya tahtayi KORUYARAK bedava devam veriyordu.
+    //
+    // Ayrimi kuran sey bu: "ag var ama reklam gelmedi" (gercek no-fill, comert
+    // kal) ile "ag hic yok" (teklif etme) artik ayni sey degil.
+    // Karar `ConnectivityGate`de, saf ve JVM testli.
+    adsReachable: Boolean = true
 ) {
     val palette = blastPalette(uiSkin, darkMode)
     // Faz 22: skin/koyu-mod degisiminde renkler ONCEDEN tek karede sertce
@@ -2247,7 +2260,11 @@ fun BlastTheBlocksGame(
     // de "izlemis sayilir" (oyuncunun hatasi degil), sadece hak tuketilir.
     fun handleRetryWithAd() {
         if (isRequestingContinueAd) return
-        if (continuesUsedInAttempt >= maxRetryContinues) {
+        // Faz 166: ag yoksa odullu devam SUNULAMAZ, o yuzden haklar tukenmis
+        // gibi davranilir — tahta sifirdan baslar. Bu, kullanicinin kabul ettigi
+        // takasin ta kendisi: "Wi-Fi olmayan yerde oynayan kisi o zaman reklam
+        // izle devam et diyemez, bu da dogru bir trade."
+        if (!adsReachable || continuesUsedInAttempt >= maxRetryContinues) {
             // Faz 164: burasi haklarin TUKENDIGI dal — oyuncunun bastan
             // baslamaktan baska secenegi yok. Onceden burada zorunlu bir gecis
             // reklami vardi; kaldirildi. Gerekce ve kapsam: `RetryAdPolicy`.
@@ -3291,7 +3308,9 @@ fun BlastTheBlocksGame(
                                     Text(text = "x$owned", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
                                 }
                             }
-                        } else if (onWatchAdForBooster != null) {
+                        // Faz 166: ag yokken bu cip hic cizilmez — basildiginda
+                        // kesin basarisiz olacak bir reklam teklifi sunmak yerine.
+                        } else if (onWatchAdForBooster != null && adsReachable) {
                             Surface(
                                 color = palette.card,
                                 shape = RoundedCornerShape(10.dp),
@@ -5160,34 +5179,56 @@ fun BlastTheBlocksGame(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        Button(
-                            onClick = { handleContinueWithAd() },
-                            enabled = !isRequestingContinueAd,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
-                            shape = RoundedCornerShape(12.dp),
-                            // Faz 127: varsayilan 24dp yatay ic bosluk uzun cevirilerde
-                            // metin alanini gereksiz daraltiyordu (bkz. AdButtonLabel).
-                            contentPadding = PaddingValues(horizontal = 10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("continue_watch_ad_button")
-                        ) {
-                            // Faz 48: reklam yuklemesi (3-8sn) hicbir gorsel geri bildirim
-                            // vermiyordu — sadece Button'un varsayilan "disabled" soluklugu
-                            // pek fark edilmiyordu (ayni Loadout'taki WATCH sorunuyla ayni
-                            // kok neden). Artik acikca donen bir gosterge var.
-                            if (isRequestingContinueAd) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    color = Color.Black,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            } else {
-                                AdButtonLabel(
-                                    language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR")
-                                )
+                        // Faz 166: ag yoksa bu buton HIC cizilmez. Basilsaydi
+                        // yukleme basarisiz olur, onFailure -> onDenied tetiklenir
+                        // ve Faz 95c/98'deki comert dal oyuncuya tahtayi koruyarak
+                        // BEDAVA devam verirdi — kullanicinin buldugu istismar buydu.
+                        // Devre disi gri bir buton yerine kisa bir aciklama
+                        // gosteriliyor: oyuncu neden goremedigini bilsin.
+                        if (adsReachable) {
+                            Button(
+                                onClick = { handleContinueWithAd() },
+                                enabled = !isRequestingContinueAd,
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                                shape = RoundedCornerShape(12.dp),
+                                // Faz 127: varsayilan 24dp yatay ic bosluk uzun cevirilerde
+                                // metin alanini gereksiz daraltiyordu (bkz. AdButtonLabel).
+                                contentPadding = PaddingValues(horizontal = 10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .testTag("continue_watch_ad_button")
+                            ) {
+                                // Faz 48: reklam yuklemesi (3-8sn) hicbir gorsel geri bildirim
+                                // vermiyordu — sadece Button'un varsayilan "disabled" soluklugu
+                                // pek fark edilmiyordu (ayni Loadout'taki WATCH sorunuyla ayni
+                                // kok neden). Artik acikca donen bir gosterge var.
+                                if (isRequestingContinueAd) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        color = Color.Black,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                } else {
+                                    AdButtonLabel(
+                                        language.pick(tr = "REKLAM İZLE VE DEVAM ET", en = "WATCH AD TO CONTINUE", it = "GUARDA ANNUNCIO E CONTINUA", fr = "REGARDER PUB ET CONTINUER", es = "VER ANUNCIO Y CONTINUAR")
+                                    )
+                                }
                             }
+                        } else {
+                            Text(
+                                text = language.pick(
+                                    tr = "Reklamla devam etmek için internet bağlantısı gerekiyor.",
+                                    en = "An internet connection is needed to continue with an ad.",
+                                    it = "Serve una connessione a internet per continuare con un annuncio.",
+                                    fr = "Une connexion internet est nécessaire pour continuer avec une pub.",
+                                    es = "Se necesita conexión a internet para continuar con un anuncio."
+                                ),
+                                fontSize = 12.sp,
+                                color = palette.textSecondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -5410,7 +5451,10 @@ fun BlastTheBlocksGame(
                                 )
                             } else {
                                 AdButtonLabel(
-                                    if (isEndless || continuesUsedInAttempt >= maxRetryContinues) {
+                                    // Faz 166: `!adsReachable` da buraya dusuyor — cevrimdisi
+                                    // oyuncuya izleyemeyecegi bir reklami vaat eden etiket
+                                    // gostermek, butonu hic sunmamaktan daha kotu.
+                                    if (isEndless || !adsReachable || continuesUsedInAttempt >= maxRetryContinues) {
                                         // Faz 97: Seviyeli/Pro Mode'da bu denemedeki 3 reklamli
                                         // devam hakki da tukendiyse, buton "TEKRAR DENE"ye
                                         // (zorunlu interstitial'a sarili, reklamsiz degil)
