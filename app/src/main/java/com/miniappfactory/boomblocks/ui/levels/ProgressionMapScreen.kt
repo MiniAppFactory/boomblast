@@ -141,15 +141,45 @@ val CareerMapTheme = MapTheme(
 // Artik karo yok: her seviye kendi satirinda, aralari sette gelen S kavisiyle
 // baglaniyor. Kavis yonu her seviyede degisiyor (asagi-sag / asagi-sol).
 
+// FAZ 175b — ZINCIR ARTIK GERCEKTEN BAGLANIYOR.
+//
+// Kullanici: "olmamis ki, bir sag bir sol kavis kullanman lazimdi ki baglansin
+// harita." Yon alternasyonu zaten vardi; kirik olan sey UC NOKTALARIN
+// HIZASIYDI.
+//
+// Olculdu: kavisin govdesi bitmap KOSESINDE degil, isima payi yuzunden
+// iceride. `kb_car_seg_lr` (202x260) icin govde kutusu x=22..176, y=24..235;
+// ust uc x=51, alt uc x=163. Yani oransal olarak:
+//     ust uc  = (0.252 , 0.092)
+//     alt uc  = (0.807 , 0.904)
+// Kutuyu kose koseye yerlestirince uclar birbirine DEGMIYOR, aralarinda
+// bosluk kaliyordu.
+//
+// Zincir bu oranlardan cozuluyor. Sag-sola inen kavis aynadir, yani onun
+// uclari (0.748, 0.092) ve (0.193, 0.904).
+//
+// Ardisik iki kavisin uclari cakissin istiyorsak:
+//   dikey adim  = (0.904 - 0.092) * SEG_H = 0.812 * SEG_H  ==> SEG_H = SPACING / 0.812
+//   yatay kayma = (0.807 - 0.748) * SEG_W = 0.059 * SEG_W
+// Kayma her satirda ISARET DEGISTIRDIGI icin iki satirda bir sifirlaniyor --
+// yol yana kaymiyor.
+private const val SEG_TOP_X = 0.252f
+private const val SEG_TOP_Y = 0.092f
+private const val SEG_BOT_X = 0.807f
+private const val SEG_BOT_Y = 0.904f
+
 /** Iki dugum merkezi arasi dikey mesafe (referans px). */
 private const val LEVEL_SPACING = 250f
 
-/** Dugum sutununun merkezi ve hafif zikzak genligi (referans px). */
-private const val NODE_CENTER_X = 452f
-private const val NODE_SWING = 26f
+/** Kavisin yatay genisligi = yolun salinim genligi. */
+private const val SEG_W = 330f
 
-/** Baglayici kavisin yatay genisligi: dugum sapmasindan GENIS, yol saliniyor. */
-private const val SEG_W = 232f
+/** Uclarin cakismasi icin gereken kavis yuksekligi. */
+private const val SEG_H = LEVEL_SPACING / (SEG_BOT_Y - SEG_TOP_Y)
+
+/** Dugum sutunu merkezi ve uc hizasindan dogan kucuk yatay sapma. */
+private const val NODE_CENTER_X = 452f
+private const val NODE_SWING = (SEG_BOT_X - (1f - SEG_TOP_X)) * SEG_W / 2f
 
 
 /**
@@ -415,8 +445,11 @@ private fun LevelRow(
     onSelectLevel: (Int) -> Unit
 ) {
     val unlocked = level <= highestUnlockedLevel
-    val swingRight = level % 2 == 1
-    val nodeCx = NODE_CENTER_X + if (swingRight) -NODE_SWING else NODE_SWING
+    // Tek seviyeler SOLDAN SAGA inen kavisi, cift seviyeler aynasini kullanir --
+    // "bir sag bir sol". Uclarin cakismasi icin dugum de yarim kayma kadar
+    // saga/sola oturuyor (bkz. yukaridaki uc-noktasi hesabi).
+    val leftToRight = level % 2 == 1
+    val nodeCx = NODE_CENTER_X + if (leftToRight) -NODE_SWING else NODE_SWING
     val nodeCy = LEVEL_SPACING / 2f
 
     Box(
@@ -424,24 +457,31 @@ private fun LevelRow(
             .fillMaxWidth()
             .height(px(LEVEL_SPACING, scale))
     ) {
-        // --- 3) baglayici kavis (bu dugumden BIR SONRAKINE) ---
+        // --- 3) baglayici kavis ---
+        // Kutu DUGUME ORTALANIYOR: kavisin orta noktasi dugumun uzerinden
+        // geciyor, uclari da bir onceki/sonraki kavisin ucuna denk geliyor.
+        // Kutu satirdan TASAR (SEG_H > LEVEL_SPACING) -- kasitli, zincir
+        // ancak boyle kesintisiz oluyor.
         Image(
             painter = painterResource(
-                if (swingRight) theme.segLeftToRight else theme.segRightToLeft
+                if (leftToRight) theme.segLeftToRight else theme.segRightToLeft
             ),
             contentDescription = null,
             contentScale = ContentScale.FillBounds,
             modifier = Modifier
-                .offset(x = px(NODE_CENTER_X - SEG_W / 2f, scale), y = px(nodeCy, scale))
+                .offset(
+                    x = px(nodeCx - SEG_W / 2f, scale),
+                    y = px(nodeCy - SEG_H / 2f, scale)
+                )
                 .width(px(SEG_W, scale))
-                .height(px(LEVEL_SPACING, scale))
+                .height(px(SEG_H, scale))
         )
 
         // --- 4) hedef hapi ---
         TargetPill(
             theme = theme,
             isFirst = level == 1,
-            onRight = !swingRight,
+            onRight = !leftToRight,
             nodeCx = nodeCx,
             nodeCy = nodeCy,
             scale = scale,
