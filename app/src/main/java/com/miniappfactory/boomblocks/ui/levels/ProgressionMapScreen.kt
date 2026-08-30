@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -102,11 +103,12 @@ data class MapTheme(
     val pillUp: Int,
     val pillTailLeft: Int,
     val pillTailRight: Int,
-    val path: Int,
+    /** Sag dugumden SOL dugume inen S kavisi. */
+    val segRightToLeft: Int,
+    /** Sol dugumden SAG dugume inen S kavisi (digerinin aynasi). */
+    val segLeftToRight: Int,
     val accent: Color,
     val label: Color,
-    /** Yol karosundaki dugum capalari (karo 512x1024 uzerinde). */
-    val anchors: List<Pair<Int, Int>>
 )
 
 val CareerMapTheme = MapTheme(
@@ -122,27 +124,48 @@ val CareerMapTheme = MapTheme(
     pillUp = R.drawable.kb_car_pill_up,
     pillTailLeft = R.drawable.kb_car_pill_l,
     pillTailRight = R.drawable.kb_car_pill_r,
-    path = R.drawable.kb_car_path,
+    segRightToLeft = R.drawable.kb_car_seg_rl,
+    segLeftToRight = R.drawable.kb_car_seg_lr,
     accent = Color(0xFF22D3EE),
-    label = Color(0xFF4FC3F7),
-    anchors = listOf(376 to 128, 136 to 384, 376 to 640, 136 to 896)
+    label = Color(0xFF4FC3F7)
 )
 
-// Yol karosu (path_tile_meta.json)
-private const val TILE_W = 512
-private const val TILE_H = 1024
+// FAZ 175 — YERLESIM REFERANSA CEVRILDI.
+//
+// Once V3'un `path_tile_seamless` karosu kullaniliyordu; o karo dugumleri
+// SAGA-SOLA ATLATIYOR ve KESKIN ZIGZAG uretiyordu. Kullanicinin referansinda
+// ise dugumler neredeyse DIKEY siralı, YOL onlarin etrafinda saliniyor.
+// Ayrica sette iki yonlu TEK BUKUMLU S baglayicilar zaten vardi -- kullanici
+// hakli olarak "neden kullanmadin?" diye sordu.
+//
+// Artik karo yok: her seviye kendi satirinda, aralari sette gelen S kavisiyle
+// baglaniyor. Kavis yonu her seviyede degisiyor (asagi-sag / asagi-sol).
+
+/** Iki dugum merkezi arasi dikey mesafe (referans px). */
+private const val LEVEL_SPACING = 250f
+
+/** Dugum sutununun merkezi ve hafif zikzak genligi (referans px). */
+private const val NODE_CENTER_X = 452f
+private const val NODE_SWING = 26f
+
+/** Baglayici kavisin yatay genisligi: dugum sapmasindan GENIS, yol saliniyor. */
+private const val SEG_W = 232f
+
 
 /**
  * Referans (941x1672) uzerinde ELLE OLCULEN GOVDE kutulari.
- * Bitmap boyutu asagida isima orani ile geri hesaplaniyor.
+ *
+ * Her satir: merkez x, merkez y, GOVDE genisligi, govde/bitmap orani, en-boy.
+ *
+ * Varliklarin ISIMA PAYI var, yani bitmap govdeden buyuk. Ekranda gorunmesi
+ * istenen sey GOVDE oldugu icin bitmap genisligi `govde / oran` ile geri
+ * hesaplaniyor; oranlar varliklardan OLCULDU (alfa > 200 cekirdek kutusu).
+ *
+ * En-boy oranlari da varliktan: ilk surumde dikey merkezleme `w / 2` ile
+ * yapiliyordu (yukseklik yerine GENISLIK) ve geniş-kisa varliklar ekran
+ * disina kaciyordu.
  */
 private object Ref {
-    // merkez x, merkez y, govde genisligi, govde/bitmap orani, EN-BOY (h/w)
-    //
-    // FAZ 174 — HATA DUZELTMESI: ilk surumde dikey merkezleme `w / 2` ile
-    // yapiliyordu, yani yukseklik yerine GENISLIK kullaniliyordu. Geniş-kisa
-    // varliklar (wordmark h/w=0.40, panel 0.74, jeton hapi 0.58) bu yuzden
-    // ekranin disina, yukari kaciyordu. En-boy oranlari varliklardan olculdu.
     val BACK = floatArrayOf(85f, 118f, 122f, 0.69f, 0.900f)
     val WORD = floatArrayOf(327f, 111f, 326f, 0.85f, 0.402f)
     val COIN = floatArrayOf(615f, 121f, 162f, 0.95f, 0.584f)
@@ -151,7 +174,7 @@ private object Ref {
     val PANEL = floatArrayOf(467f, 329f, 811f, 0.94f, 0.739f)
     val TROPHY_BIG = floatArrayOf(159f, 335f, 118f, 0.89f, 0.943f)
 
-    // Dugum GOVDE capi ekranin ~%15.5'i (spec: %13-15 arasi, bloom disi).
+    /** Dugum GOVDE capi ekranin ~%15.5'i (spec: %13-15, bloom haric). */
     const val NODE_BODY = 146f
     const val NODE_OPEN_RATIO = 0.84f
     const val NODE_LOCK_RATIO = 0.79f
@@ -166,6 +189,14 @@ private object Ref {
 /** Isima payi dahil bitmap genisligi. */
 private fun bitmapW(body: Float, ratio: Float) = body / ratio
 
+
+/**
+ * Ilerleme haritasi ekrani.
+ *
+ * Parametreler eski `LevelMapScreen` ile ayni kaynaklardan besleniyor: seviye
+ * kilidi, hedef puani, jeton, gezinme ve kaydirma mevcut oyun durumundan
+ * geliyor, burada yeniden uretilmiyor.
+ */
 @Composable
 fun ProgressionMapScreen(
     theme: MapTheme,
@@ -184,7 +215,6 @@ fun ProgressionMapScreen(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val scale = maxWidth.value / REF_W
         val listState = rememberLazyListState()
-        val tileLeft = (REF_W - TILE_W) / 2f
 
         // --- 1) mod zemini -------------------------------------------------
         GameScreenBackground(
@@ -204,27 +234,24 @@ fun ProgressionMapScreen(
                 .testTag("progression_map_list")
         ) {
             item { Box(Modifier.height(px(Ref.MAP_TOP, scale))) }
-            // Sonsuz ilerleme: her karo 4 dugum. Ulasilanin 12 otesi cizilir
-            // (Faz 152 karari: ufuk gorunsun ama kilitli duvar olmasin).
-            val tiles = (highestUnlockedLevel + 12) / 4 + 1
-            items(tiles) { tileIndex ->
-                PathTile(
+            // Faz 152 karari: ulasilanin 12 otesi cizilir -- ufuk gorunsun ama
+            // kilitli bir duvar gibi durmasin.
+            items(highestUnlockedLevel + 12) { idx ->
+                LevelRow(
                     theme = theme,
-                    tileIndex = tileIndex,
+                    level = idx + 1,
                     scale = scale,
-                    tileLeft = tileLeft,
                     highestUnlockedLevel = highestUnlockedLevel,
                     targetScoreForLevel = targetScoreForLevel,
                     language = language,
                     onSelectLevel = onSelectLevel
                 )
             }
-            item { Box(Modifier.height(px(120, scale))) }
+            item { Box(Modifier.height(px(140, scale))) }
         }
 
         // --- 6) ilerleme paneli (sabit) ------------------------------------
-        // Panel 9-dilim: referanstaki genis/alcak kutuya varlik BOZULMADAN
-        // oturuyor (bkz. NinePatchImage notu).
+        // 9-dilim: referanstaki genis/alcak kutuya varlik BOZULMADAN oturuyor.
         NinePatchImage(
             resId = theme.panel,
             capFrac = 0.30f,
@@ -256,7 +283,7 @@ fun ProgressionMapScreen(
             )
         }
 
-        // --- 7) ust bar ----------------------------------------------------
+        // --- 7) ust bar: tiklama davranislari mevcut kancalardan ------------
         AssetImage(theme.back, Ref.BACK, scale, onBack)
         AssetImage(theme.word, Ref.WORD, scale)
         Box {
@@ -276,7 +303,6 @@ fun ProgressionMapScreen(
         AssetImage(theme.settingsBtn, Ref.SET_BTN, scale, onOpenSettings)
     }
 }
-
 
 /**
  * 9-DILIM cizim.
@@ -369,89 +395,90 @@ private fun AssetImage(
 }
 
 /**
- * Dort dugumluk DIKISSIZ yol karosu.
+ * TEK SEVIYE satiri: baglayici kavis + hedef hapi + dugum.
  *
- * Karo `path_tile_seamless.png`: ust kenari kendi alt kenarina dikissiz
- * ekleniyor, yani sonsuz seviye uretimiyle uyumlu. Dugum konumlari tahmin
- * degil, paketin `node_anchors` verisinden geliyor -- bu yuzden dugumler yola
- * TAM oturuyor.
+ * Z-sirasi satir icinde de korunuyor: once KAVIS, sonra HAP, en uste DUGUM --
+ * yani yol dugumun ARKASINDAN geciyor.
+ *
+ * Kavis sette gelen iki yonlu S parcasi; yonu seviyeye gore degisiyor.
+ * Kutusu dugum sapmasindan GENIS tutuluyor, boylece yol dugumun etrafinda
+ * saliniyor (referanstaki gorunum).
  */
 @Composable
-private fun PathTile(
+private fun LevelRow(
     theme: MapTheme,
-    tileIndex: Int,
+    level: Int,
     scale: Float,
-    tileLeft: Float,
     highestUnlockedLevel: Int,
     targetScoreForLevel: (Int) -> Int,
     language: AppLanguage,
     onSelectLevel: (Int) -> Unit
 ) {
+    val unlocked = level <= highestUnlockedLevel
+    val swingRight = level % 2 == 1
+    val nodeCx = NODE_CENTER_X + if (swingRight) -NODE_SWING else NODE_SWING
+    val nodeCy = LEVEL_SPACING / 2f
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(px(TILE_H, scale))
+            .height(px(LEVEL_SPACING, scale))
     ) {
-        // --- 3) yol ---
+        // --- 3) baglayici kavis (bu dugumden BIR SONRAKINE) ---
         Image(
-            painter = painterResource(theme.path),
+            painter = painterResource(
+                if (swingRight) theme.segLeftToRight else theme.segRightToLeft
+            ),
             contentDescription = null,
+            contentScale = ContentScale.FillBounds,
             modifier = Modifier
-                .offset(x = px(tileLeft, scale))
-                .width(px(TILE_W, scale))
-                .height(px(TILE_H, scale))
+                .offset(x = px(NODE_CENTER_X - SEG_W / 2f, scale), y = px(nodeCy, scale))
+                .width(px(SEG_W, scale))
+                .height(px(LEVEL_SPACING, scale))
         )
 
-        theme.anchors.forEachIndexed { i, (ax, ay) ->
-            val level = tileIndex * 4 + i + 1
-            val unlocked = level <= highestUnlockedLevel
-            val cx = tileLeft + ax
-            val cy = ay.toFloat()
-            val onRight = ax > TILE_W / 2
-
-            // --- 4) hedef hapi (dugumun ALTINDA) ---
-            TargetPill(
-                theme = theme,
-                isFirst = tileIndex == 0 && i == 0,
-                onRight = onRight,
-                nodeCx = cx,
-                nodeCy = cy,
-                scale = scale,
-                text = language.pick(
-                    tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
-                    en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
-                    it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
-                    fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
-                    es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
-                )
+        // --- 4) hedef hapi ---
+        TargetPill(
+            theme = theme,
+            isFirst = level == 1,
+            onRight = !swingRight,
+            nodeCx = nodeCx,
+            nodeCy = nodeCy,
+            scale = scale,
+            text = language.pick(
+                tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
+                en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
+                it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
+                fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
+                es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
             )
+        )
 
-            // --- 5) dugum ---
-            val ratio = if (unlocked) Ref.NODE_OPEN_RATIO else Ref.NODE_LOCK_RATIO
-            val w = bitmapW(Ref.NODE_BODY, ratio)
-            Box(
-                modifier = Modifier
-                    .offset(x = px(cx - w / 2f, scale), y = px(cy - w / 2f, scale))
-                    .size(px(w, scale))
-                    .clickable(enabled = unlocked) { onSelectLevel(level) }
-                    .testTag("level_card_$level"),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(if (unlocked) theme.nodeOpen else theme.nodeLock),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize()
+        // --- 5) dugum ---
+        val ratio = if (unlocked) Ref.NODE_OPEN_RATIO else Ref.NODE_LOCK_RATIO
+        val w = bitmapW(Ref.NODE_BODY, ratio)
+        Box(
+            modifier = Modifier
+                .offset(x = px(nodeCx - w / 2f, scale), y = px(nodeCy - w / 2f, scale))
+                .size(px(w, scale))
+                .clickable(enabled = unlocked) { onSelectLevel(level) }
+                .testTag("level_card_$level"),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(if (unlocked) theme.nodeOpen else theme.nodeLock),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
+            if (unlocked) {
+                // Kilit gorseli KILITLI varligin icinde zaten var; burada
+                // yalnizca DINAMIK seviye numarasi yaziliyor.
+                Text(
+                    text = "$level",
+                    color = Color.White,
+                    fontSize = (62 * scale).sp,
+                    fontWeight = FontWeight.Black
                 )
-                if (unlocked) {
-                    // Kilit gorseli KILITLI varligin icinde zaten var; burada
-                    // yalnizca DINAMIK seviye numarasi yaziliyor.
-                    Text(
-                        text = "$level",
-                        color = Color.White,
-                        fontSize = (62 * scale).sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
             }
         }
     }
