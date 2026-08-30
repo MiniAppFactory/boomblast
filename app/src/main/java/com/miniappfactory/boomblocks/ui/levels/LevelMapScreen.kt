@@ -80,6 +80,10 @@ import com.miniappfactory.boomblocks.ui.theme.NeonGreen
 import com.miniappfactory.boomblocks.ui.theme.NeonPurple
 import com.miniappfactory.boomblocks.ui.theme.blastPalette
 import kotlin.math.sin
+import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
+import com.miniappfactory.boomblocks.ui.components.IconMedallion
+import com.miniappfactory.boomblocks.ui.components.GameEmblemLine
+import com.miniappfactory.boomblocks.ui.components.accentEmblemColors
 
 // ModeSelectScreen'deki Challenge kart aksanniyla (Color(0xFFFF6B35)) ayni —
 // Pro Mode'un her yerde tutarli bir "marka rengi" olmasi icin.
@@ -190,8 +194,11 @@ fun LevelMapScreen(
             CareerProgressCard(
                 language = language,
                 palette = palette,
+                surfaces = surfaces,
                 accentColor = accentColor,
-                currentLevel = highestUnlockedLevel
+                currentLevel = highestUnlockedLevel,
+                isChallengeMode = isChallengeMode,
+                isComfortMode = isComfortMode
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -383,49 +390,111 @@ private fun LevelMapHeader(
 private fun CareerProgressCard(
     language: AppLanguage,
     palette: BlastPalette,
+    surfaces: GameSurfaces,
     accentColor: Color,
-    currentLevel: Int
+    currentLevel: Int,
+    isChallengeMode: Boolean,
+    isComfortMode: Boolean
 ) {
+    // FAZ 170 — IKI SORUN BIRDEN.
+    //
+    // 1) YANLIS METIN (kozmetik degil, HATA): baslik ve ikon UC MODDA DA
+    //    "KARİYER İLERLEMESİ" + kariyer kupasiydi. Pro Mod ve Kolay Mod
+    //    haritalarinda da oyuncuya "kariyer" deniyordu. Faz 128'de Kolay Mod
+    //    eklenirken bu kart guncellenmemis.
+    //
+    // 2) KOZMETIK (kullanici: "burada kariyer ilerlemesi seviye 1 yazan alan
+    //    da sanirim kozmetik dokunus istiyor"): kart duz bir levhaydi --
+    //    kabartma yok, ciplak bir ikon, ve seviye numarasi duz beyaz metin.
+    //    Ekranin geri kalani (baslik, dugumler, butonlar) Faz 158-162'de
+    //    kabartmali/konturlu dile gecmisti, bu kart geride kalmisti.
+    //
+    // NEDEN ILERLEME CUBUGU YOK: seviyeler prosedurel ve SINIRSIZ (bkz.
+    // LevelGenerator). Gercek bir toplam olmadigi icin "12/50" gibi bir kesir
+    // uydurma olurdu -- Faz 115n'de tam da bu yuzden eski kesir kaldirilmisti.
+    // Burada ayni tuzaga geri dusme.
+    val modeIcon = when {
+        isChallengeMode -> R.drawable.icon_pro
+        isComfortMode -> R.drawable.icon_comfort
+        else -> R.drawable.icon_career
+    }
+    val modeLabel = when {
+        isChallengeMode -> language.pick(
+            tr = "PRO MOD İLERLEMESİ", en = "PRO MODE PROGRESS", it = "PROGRESSO PRO",
+            fr = "PROGRESSION PRO", es = "PROGRESO PRO"
+        )
+        isComfortMode -> language.pick(
+            tr = "KOLAY MOD İLERLEMESİ", en = "EASY MODE PROGRESS", it = "PROGRESSO FACILE",
+            fr = "PROGRESSION FACILE", es = "PROGRESO FÁCIL"
+        )
+        else -> language.pick(
+            tr = "KARİYER İLERLEMESİ", en = "CAREER PROGRESS", it = "PROGRESSO CARRIERA",
+            fr = "PROGRESSION DE CARRIÈRE", es = "PROGRESO DE CARRERA"
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            // Kart artik zeminden ISIK SACARAK ayriliyor (menu kartlariyla ayni
+            // malzeme). Yogunluk dusuk tutuldu: bu bir baslik seridi, tiklanabilir
+            // bir eylem degil -- haritadaki dugumlerden daha fazla bagirmamali.
+            .gameOuterGlow(
+                accent = accentColor,
+                cornerRadius = 18.dp,
+                intensity = 0.55f
+            )
+            .clip(RoundedCornerShape(18.dp))
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        lerp(palette.card, accentColor, 0.16f),
-                        palette.card
+                        lerp(palette.card, accentColor, 0.22f),
+                        lerp(palette.card, Color.Black, 0.10f)
                     )
                 )
             )
+            // Ust kenardaki ince isik cizgisi: yuzeyi "kabartan" sey bu. Tek
+            // renk bir cerceve yassi duruyordu.
+            .drawBehind {
+                drawLine(
+                    color = Color.White.copy(alpha = 0.20f),
+                    start = Offset(14.dp.toPx(), 1.dp.toPx()),
+                    end = Offset(size.width - 14.dp.toPx(), 1.dp.toPx()),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+            }
             .border(
-                1.dp,
+                1.5.dp,
                 Brush.verticalGradient(
-                    listOf(lerp(accentColor, Color.White, 0.3f), accentColor.copy(alpha = 0.4f))
+                    listOf(lerp(accentColor, Color.White, 0.45f), accentColor.copy(alpha = 0.35f))
                 ),
-                RoundedCornerShape(16.dp)
+                RoundedCornerShape(18.dp)
             )
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = 14.dp, vertical = 11.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(R.drawable.icon_career),
-                contentDescription = null,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
+            // Ciplak ikon yerine madalyon: menulerde mod ikonlari da boyle
+            // duruyor, kart onlarla ayni aileden okunuyor.
+            IconMedallion(accent = accentColor, size = 46.dp) {
+                Image(
+                    painter = painterResource(modeIcon),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = language.pick(
-                        tr = "KARİYER İLERLEMESİ", en = "CAREER PROGRESS", it = "PROGRESSO CARRIERA",
-                        fr = "PROGRESSION DE CARRIÈRE", es = "PROGRESO DE CARRERA"
-                    ),
+                    text = modeLabel,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
+                    letterSpacing = 0.8.sp,
                     color = palette.textSecondary
                 )
-                Text(
+                Spacer(modifier = Modifier.height(2.dp))
+                // Seviye numarasi artik duz metin degil: ekran basliklariyla
+                // ayni amblem malzemesi (kontur + 3B govde + isima).
+                GameEmblemLine(
                     text = language.pick(
                         tr = "SEVİYE $currentLevel",
                         en = "LEVEL $currentLevel",
@@ -433,9 +502,14 @@ private fun CareerProgressCard(
                         fr = "NIVEAU $currentLevel",
                         es = "NIVEL $currentLevel"
                     ),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
-                    color = palette.textPrimary
+                    colors = accentEmblemColors(
+                        accentPrimary = lerp(accentColor, Color.White, 0.18f),
+                        accentSecondary = accentColor,
+                        isLightSurface = surfaces.isLightSurface
+                    ),
+                    fontSize = 19.sp,
+                    textAlign = TextAlign.Start,
+                    tightLines = true
                 )
             }
         }

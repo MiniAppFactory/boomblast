@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import com.miniappfactory.boomblocks.ui.theme.AppFontFamily
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -123,41 +137,218 @@ val ResultOnSuccess = Color(0xFF07301A)
 /**
  * Iki satirli sonuc basligi.
  *
- * NEDEN IKI SATIR: tek satir ("SEVIYE BASARISIZ", "LIVELLO COMPLETATO!")
- * dar ekranda zaten sariyordu — ama KENDILIGINDEN, yani iki esit agirlikta
- * satir olarak. Kullanicinin "gozumu yoran bir sey var" dedigi buydu.
- * Simdi bolme KASITLI ve hiyerarsik: ust satir kucuk ve sakin (baglam),
- * alt satir buyuk (olayin kendisi). Mockup da tam olarak boyle.
+ * NEDEN IKI SATIR: tek satir ("SEVIYE BASARISIZ", "LIVELLO COMPLETATO!") dar
+ * ekranda zaten sariyordu -- ama KENDILIGINDEN, yani iki esit agirlikta satir
+ * olarak. Kullanicinin "gozumu yoran bir sey var" dedigi buydu. Simdi bolme
+ * KASITLI ve hiyerarsik: ust satir kucuk ve sakin (baglam), alt satir buyuk
+ * (olayin kendisi).
+ *
+ * ---------------------------------------------------------------------------
+ * FAZ 170 — PUNTO ARTIK OLCULEREK SECILIYOR, TAHMIN EDILMIYOR.
+ *
+ * Kullanici cihazda gordu: "bu olmamis, sigmiyor SEVIYE TAMAMLANDI yazisi."
+ * Ekranda "TAMAML..." cikiyordu.
+ *
+ * Ilk yazdigimda punto SABIT 38sp'ydi ve yorumda "GameEmblemLine kendi icinde
+ * karakter sayisina gore kuculuyor (bkz. emblemFontScale)" yaziyordu. BU
+ * YANLISTI: `emblemFontScale` yalnizca `GameEmblem` icinde cagriliyor,
+ * `GameEmblemLine` icinde DEGIL. Yani satir hic kuculmuyor, sadece kirpiliyordu.
+ * Kendi render'imda 411dp'de sigdigi icin de fark etmemistim -- daha dar bir
+ * yerlesimde ilk denemede patladi.
+ *
+ * Cozum karakter saymak DEGIL (o da bir tahmin ve dile gore yanilir): metin
+ * gercek stiliyle OLCULUP sigan en buyuk punto araniyor. "TAMAMLANDI!",
+ * "COMPLETATO!", "TERMINADO", "BAŞARISIZ" -- hepsi ayni yoldan geciyor.
+ * ---------------------------------------------------------------------------
  */
 @Composable
 fun ResultDialogTitle(
     topLine: String,
     bottomLine: String,
     colors: EmblemColors,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Secilen alt satir puntosu. Test bunu okuyup TABANA DAYANMIS mi diye
+    // bakiyor: arama yalnizca sigmadigi surece kuculttugu icin tabana dayanmak
+    // "sigdiramadim" demektir (bkz. ResultDialogOverflowTest).
+    onBottomSizeChosen: (Float) -> Unit = {}
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        // %92: amblem malzemesi metnin cevresine kontur + 3B govde + isima
+        // ekliyor, yani cizilen genislik olculen metinden BIRAZ genis. Pay
+        // birakilmazsa kenarda tiras olusuyor.
+        val budgetPx = with(density) { maxWidth.toPx() } * 0.92f
+
+        fun widthOf(text: String, sizeSp: Float): Float =
+            measurer.measure(
+                text = AnnotatedString(text),
+                style = TextStyle(
+                    fontFamily = AppFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = sizeSp.sp,
+                    // GameEmblemLine ile AYNI harf araligi; yoksa olcum
+                    // gercekte cizilenden dar cikar.
+                    letterSpacing = (sizeSp * 0.035f).sp
+                ),
+                maxLines = 1
+            ).size.width.toFloat()
+
+        fun fitSize(text: String, max: Float, min: Float): Float {
+            var size = max
+            while (size > min && widthOf(text, size) > budgetPx) size -= 1f
+            return size
+        }
+
+        val bottomSp = fitSize(bottomLine, max = 38f, min = 15f)
+        onBottomSizeChosen(bottomSp)
+        // Ust satir alt satirdan buyuk olmamali: hiyerarsi bozulmasin.
+        val topSp = minOf(fitSize(topLine, max = 27f, min = 15f), bottomSp * 0.78f)
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            GameEmblemLine(
+                text = topLine,
+                colors = colors,
+                fontSize = topSp.sp,
+                textAlign = TextAlign.Center,
+                tightLines = true
+            )
+            GameEmblemLine(
+                text = bottomLine,
+                colors = colors,
+                fontSize = bottomSp.sp,
+                textAlign = TextAlign.Center,
+                tightLines = true
+            )
+        }
+    }
+}
+
+
+/**
+ * FAZ 170 — SIGAN EN BUYUK PUNTOYU OLCEREK BULAN ETIKET.
+ *
+ * Kullanici: "reklam izle devam et yazisi sigmamis burada da... APK yapip bana
+ * test yaptirmak yerine APK yapmadan once render et, ben senin testcin
+ * degilim." Hakli: bu benim isimdi.
+ *
+ * KOK NEDEN: etiket puntosu KARAKTER SAYISINA gore seciliyordu
+ * (`text.length <= 18 -> 14.sp` gibi). Bu bir tahmin ve iki yerden yanilir:
+ *   - harf genisligi dile gore degisir ("REKLAM IZLE, DEVAM ET" ile ayni
+ *     uzunluktaki Ispanyolca metin ayni yeri kaplamaz),
+ *   - butonun ICINDEKI diger seyleri bilmez. Faz 169'da sol ikonu eklediğimde
+ *     kalan genislik 38dp daralinca ayni karakter sayisi artik sigmiyordu ama
+ *     formul bunu goremedi.
+ *
+ * Burada tahmin yok: metin GERCEK stiliyle ve GERCEK kalan genislikle olculup
+ * `hasVisualOverflow` false olana kadar punto dusuruluyor. Iki satira da izin
+ * var (varlik paketindeki mavi buton da iki satir).
+ */
+@Composable
+fun AutoFitLabel(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxSizeSp: Float = 16f,
+    minSizeSp: Float = 10f,
+    maxLines: Int = 2,
+    // Cizilen metnin son olcum sonucu. Testler `hasVisualOverflow`u buradan
+    // okuyup TASMA OLURSA BUILD'I DUSURUYOR (bkz. ResultDialogOverflowTest) --
+    // kullanicinin cihazda bulmasi gereken bir sey degil bu.
+    onTextLayout: (TextLayoutResult) -> Unit = {}
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }.toInt().coerceAtLeast(1)
+
+        fun styleFor(sizeSp: Float) = TextStyle(
+            fontFamily = AppFontFamily,
+            fontSize = sizeSp.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.6.sp,
+            color = color,
+            textAlign = TextAlign.Center
+        )
+
+        var size = maxSizeSp
+        while (size > minSizeSp) {
+            val overflow = measurer.measure(
+                text = AnnotatedString(text),
+                style = styleFor(size),
+                maxLines = maxLines,
+                constraints = Constraints(maxWidth = widthPx)
+            ).hasVisualOverflow
+            if (!overflow) break
+            size -= 0.5f
+        }
+
+        Text(
+            text = text,
+            style = styleFor(size),
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = onTextLayout,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * FAZ 170: sonuc diyaloglarinin TEK buton yolu.
+ *
+ * Uc buton da (reklam izle / yeniden baslat / haritaya don) buradan geciyor ki
+ * ikon boyutu, aralik ve sigdirma kurali tek yerde dursun. Faz 169'da ikonu
+ * elle uc ayri yere eklemek, etiketin sigmadigini fark etmemenin de sebebiydi.
+ */
+@Composable
+fun ResultActionButton(
+    text: String,
+    onClick: () -> Unit,
+    colors: GameButtonColors,
+    iconRes: Int?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    maxSizeSp: Float = 16f,
+    onTextLayout: (TextLayoutResult) -> Unit = {}
+) {
+    GameButton(
+        onClick = onClick,
+        colors = colors,
+        enabled = enabled,
+        minHeight = 54.dp,
+        horizontalPadding = 10.dp,
+        modifier = modifier
     ) {
-        GameEmblemLine(
-            text = topLine,
-            colors = colors,
-            fontSize = 27.sp,
-            textAlign = TextAlign.Center,
-            tightLines = true
-        )
-        GameEmblemLine(
-            text = bottomLine,
-            colors = colors,
-            // Alt satir uzun cevirilerde ("COMPLETATO!", "TERMINADO")
-            // tasabilir; `GameEmblemLine` kendi icinde karakter sayisina
-            // gore kuculuyor (bkz. emblemFontScale), o yuzden sabit ve
-            // buyuk verilebiliyor.
-            fontSize = 38.sp,
-            textAlign = TextAlign.Center,
-            tightLines = true
-        )
+        if (loading) {
+            CircularProgressIndicator(
+                color = colors.content,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(20.dp)
+            )
+        } else {
+            if (iconRes != null) {
+                Image(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
+            AutoFitLabel(
+                text = text,
+                color = colors.content,
+                maxSizeSp = maxSizeSp,
+                onTextLayout = onTextLayout,
+                // Ikon ve bosluk sol tarafta yer kapladi; kalan genislik
+                // BURADAN olculuyor, tahmin edilmiyor.
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 

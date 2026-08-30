@@ -156,6 +156,7 @@ import com.miniappfactory.boomblocks.ui.components.ResultDialogTitle
 import com.miniappfactory.boomblocks.ui.components.ResultFailAccent
 import com.miniappfactory.boomblocks.ui.components.ResultPrimaryBlue
 import com.miniappfactory.boomblocks.ui.components.ResultSecondaryOrange
+import com.miniappfactory.boomblocks.ui.components.ResultActionButton
 import com.miniappfactory.boomblocks.ui.components.ResultStatPanel
 import com.miniappfactory.boomblocks.ui.components.ResultSuccessAccent
 import com.miniappfactory.boomblocks.ui.components.ResultTertiarySlate
@@ -5600,91 +5601,50 @@ fun BlastTheBlocksGame(
                             val hideRetryButton = isChallengeMode && continuesUsedInAttempt >= maxRetryContinues
 
                             if (!hideRetryButton) {
-                            GameButton(
                             // Faz 103: Sonsuz Mod'da "TEKRAR DENE" dogrudan resetGame()
                             // cagiriyordu — hic reklam yok, bedava sifirlama. Seviyeli/Pro'da
-                            // ayni durumda zorunlu interstitial vardi, yani asimetrikti ve
-                            // Sonsuz en cok oynanan mod oldugu icin en cok kaybettiren
-                            // bosluk burasiydi. Artik o da her sifirlamada interstitial
-                            // gosteriyor (bkz. AppNavigation.kt Routes.ENDLESS_GAME'de
-                            // onRetryInterstitial baglandi). No-fill'de yine gecer.
+                            // ayni durumda zorunlu interstitial vardi, yani asimetrikti.
                             //
                             // Faz 164: ...ama haklarini TUKETEN oyuncu bunun disinda.
                             // 4 odullu reklam izlemis ve baska secenegi kalmamis bir
                             // oyuncuya, tahtayi sifirdan baslatmak icin 5. reklami
                             // dayatmak "cikisa konmus gecis ucreti" oluyordu.
                             // Karar `RetryAdPolicy`de, saf fonksiyon oldugu icin JVM
-                            // testiyle kilitli. Hakki KALAN oyuncu (devam teklifini
-                            // reddedip biten) muafiyetin disinda — davranisi degismedi.
-                            onClick = {
-                                if (isEndless) {
-                                    if (RetryAdPolicy.shouldShowInterstitialOnRetry(
-                                            endlessContinuesUsed, maxEndlessContinues)) {
-                                        onRetryInterstitial { resetGame() }
-                                    } else {
-                                        resetGame()
-                                    }
-                                } else handleRetryWithAd()
-                            },
-                            enabled = !isRequestingContinueAd,
-                            // Faz 167: BIRINCIL eylem. Mockup'ta mavi, cunku oyuncuyu
-                            // oyunda TUTAN secenek bu; turuncu "yeniden baslat" ve
-                            // notr "haritaya don" ondan sonra geliyor.
-                            colors = resultButtonColors(ResultPrimaryBlue, ResultOnPrimary),
-                            // Faz 95d: 3 buton AYNI sabit yukseklikte, tutarli.
-                            minHeight = 54.dp,
-                            // Faz 127: bkz. AdButtonLabel — genis yatay ic bosluk uzun
-                            // cevirilerde metin alanini gereksiz daraltiyordu.
-                            horizontalPadding = 10.dp,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("block_blast_restart_confirm")
-                        ) {
-                            if (isRequestingContinueAd) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    color = ResultOnPrimary,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            } else {
-                                // Faz 169: bu butonun ETIKETI duruma gore degisiyor
-                                // (reklamli devam / duz tekrar dene), o yuzden IKONU da
-                                // onunla birlikte degismeli. Film seridi ikonu "reklam
-                                // izleyeceksin" sozu veriyor; hakki tukenmis ya da
-                                // cevrimdisi bir oyuncuya onu gostermek, Faz 166'da
-                                // etiket icin kapatilan yanlis vaadi ikon uzerinden
-                                // geri getirirdi.
-                                val plainRetry =
-                                    isEndless || !adsReachable || continuesUsedInAttempt >= maxRetryContinues
-                                Image(
-                                    painter = painterResource(
-                                        if (plainRetry) R.drawable.kb_btn_retry
-                                        else R.drawable.kb_btn_watchad
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                AdButtonLabel(
-                                    if (plainRetry) {
-                                        // Faz 97: Seviyeli/Pro Mode'da bu denemedeki 3 reklamli
-                                        // devam hakki da tukendiyse, buton "TEKRAR DENE"ye
-                                        // (zorunlu interstitial'a sarili, reklamsiz degil)
-                                        // donuyor — oyuncuya yanlislikla tekrar rewarded reklam
-                                        // vaat etmiyoruz.
-                                        language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
-                                    } else {
-                                        // Faz 61: kullanici istegiyle metin "reklam izle,
-                                        // devam et"e cevrildi — artik gercekten tam sifirlama
-                                        // degil, 3 hamle geri alip DEVAM ediyor (Endless'teki
-                                        // gibi), metin bunu dogru yansitmali.
-                                        language.pick(tr = "REKLAM İZLE, DEVAM ET", en = "WATCH AD, CONTINUE", it = "GUARDA ANNUNCIO, CONTINUA", fr = "REGARDER PUB, CONTINUER", es = "VER ANUNCIO, CONTINUAR")
-                                    }
-                                )
+                            // testiyle kilitli.
+                            //
+                            // Faz 166: `!adsReachable` de "duz tekrar dene" tarafina
+                            // dusuyor — cevrimdisi oyuncuya izleyemeyecegi bir reklami
+                            // vaat eden etiket/ikon gostermek, butonu hic sunmamaktan
+                            // daha kotu.
+                            val plainRetry =
+                                isEndless || !adsReachable || continuesUsedInAttempt >= maxRetryContinues
+                            ResultActionButton(
+                                text = if (plainRetry) {
+                                    language.pick(tr = "TEKRAR DENE", en = "RETRY", it = "RIPROVA", fr = "RÉESSAYER", es = "REINTENTAR")
+                                } else {
+                                    // Faz 61: metin "reklam izle, devam et" — artik tam
+                                    // sifirlama degil, 3 hamle geri alip DEVAM ediyor.
+                                    language.pick(tr = "REKLAM İZLE, DEVAM ET", en = "WATCH AD, CONTINUE", it = "GUARDA ANNUNCIO, CONTINUA", fr = "REGARDER PUB, CONTINUER", es = "VER ANUNCIO, CONTINUAR")
+                                },
+                                onClick = {
+                                    if (isEndless) {
+                                        if (RetryAdPolicy.shouldShowInterstitialOnRetry(
+                                                endlessContinuesUsed, maxEndlessContinues)) {
+                                            onRetryInterstitial { resetGame() }
+                                        } else {
+                                            resetGame()
+                                        }
+                                    } else handleRetryWithAd()
+                                },
+                                colors = resultButtonColors(ResultPrimaryBlue, ResultOnPrimary),
+                                iconRes = if (plainRetry) R.drawable.kb_btn_retry else R.drawable.kb_btn_watchad,
+                                enabled = !isRequestingContinueAd,
+                                loading = isRequestingContinueAd,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("block_blast_restart_confirm")
+                            )
                             }
-                        }
-
-                        }
 
                         // Faz 96: can sistemi kaldirildi (bypass edilebiliyordu) —
                         // Pro Mode'a ozel bu buton HER ZAMAN tam sifirlama yapar,
@@ -5697,30 +5657,24 @@ fun BlastTheBlocksGame(
                         // Ikisi de ayni bedele gelince kafa karisikligi da bitiyor.
                         if (isChallengeMode) {
                             if (!hideRetryButton) Spacer(modifier = Modifier.height(8.dp))
-                            GameButton(
+                            ResultActionButton(
                                 text = language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"),
                                 onClick = { onProModeRestart { resetGame() } },
                                 colors = resultButtonColors(ResultSecondaryOrange, ResultOnSecondary),
-                                leadingPainter = painterResource(R.drawable.kb_btn_retry),
-                                iconSize = 28.dp,
-                                fontSize = 14.sp,
-                                minHeight = 54.dp,
-                                horizontalPadding = 10.dp,
+                                iconRes = R.drawable.kb_btn_retry,
+                                maxSizeSp = 15f,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        GameButton(
+                        ResultActionButton(
                             text = language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"),
                             onClick = onBack,
                             colors = resultButtonColors(ResultTertiarySlate, Color.White),
-                            leadingPainter = painterResource(R.drawable.kb_btn_map),
-                            iconSize = 28.dp,
-                            fontSize = 14.sp,
-                            minHeight = 54.dp,
-                            horizontalPadding = 10.dp,
+                            iconRes = R.drawable.kb_btn_map,
+                            maxSizeSp = 15f,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -5892,12 +5846,12 @@ fun BlastTheBlocksGame(
 
                         Spacer(modifier = Modifier.height(18.dp))
 
-                        GameButton(
+                        ResultActionButton(
                             text = language.pick(tr = "DEVAM ET", en = "CONTINUE", it = "CONTINUA", fr = "CONTINUER", es = "CONTINUAR"),
                             onClick = onLevelCompleteContinue,
                             colors = resultButtonColors(ResultSuccessAccent, ResultOnSuccess),
-                            fontSize = 17.sp,
-                            minHeight = 56.dp,
+                            iconRes = null,
+                            maxSizeSp = 17f,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("level_complete_continue_button")
