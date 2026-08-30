@@ -38,7 +38,10 @@ import com.miniappfactory.boomblocks.ui.BlastViewModel
 import com.miniappfactory.boomblocks.ui.consent.TermsAcceptScreen
 import com.miniappfactory.boomblocks.ui.games.boomblocks.BlastTheBlocksGame
 import com.miniappfactory.boomblocks.ui.help.HowToPlayScreen
-import com.miniappfactory.boomblocks.ui.levels.LevelMapScreen
+import com.miniappfactory.boomblocks.ui.levels.ProgressionMapScreen
+import com.miniappfactory.boomblocks.ui.levels.CareerMapTheme
+import com.miniappfactory.boomblocks.ui.levels.EasyMapTheme
+import com.miniappfactory.boomblocks.ui.levels.ProMapTheme
 import com.miniappfactory.boomblocks.ui.missions.MissionsScreen
 import com.miniappfactory.boomblocks.ui.modeselect.ModeSelectScreen
 import com.miniappfactory.boomblocks.ui.onboarding.OnboardingScreen
@@ -227,10 +230,15 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
         composable(Routes.LEVEL_MAP) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    LevelMapScreen(
+                    ProgressionMapScreen(
+                        theme = CareerMapTheme,
+                        modeLabel = progress.language.pick(
+                            tr = "KARİYER İLERLEMESİ", en = "CAREER PROGRESS",
+                            it = "PROGRESSO CARRIERA", fr = "PROGRESSION CARRIÈRE",
+                            es = "PROGRESO DE CARRERA"
+                        ),
                         progress = progress,
                         highestUnlockedLevel = progress.highestUnlockedLevel,
-                        levelStars = progress.levelStars,
                         targetScoreForLevel = { level -> LevelGenerator.forLevel(level).targetScore },
                         language = progress.language,
                         darkMode = progress.darkMode,
@@ -428,12 +436,16 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
         composable(Routes.CHALLENGE_MAP) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    LevelMapScreen(
+                    ProgressionMapScreen(
+                        theme = ProMapTheme,
+                        modeLabel = progress.language.pick(
+                            tr = "PRO MOD İLERLEMESİ", en = "PRO MODE PROGRESS",
+                            it = "PROGRESSO MODALITÀ PRO", fr = "PROGRESSION MODE PRO",
+                            es = "PROGRESO MODO PRO"
+                        ),
                         progress = progress,
                         highestUnlockedLevel = progress.challengeHighestUnlockedLevel,
-                        levelStars = progress.challengeLevelStars,
                         targetScoreForLevel = { level -> LevelGenerator.forChallengeLevel(level).targetScore },
-                        isChallengeMode = true,
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,
@@ -644,12 +656,16 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
         composable(Routes.COMFORT_MAP) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    LevelMapScreen(
+                    ProgressionMapScreen(
+                        theme = EasyMapTheme,
+                        modeLabel = progress.language.pick(
+                            tr = "KOLAY MOD İLERLEMESİ", en = "EASY MODE PROGRESS",
+                            it = "PROGRESSO MODALITÀ FACILE", fr = "PROGRESSION MODE FACILE",
+                            es = "PROGRESO MODO FÁCIL"
+                        ),
                         progress = progress,
                         highestUnlockedLevel = progress.comfortHighestUnlockedLevel,
-                        levelStars = progress.comfortLevelStars,
                         targetScoreForLevel = { level -> LevelGenerator.forComfortLevel(level).targetScore },
-                        isComfortMode = true,
                         language = progress.language,
                         darkMode = progress.darkMode,
                         skin = skin,

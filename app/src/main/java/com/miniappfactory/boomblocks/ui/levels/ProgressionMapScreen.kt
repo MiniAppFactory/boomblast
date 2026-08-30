@@ -15,17 +15,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +84,21 @@ import com.miniappfactory.boomblocks.ui.theme.BlastSkin
  */
 private const val REF_W = 941f
 
+/**
+ * FAZ 178 — HARITA GRUBU CARPANI.
+ *
+ * Kullanici: "harita cok kucuk, dugum/yol/hap/dikey aralik BIRLIKTE
+ * buyusun." Tek carpan kullaniliyor, boylece oranlar birbirine gore
+ * bozulmuyor -- ogeleri tek tek buyutmek tam da bunu bozardi.
+ *
+ * Olcum (ekran genisligine oranli): panel referansta %86.6, bizde %82.3;
+ * yol salinimi ve dugum capi da referansin altindaydi.
+ */
+private const val MAP_SCALE = 1.28f
+
+/** Ust bar ve panel icin ayri, daha kucuk bir duzeltme. */
+private const val CHROME_SCALE = 1.06f
+
 private fun px(v: Int, scale: Float): Dp = (v * scale).dp
 private fun px(v: Float, scale: Float): Dp = (v * scale).dp
 
@@ -107,6 +126,10 @@ data class MapTheme(
     val segRightToLeft: Int,
     /** Sol dugumden SAG dugume inen S kavisi (digerinin aynasi). */
     val segLeftToRight: Int,
+    /** 1. seviye icin: kavisin ALT YARISI (yol burada BASLAR). */
+    val segStart: Int,
+    /** Seamless full S path tile. Nodes are placed on its quarter-period anchors. */
+    val path: Int,
     val accent: Color,
     val label: Color,
 )
@@ -126,6 +149,8 @@ val CareerMapTheme = MapTheme(
     pillTailRight = R.drawable.kb_car_pill_r,
     segRightToLeft = R.drawable.kb_car_seg_rl,
     segLeftToRight = R.drawable.kb_car_seg_lr,
+    segStart = R.drawable.kb_car_seg_start,
+    path = R.drawable.kb_car_path,
     accent = Color(0xFF22D3EE),
     label = Color(0xFF4FC3F7)
 )
@@ -155,7 +180,9 @@ val EasyMapTheme = MapTheme(
     pillTailLeft = R.drawable.kb_esy_pill_l,
     pillTailRight = R.drawable.kb_esy_pill_r,
     segLeftToRight = R.drawable.kb_esy_seg_lr,
+    segStart = R.drawable.kb_esy_seg_start,
     segRightToLeft = R.drawable.kb_esy_seg_rl,
+    path = R.drawable.kb_esy_path,
     accent = Color(0xFF2DD4BF),
     label = Color(0xFF5EEAD4)
 )
@@ -178,7 +205,9 @@ val ProMapTheme = MapTheme(
     // ayni cizimin renk donusumu, yeniden cizim degil. Pro'ya ozel kavis
     // gelirse bu iki satir degistirilerek dogrudan takilabilir.
     segLeftToRight = R.drawable.kb_pro_seg_lr,
+    segStart = R.drawable.kb_pro_seg_start,
     segRightToLeft = R.drawable.kb_pro_seg_rl,
+    path = R.drawable.kb_pro_path,
     accent = Color(0xFFFF7A2F),
     label = Color(0xFFFFA366)
 )
@@ -214,7 +243,7 @@ private const val SEG_BOT_Y = 0.904f
 // Referanstaki dugum araliklari olculdu: 340, 234, 219 -> ortalama ~264.
 // 285 seciliyor: referansin ferahligini veriyor ama ekrana sigan dugum
 // sayisini gereksiz azaltmiyor.
-private const val LEVEL_SPACING = 285f
+private const val LEVEL_SPACING = 285f * MAP_SCALE
 
 /** Kavisin yatay genisligi = yolun salinim genligi. */
 // FAZ 177 — SALINIM GENISLIGI OLCULDU.
@@ -222,7 +251,7 @@ private const val LEVEL_SPACING = 285f
 // ama o maske hedef HAPLARININ camgobegi kenarligini da yol sanmisti; kavis
 // o genislikte yatay bir supurme gibi duruyordu (yukseklik 351, genislik 604).
 // Referansta bir dugum araligi neredeyse KARE: dikey ~264, yatay ~300.
-private const val SEG_W = 330f
+private const val SEG_W = 330f * MAP_SCALE
 
 /**
  * Kavisin DIKEY ORTA NOKTASINDA egrinin yatay konumu (bitmap orani).
@@ -273,20 +302,20 @@ private const val NODE_SWING =
  * disina kaciyordu.
  */
 private object Ref {
-    val BACK = floatArrayOf(85f, 118f, 122f, 0.69f, 0.900f)
-    val WORD = floatArrayOf(327f, 111f, 326f, 0.85f, 0.402f)
-    val COIN = floatArrayOf(615f, 121f, 162f, 0.95f, 0.584f)
-    val TROPHY_BTN = floatArrayOf(754f, 119f, 104f, 0.82f, 1.048f)
-    val SET_BTN = floatArrayOf(863f, 119f, 98f, 0.94f, 0.681f)
+    val BACK = floatArrayOf(85f, 118f, 122f * CHROME_SCALE, 0.69f, 0.900f)
+    val WORD = floatArrayOf(327f, 111f, 326f * CHROME_SCALE, 0.85f, 0.402f)
+    val COIN = floatArrayOf(612f, 121f, 162f * CHROME_SCALE, 0.95f, 0.584f)
+    val TROPHY_BTN = floatArrayOf(752f, 119f, 104f * CHROME_SCALE, 0.82f, 1.048f)
+    val SET_BTN = floatArrayOf(858f, 119f, 98f * CHROME_SCALE, 0.94f, 0.681f)
     val PANEL = floatArrayOf(467f, 329f, 811f, 0.94f, 0.739f)
-    val TROPHY_BIG = floatArrayOf(159f, 335f, 118f, 0.89f, 0.943f)
+    val TROPHY_BIG = floatArrayOf(162f, 338f, 118f * CHROME_SCALE, 0.89f, 0.943f)
 
     /** Dugum GOVDE capi ekranin ~%15.5'i (spec: %13-15, bloom haric). */
-    const val NODE_BODY = 146f
+    const val NODE_BODY = 146f * MAP_SCALE
     const val NODE_OPEN_RATIO = 0.84f
     const val NODE_LOCK_RATIO = 0.79f
 
-    const val PILL_BODY = 300f
+    const val PILL_BODY = 300f * MAP_SCALE
     const val PILL_RATIO = 0.95f
 
     /** Harita, panelin altindan basliyor. */
@@ -321,9 +350,8 @@ fun ProgressionMapScreen(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val scale = maxWidth.value / REF_W
-        val listState = rememberLazyListState()
 
-        // --- 1) mod zemini -------------------------------------------------
+        // 1) Mode background. Gameplay/progression state remains untouched.
         GameScreenBackground(
             skin = skin,
             darkMode = darkMode,
@@ -333,44 +361,31 @@ fun ProgressionMapScreen(
             modifier = Modifier.matchParentSize()
         )
 
-        // --- 2-5) yol + haplar + dugumler (kaydirilabilir) ------------------
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag("progression_map_list")
-        ) {
-            item { Box(Modifier.height(px(Ref.MAP_TOP, scale))) }
-            // Faz 152 karari: ulasilanin 12 otesi cizilir -- ufuk gorunsun ama
-            // kilitli bir duvar gibi durmasin.
-            items(highestUnlockedLevel + 12) { idx ->
-                LevelRow(
-                    theme = theme,
-                    level = idx + 1,
-                    scale = scale,
-                    highestUnlockedLevel = highestUnlockedLevel,
-                    targetScoreForLevel = targetScoreForLevel,
-                    language = language,
-                    onSelectLevel = onSelectLevel
-                )
-            }
-            item { Box(Modifier.height(px(140, scale))) }
-        }
+        // 2-5) One CONTINUOUS path behind all nodes. This deliberately replaces
+        // the previous per-row curve composition. The previous version exposed
+        // curve caps next to the circles; here there are no segment caps at a
+        // level at all. Nodes simply cover a continuous path anchor.
+        ContinuousMapContent(
+            theme = theme,
+            scale = scale,
+            highestUnlockedLevel = highestUnlockedLevel,
+            targetScoreForLevel = targetScoreForLevel,
+            language = language,
+            onSelectLevel = onSelectLevel,
+            topInset = px(Ref.MAP_TOP, scale)
+        )
 
-        // --- 6) ilerleme paneli (sabit) ------------------------------------
-        // 9-dilim: referanstaki genis/alcak kutuya varlik BOZULMADAN oturuyor.
+        // 6) Fixed progression panel.
         NinePatchImage(
             resId = theme.panel,
             capFrac = 0.30f,
             modifier = Modifier
-                .offset(x = px(62f, scale), y = px(222f, scale))
-                .width(px(811f, scale))
-                .height(px(214f, scale))
+                .offset(x = px(56f, scale), y = px(220f, scale))
+                .width(px(829f, scale))
+                .height(px(228f, scale))
         )
         AssetImage(theme.trophy, Ref.TROPHY_BIG, scale)
-        Column(
-            modifier = Modifier.offset(x = px(238f, scale), y = px(288f, scale))
-        ) {
+        Column(modifier = Modifier.offset(x = px(238f, scale), y = px(288f, scale))) {
             Text(
                 text = modeLabel,
                 color = theme.label,
@@ -390,7 +405,7 @@ fun ProgressionMapScreen(
             )
         }
 
-        // --- 7) ust bar: tiklama davranislari mevcut kancalardan ------------
+        // 7) Fixed header. Existing handlers are reused.
         AssetImage(theme.back, Ref.BACK, scale, onBack)
         AssetImage(theme.word, Ref.WORD, scale)
         Box {
@@ -412,242 +427,196 @@ fun ProgressionMapScreen(
 }
 
 /**
- * 9-DILIM cizim.
+ * Continuous infinite-looking progression route.
  *
- * NEDEN GEREKLI: V3 panel varliginin govdesi 296x192 (en-boy 0.65), oysa
- * referanstaki panel 811x214 (0.26). Varligi tek parca esnetmek kose
- * yaricapini ve kenarlik kalinligini bozar -- spec bunu acikca yasakliyor
- * ("asset stretching"). Panel bir CERCEVE oldugu icin dogru cozum 9-dilim:
- * dort kose DOGAL oranda kalir, yalnizca kenarlar ve orta uzar.
+ * kb_*_path.webp is a 512x1024 transparent tile. Its centerline returns to
+ * almost exactly x=50% at y=0, 25%, 50%, 75%, 100%. Therefore each quarter
+ * of the tile is one level-to-level connection. Repeating the tile vertically
+ * makes a seamless route and every level node can sit directly on the route.
  *
- * Bu bir YENIDEN CIZIM DEGIL: ayni bitmap dokuz parca halinde blit ediliyor,
- * tek piksel uretilmiyor.
+ * Crucial visual rule: THE PATH NEVER ENDS AT A NODE. It continues underneath
+ * the node. The node is drawn later in z-order and hides the junction, so the
+ * eye reads: curve -> node -> curve -> next node, exactly as requested.
  */
 @Composable
-private fun NinePatchImage(
-    resId: Int,
-    capFrac: Float,
-    modifier: Modifier
-) {
-    val img = ImageBitmap.imageResource(resId)
-    Canvas(modifier = modifier) {
-        val iw = img.width
-        val ih = img.height
-        val cx = (iw * capFrac).toInt().coerceAtLeast(1)
-        val cy = (ih * capFrac).toInt().coerceAtLeast(1)
-        // Kose olcegi YUKSEKLIGE gore: cerceve kalinligi hedefin yuksekligiyle
-        // orantili kalsin, yatayda uzarken incelmesin.
-        val k = size.height / ih
-        val dx = (cx * k)
-        val dy = (cy * k)
-        val midW = (size.width - 2 * dx).coerceAtLeast(1f)
-        val midH = (size.height - 2 * dy).coerceAtLeast(1f)
-
-        fun part(sx: Int, sy: Int, sw: Int, sh: Int, ox: Float, oy: Float, ow: Float, oh: Float) {
-            if (sw <= 0 || sh <= 0 || ow <= 0f || oh <= 0f) return
-            drawImage(
-                image = img,
-                srcOffset = IntOffset(sx, sy),
-                srcSize = IntSize(sw, sh),
-                dstOffset = IntOffset(ox.toInt(), oy.toInt()),
-                dstSize = IntSize(ow.toInt(), oh.toInt())
-            )
-        }
-
-        val mw = iw - 2 * cx
-        val mh = ih - 2 * cy
-        // ust sira
-        part(0, 0, cx, cy, 0f, 0f, dx, dy)
-        part(cx, 0, mw, cy, dx, 0f, midW, dy)
-        part(iw - cx, 0, cx, cy, dx + midW, 0f, dx, dy)
-        // orta sira
-        part(0, cy, cx, mh, 0f, dy, dx, midH)
-        part(cx, cy, mw, mh, dx, dy, midW, midH)
-        part(iw - cx, cy, cx, mh, dx + midW, dy, dx, midH)
-        // alt sira
-        part(0, ih - cy, cx, cy, 0f, dy + midH, dx, dy)
-        part(cx, ih - cy, mw, cy, dx, dy + midH, midW, dy)
-        part(iw - cx, ih - cy, cx, cy, dx + midW, dy + midH, dx, dy)
-    }
-}
-
-/**
- * Varligi MERKEZINE gore konumlandirir.
- *
- * Referans olcumleri GOVDE kutusuydu; bitmap isima payiyla daha genis, o
- * yuzden bitmap genisligi orandan geri hesaplanip merkez hizalaniyor. Boylece
- * ekranda gorunen govde tam olculen yere oturuyor.
- */
-@Composable
-private fun AssetImage(
-    resId: Int,
-    ref: FloatArray,
-    scale: Float,
-    onClick: (() -> Unit)? = null
-) {
-    val cx = ref[0]; val cy = ref[1]; val body = ref[2]; val ratio = ref[3]
-    val aspect = ref[4]
-    val w = bitmapW(body, ratio)
-    val h = w * aspect
-    var m = Modifier
-        // Dikey merkezleme YUKSEKLIGE gore: genislikle yapmak geniş-kisa
-        // varliklari ekran disina tasiyordu (bkz. Ref notu).
-        .offset(x = px(cx - w / 2f, scale), y = px(cy - h / 2f, scale))
-        .width(px(w, scale))
-    if (onClick != null) {
-        val interaction = remember { MutableInteractionSource() }
-        m = m.clickable(interactionSource = interaction, indication = null, onClick = onClick)
-    }
-    Image(painter = painterResource(resId), contentDescription = null, modifier = m)
-}
-
-/**
- * TEK SEVIYE satiri: baglayici kavis + hedef hapi + dugum.
- *
- * Z-sirasi satir icinde de korunuyor: once KAVIS, sonra HAP, en uste DUGUM --
- * yani yol dugumun ARKASINDAN geciyor.
- *
- * Kavis sette gelen iki yonlu S parcasi; yonu seviyeye gore degisiyor.
- * Kutusu dugum sapmasindan GENIS tutuluyor, boylece yol dugumun etrafinda
- * saliniyor (referanstaki gorunum).
- */
-@Composable
-private fun LevelRow(
+private fun ContinuousMapContent(
     theme: MapTheme,
-    level: Int,
     scale: Float,
     highestUnlockedLevel: Int,
     targetScoreForLevel: (Int) -> Int,
     language: AppLanguage,
-    onSelectLevel: (Int) -> Unit
+    onSelectLevel: (Int) -> Unit,
+    topInset: Dp
 ) {
-    val unlocked = level <= highestUnlockedLevel
-    // Tek seviyeler SOLDAN SAGA inen kavisi, cift seviyeler aynasini kullanir --
-    // "bir sag bir sol". Uclarin cakismasi icin dugum de yarim kayma kadar
-    // saga/sola oturuyor (bkz. yukaridaki uc-noktasi hesabi).
-    val leftToRight = level % 2 == 1
-    val nodeCx = NODE_CENTER_X + if (leftToRight) -NODE_SWING else NODE_SWING
-    val nodeCy = LEVEL_SPACING / 2f
+    val lastLevel = highestUnlockedLevel + 12
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+
+    // Reference geometry. Keeping the source tile's 1:2 aspect gives a
+    // ~300-reference-px level interval and ~300px horizontal S swing, matching
+    // the approved reference far better than composing isolated one-bend caps.
+    val pathWRef = 600f
+    val pathHRef = 1200f
+    val levelSpacingRef = pathHRef / 4f // 300
+    val pathLeftRef = NODE_CENTER_X - pathWRef / 2f
+    val nodeStartRef = 95f
+    val nodeCenterRef = NODE_CENTER_X
+    val contentHeightRef = nodeStartRef + (lastLevel - 1) * levelSpacingRef + 260f
+    val tileCount = kotlin.math.ceil(
+        (nodeStartRef + (lastLevel - 1) * levelSpacingRef) / pathHRef
+    ).toInt().coerceAtLeast(1)
+
+    LaunchedEffect(highestUnlockedLevel, scale) {
+        // Hedef seviyeyi ekranin TEPESINE degil, biraz asagisina getir.
+        //
+        // Duzeltme: pay olmadan 1. seviyede bile 95 ref px kaydiriliyordu ve
+        // ilk dugum panelin altina giriyordu (render'da goruldu). Pay dusuldugu
+        // icin bastaki seviyelerde hesap negatife dusuyor, yani HIC kaydirma
+        // yapilmiyor ve dugum tam gorunuyor.
+        val targetLevel = (highestUnlockedLevel - 2).coerceAtLeast(1)
+        val targetRef = nodeStartRef + (targetLevel - 1) * levelSpacingRef - 150f
+        val targetPx = with(density) { (targetRef * scale).dp.roundToPx() }
+        scrollState.scrollTo(targetPx.coerceAtLeast(0))
+    }
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(px(LEVEL_SPACING, scale))
+            .fillMaxSize()
+            .padding(top = topInset)
+            .verticalScroll(scrollState)
+            .testTag("progression_map_list")
     ) {
-        // --- 3) baglayici kavis ---
-        // Kutu DUGUME ORTALANIYOR: kavisin orta noktasi dugumun uzerinden
-        // geciyor, uclari da bir onceki/sonraki kavisin ucuna denk geliyor.
-        // Kutu satirdan TASAR (SEG_H > LEVEL_SPACING) -- kasitli, zincir
-        // ancak boyle kesintisiz oluyor.
-        Image(
-            painter = painterResource(
-                if (leftToRight) theme.segLeftToRight else theme.segRightToLeft
-            ),
-            contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier
-                .offset(
-                    // Kutu, egrinin ORTA NOKTASI dugume denk gelecek sekilde
-                    // konumlaniyor; aynalanan yonde oran da aynalaniyor.
-                    x = px(
-                        nodeCx - (if (leftToRight) SEG_MID_X else 1f - SEG_MID_X) * SEG_W,
-                        scale
-                    ),
-                    y = px(nodeCy - SEG_H / 2f, scale)
-                )
-                .width(px(SEG_W, scale))
-                .height(px(SEG_H, scale))
-        )
-
-        // --- 4) hedef hapi ---
-        TargetPill(
-            theme = theme,
-            isFirst = level == 1,
-            onRight = !leftToRight,
-            nodeCx = nodeCx,
-            nodeCy = nodeCy,
-            scale = scale,
-            text = language.pick(
-                tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
-                en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
-                it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
-                fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
-                es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
-            )
-        )
-
-        // --- 5) dugum ---
-        val ratio = if (unlocked) Ref.NODE_OPEN_RATIO else Ref.NODE_LOCK_RATIO
-        val w = bitmapW(Ref.NODE_BODY, ratio)
         Box(
             modifier = Modifier
-                .offset(x = px(nodeCx - w / 2f, scale), y = px(nodeCy - w / 2f, scale))
-                .size(px(w, scale))
-                .clickable(enabled = unlocked) { onSelectLevel(level) }
-                .testTag("level_card_$level"),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .height(px(contentHeightRef, scale))
         ) {
-            Image(
-                painter = painterResource(if (unlocked) theme.nodeOpen else theme.nodeLock),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize()
-            )
-            if (unlocked) {
-                // Kilit gorseli KILITLI varligin icinde zaten var; burada
-                // yalnizca DINAMIK seviye numarasi yaziliyor.
-                Text(
-                    text = "$level",
-                    color = Color.White,
-                    fontSize = (62 * scale).sp,
-                    fontWeight = FontWeight.Black
+            // Z=3: seamless path. Each tile meets the next at its centerline.
+            repeat(tileCount + 1) { tileIndex ->
+                Image(
+                    painter = painterResource(theme.path),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .offset(
+                            x = px(pathLeftRef, scale),
+                            y = px(nodeStartRef + tileIndex * pathHRef, scale)
+                        )
+                        .width(px(pathWRef, scale))
+                        .height(px(pathHRef, scale))
+                )
+            }
+
+            // Z=4/5: labels and nodes. Node centers are placed exactly at each
+            // quarter-tile anchor. Since path is behind, it disappears beneath
+            // the orb and emerges continuously on the other side.
+            for (level in 1..lastLevel) {
+                val nodeCy = nodeStartRef + (level - 1) * levelSpacingRef
+                val unlocked = level <= highestUnlockedLevel
+
+                TargetPillContinuous(
+                    theme = theme,
+                    level = level,
+                    nodeCx = nodeCenterRef,
+                    nodeCy = nodeCy,
+                    scale = scale,
+                    text = language.pick(
+                        tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
+                        en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
+                        it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
+                        fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
+                        es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
+                    )
+                )
+
+                ProgressionNode(
+                    theme = theme,
+                    level = level,
+                    unlocked = unlocked,
+                    nodeCx = nodeCenterRef,
+                    nodeCy = nodeCy,
+                    scale = scale,
+                    onSelectLevel = onSelectLevel
                 )
             }
         }
     }
 }
 
+@Composable
+private fun ProgressionNode(
+    theme: MapTheme,
+    level: Int,
+    unlocked: Boolean,
+    nodeCx: Float,
+    nodeCy: Float,
+    scale: Float,
+    onSelectLevel: (Int) -> Unit
+) {
+    val ratio = if (unlocked) Ref.NODE_OPEN_RATIO else Ref.NODE_LOCK_RATIO
+    val w = bitmapW(Ref.NODE_BODY, ratio)
+    Box(
+        modifier = Modifier
+            .offset(x = px(nodeCx - w / 2f, scale), y = px(nodeCy - w / 2f, scale))
+            .size(px(w, scale))
+            .clickable(enabled = unlocked) { onSelectLevel(level) }
+            .testTag("level_card_$level"),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(if (unlocked) theme.nodeOpen else theme.nodeLock),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
+        )
+        if (unlocked) {
+            Text(
+                text = "$level",
+                color = Color.White,
+                fontSize = (62 * scale).sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
 /**
- * Hedef hapi.
- *
- * Referanstaki yerlesim: ILK dugumun hapi ALTINDA (kuyruk yukari), digerleri
- * dugumun YANINDA ve kuyruk dugume BAKIYOR. Sagdaki dugumun hapi sola gider,
- * yani kuyruk sagda.
+ * First target label sits below the first node. Later labels alternate left
+ * and right, while the PATH itself stays continuous underneath the node.
  */
 @Composable
-private fun TargetPill(
+private fun TargetPillContinuous(
     theme: MapTheme,
-    isFirst: Boolean,
-    onRight: Boolean,
+    level: Int,
     nodeCx: Float,
     nodeCy: Float,
     scale: Float,
     text: String
 ) {
+    val isFirst = level == 1
+    // Reference alternates labels around an almost-vertical node chain.
+    val labelOnRight = level % 2 == 0
     val w = bitmapW(Ref.PILL_BODY, Ref.PILL_RATIO)
     val res = when {
         isFirst -> theme.pillUp
-        onRight -> theme.pillTailRight
-        else -> theme.pillTailLeft
+        labelOnRight -> theme.pillTailLeft   // tail points LEFT, toward node
+        else -> theme.pillTailRight          // tail points RIGHT, toward node
     }
-    val cx: Float
-    val cy: Float
-    if (isFirst) {
-        cx = nodeCx
-        cy = nodeCy + Ref.NODE_BODY / 2f + 46f
-    } else if (onRight) {
-        cx = nodeCx - Ref.NODE_BODY / 2f - w / 2f + 6f
-        cy = nodeCy + 18f
-    } else {
-        cx = nodeCx + Ref.NODE_BODY / 2f + w / 2f - 6f
-        cy = nodeCy + 18f
-    }
-
-    // Hap en-boy oranlari: kuyruk-yukari 0.50, kuyruk-sol 0.64, kuyruk-sag 0.58
     val pillAspect = when {
         isFirst -> 0.501f
-        onRight -> 0.580f
-        else -> 0.638f
+        labelOnRight -> 0.638f
+        else -> 0.580f
     }
+    val cx = when {
+        isFirst -> nodeCx
+        labelOnRight -> nodeCx + Ref.NODE_BODY / 2f + w / 2f - 10f
+        else -> nodeCx - Ref.NODE_BODY / 2f - w / 2f + 10f
+    }
+    val cy = if (isFirst) {
+        nodeCy + Ref.NODE_BODY / 2f + 48f
+    } else {
+        nodeCy + 18f
+    }
+
     Box(
         modifier = Modifier
             .offset(x = px(cx - w / 2f, scale), y = px(cy - w * pillAspect / 2f, scale))
@@ -667,4 +636,72 @@ private fun TargetPill(
             maxLines = 1
         )
     }
+}
+
+/**
+ * 9-slice raster blit for the empty progression panel. Corners stay native;
+ * only edges/center stretch. No vector redraw is introduced.
+ */
+@Composable
+private fun NinePatchImage(
+    resId: Int,
+    capFrac: Float,
+    modifier: Modifier
+) {
+    val img = ImageBitmap.imageResource(resId)
+    Canvas(modifier = modifier) {
+        val iw = img.width
+        val ih = img.height
+        val cx = (iw * capFrac).toInt().coerceAtLeast(1)
+        val cy = (ih * capFrac).toInt().coerceAtLeast(1)
+        val k = size.height / ih
+        val dx = (cx * k)
+        val dy = (cy * k)
+        val midW = (size.width - 2 * dx).coerceAtLeast(1f)
+        val midH = (size.height - 2 * dy).coerceAtLeast(1f)
+
+        fun part(sx: Int, sy: Int, sw: Int, sh: Int, ox: Float, oy: Float, ow: Float, oh: Float) {
+            if (sw <= 0 || sh <= 0 || ow <= 0f || oh <= 0f) return
+            drawImage(
+                image = img,
+                srcOffset = IntOffset(sx, sy),
+                srcSize = IntSize(sw, sh),
+                dstOffset = IntOffset(ox.toInt(), oy.toInt()),
+                dstSize = IntSize(ow.toInt(), oh.toInt())
+            )
+        }
+
+        val mw = iw - 2 * cx
+        val mh = ih - 2 * cy
+        part(0, 0, cx, cy, 0f, 0f, dx, dy)
+        part(cx, 0, mw, cy, dx, 0f, midW, dy)
+        part(iw - cx, 0, cx, cy, dx + midW, 0f, dx, dy)
+        part(0, cy, cx, mh, 0f, dy, dx, midH)
+        part(cx, cy, mw, mh, dx, dy, midW, midH)
+        part(iw - cx, cy, cx, mh, dx + midW, dy, dx, midH)
+        part(0, ih - cy, cx, cy, 0f, dy + midH, dx, dy)
+        part(cx, ih - cy, mw, cy, dx, dy + midH, midW, dy)
+        part(iw - cx, ih - cy, cx, cy, dx + midW, dy + midH, dx, dy)
+    }
+}
+
+@Composable
+private fun AssetImage(
+    resId: Int,
+    ref: FloatArray,
+    scale: Float,
+    onClick: (() -> Unit)? = null
+) {
+    val cx = ref[0]; val cy = ref[1]; val body = ref[2]; val ratio = ref[3]
+    val aspect = ref[4]
+    val w = bitmapW(body, ratio)
+    val h = w * aspect
+    var m = Modifier
+        .offset(x = px(cx - w / 2f, scale), y = px(cy - h / 2f, scale))
+        .width(px(w, scale))
+    if (onClick != null) {
+        val interaction = remember { MutableInteractionSource() }
+        m = m.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+    }
+    Image(painter = painterResource(resId), contentDescription = null, modifier = m)
 }
