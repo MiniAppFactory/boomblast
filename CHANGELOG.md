@@ -1,6 +1,6 @@
 # Boom Blocks Changelog
 
-## [Unreleased] - Faz 188 (Raster kabin icindeki metin sistem yazi olceginden ayrildi)
+## [1.2.3] - vc22 - Faz 188 (Raster kabin icindeki metin sistem yazi olceginden ayrildi)
 
 ### Fixed
 - **Tablette hedef haplarinin yazisi hapin disina tasiyordu** (kullanici ekran
@@ -20,6 +20,14 @@
     kullanicinin yazi boyutu ayarini takip edemez. Ekrandaki SERBEST metinler
     (oyun ici baslik, diyaloglar, menu) `sp` olarak kaldi ve ayara uymaya
     devam ediyor.
+
+### Release
+- versionCode 21 -> **22**, versionName 1.2.2 -> **1.2.3**. Kullanici teyidi:
+  vc21 (1.2.2) Play'e yuklendi, yani TUKENDI. versionName de artti cunku
+  ICERIK degisti -- ayni ada farkli build vermek karisiklik yaratirdi
+  (bkz. 1.0.4 -> 1.0.5, 1.0.7 -> 1.0.8, 1.1.0 -> 1.1.1).
+- Surum notlari 5 dilde: `docs/release_notes/v1.2.3_vc22_*.txt` (hepsi Play'in
+  500 karakter sinirinin altinda).
 
 ### Evidence
 - Hata uretimi: `settings put system font_scale 1.3` + `wm density 240`

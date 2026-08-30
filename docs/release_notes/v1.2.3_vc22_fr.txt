@@ -1,0 +1,7 @@
+• Les titres des modes sont dans votre langue.
+• Carte des niveaux revue : cartes d'objectif tournées vers leur nœud, sur deux lignes et alignées.
+• Correction du texte débordant des cartes avec de grandes polices (surtout sur tablette).
+• Tracé et panneau d'infos nettoyés.
+• Icônes pièces, trophée et réglages identiques partout.
+• Écrans d'accueil et de langue aux couleurs plus vives.
+• Correction du bouton « Retour à la carte » coupé.

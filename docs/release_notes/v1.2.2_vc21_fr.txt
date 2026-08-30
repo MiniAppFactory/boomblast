@@ -1,7 +1,0 @@
-• Les titres des modes sont désormais dans votre langue.
-• Carte des niveaux revue : les cartes d'objectif pointent vers leur nœud, sur deux lignes et alignées.
-• Tracé et panneau d'infos nettoyés : plus de texture granuleuse ni de coutures.
-• Icônes pièces, trophée et réglages identiques dans le menu, la carte et le jeu.
-• Écrans d'accueil et de langue aux couleurs plus vives.
-• Correction du bouton « Retour à la carte » coupé sur certains téléphones.
-• Numéro de niveau centré dans son nœud.

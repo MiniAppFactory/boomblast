@@ -1,7 +1,0 @@
-• Los títulos de los modos ahora están en tu idioma.
-• Mapa de niveles renovado: las tarjetas de objetivo apuntan a su nodo, en dos líneas y alineadas.
-• Trazado y panel de información limpiados: sin textura moteada ni costuras.
-• Iconos de monedas, trofeo y ajustes idénticos en menú, mapa y juego.
-• Pantallas de bienvenida e idioma con colores más intensos.
-• Corregido el botón "Volver al mapa" recortado en algunos teléfonos.
-• Número de nivel centrado en su nodo.

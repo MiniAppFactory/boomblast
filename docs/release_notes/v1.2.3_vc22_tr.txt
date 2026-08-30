@@ -1,0 +1,7 @@
+• Mod başlıkları artık senin dilinde.
+• Seviye haritası yenilendi: hedef kartları düğüme bakan okuyla, iki satır halinde ve hizalı.
+• Büyük yazı tipi ayarında (özellikle tabletlerde) hedef kartlarındaki yazının taşması giderildi.
+• Yol çizgisi ve bilgi paneli temizlendi.
+• Menü, harita ve oyun ekranındaki simgeler artık aynı.
+• Hoş geldin ve dil ekranları daha canlı renklerle yenilendi.
+• "Haritaya Dön" butonunun kesilmesi giderildi.

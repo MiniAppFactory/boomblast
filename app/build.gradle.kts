@@ -141,8 +141,14 @@ android {
     // kuyrugu, node_open'in kaymis govdesi), 9 dilim dikisleri, panel/yol
     // dokusunun temizlenmesi, mod basliklarinin 5 dile acilmasi ve
     // landing/onboarding ekranlarinin oyunun buton malzemesine gecirilmesi.
-    versionCode = 21
-    versionName = "1.2.2"
+    // Faz 188 (release): versionCode 21 -> 22, versionName 1.2.2 -> 1.2.3.
+    // Kullanici teyidi: vc21 (1.2.2) Play'e YUKLENDI, yani TUKENDI.
+    // versionName de artti cunku ICERIK degisti: tablette (ve buyuk yazi
+    // tipi ayarinda) hedef haplarindaki yazinin tasmasi giderildi. Ayni ada
+    // farkli bir build vermek karisiklik yaratirdi -- bkz. 1.0.4 -> 1.0.5,
+    // 1.0.7 -> 1.0.8, 1.1.0 -> 1.1.1 ayni gerekce.
+    versionCode = 22
+    versionName = "1.2.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -1,0 +1,7 @@
+• I titoli delle modalità ora sono nella tua lingua.
+• Mappa dei livelli rinnovata: schede obiettivo rivolte al nodo, su due righe e allineate.
+• Corretto il testo che usciva dalle schede con caratteri grandi (soprattutto su tablet).
+• Tracciato e pannello info ripuliti.
+• Icone di monete, trofeo e impostazioni identiche ovunque.
+• Schermate di benvenuto e lingua con colori più intensi.
+• Corretto il pulsante "Torna alla mappa" tagliato.

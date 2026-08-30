@@ -1,0 +1,7 @@
+• Mode titles now appear in your language.
+• Level map refreshed: target cards point at their node, on two lines and properly aligned.
+• Fixed target card text overflowing at large font sizes (especially on tablets).
+• Path line and info panel cleaned up.
+• Coin, trophy and settings icons are now identical across menu, map and game.
+• Welcome and language screens rebuilt with richer colours.
+• Fixed the "Back to Map" button being clipped.
