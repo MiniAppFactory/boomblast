@@ -1,6 +1,9 @@
 package com.miniappfactory.boomblocks.ui.levels
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.imageResource
@@ -449,7 +452,7 @@ private fun ContinuousMapContent(
     topInset: Dp
 ) {
     val lastLevel = highestUnlockedLevel + 12
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     val density = LocalDensity.current
 
     // Reference geometry. Keeping the source tile's 1:2 aspect gives a
@@ -466,80 +469,122 @@ private fun ContinuousMapContent(
         (nodeStartRef + (lastLevel - 1) * levelSpacingRef) / pathHRef
     ).toInt().coerceAtLeast(1)
 
-    LaunchedEffect(highestUnlockedLevel, scale) {
-        // Hedef seviyeyi ekranin TEPESINE degil, biraz asagisina getir.
-        //
-        // Duzeltme: pay olmadan 1. seviyede bile 95 ref px kaydiriliyordu ve
-        // ilk dugum panelin altina giriyordu (render'da goruldu). Pay dusuldugu
-        // icin bastaki seviyelerde hesap negatife dusuyor, yani HIC kaydirma
-        // yapilmiyor ve dugum tam gorunuyor.
-        val targetLevel = (highestUnlockedLevel - 2).coerceAtLeast(1)
-        val targetRef = nodeStartRef + (targetLevel - 1) * levelSpacingRef - 150f
-        val targetPx = with(density) { (targetRef * scale).dp.roundToPx() }
-        scrollState.scrollTo(targetPx.coerceAtLeast(0))
+    LaunchedEffect(highestUnlockedLevel) {
+        // Oyuncunun bulundugu seviyeyi gorunur kil, iki seviye pay birak.
+        // Oge tabanli oldugu icin piksel hesabi gerekmiyor.
+        listState.scrollToItem((highestUnlockedLevel - 2).coerceAtLeast(0))
     }
 
-    Box(
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(top = topInset)
-            .verticalScroll(scrollState)
             .testTag("progression_map_list")
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(px(contentHeightRef, scale))
-        ) {
-            // Z=3: seamless path. Each tile meets the next at its centerline.
-            repeat(tileCount + 1) { tileIndex ->
-                Image(
-                    painter = painterResource(theme.path),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier
-                        .offset(
-                            x = px(pathLeftRef, scale),
-                            y = px(nodeStartRef + tileIndex * pathHRef, scale)
-                        )
-                        .width(px(pathWRef, scale))
-                        .height(px(pathHRef, scale))
-                )
-            }
+        // Ilk dugumun ust bosluğu.
+        item { Box(Modifier.height(px(nodeStartRef, scale))) }
 
-            // Z=4/5: labels and nodes. Node centers are placed exactly at each
-            // quarter-tile anchor. Since path is behind, it disappears beneath
-            // the orb and emerges continuously on the other side.
-            for (level in 1..lastLevel) {
-                val nodeCy = nodeStartRef + (level - 1) * levelSpacingRef
-                val unlocked = level <= highestUnlockedLevel
-
-                TargetPillContinuous(
-                    theme = theme,
-                    level = level,
-                    nodeCx = nodeCenterRef,
-                    nodeCy = nodeCy,
-                    scale = scale,
-                    text = language.pick(
-                        tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
-                        en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
-                        it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
-                        fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
-                        es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
-                    )
-                )
-
-                ProgressionNode(
-                    theme = theme,
-                    level = level,
-                    unlocked = unlocked,
-                    nodeCx = nodeCenterRef,
-                    nodeCy = nodeCy,
-                    scale = scale,
-                    onSelectLevel = onSelectLevel
-                )
-            }
+        // FAZ 180: her oge BIR SEVIYE ARALIGI = karonun bir CEYREGI.
+        //
+        // ChatGPT'nin surekli-yol cozumu gorsel olarak dogruydu ama
+        // `verticalScroll` kullaniyordu: ekranda olmayan seviyeler de
+        // besteleniyordu (seviye 200'de 212 dugum + 212 hap). LazyColumn geri
+        // geldi; yol hala AYNI tek karodan geliyor, sadece ceyrek ceyrek
+        // ciziliyor. Gorsel degismiyor, maliyet ekranla sinirli.
+        items(lastLevel) { idx ->
+            val level = idx + 1
+            val quarter = idx % 4
+            PathQuarterRow(
+                theme = theme,
+                level = level,
+                quarter = quarter,
+                unlocked = level <= highestUnlockedLevel,
+                scale = scale,
+                spacingRef = levelSpacingRef,
+                pathLeftRef = pathLeftRef,
+                pathWRef = pathWRef,
+                nodeCenterRef = nodeCenterRef,
+                targetScoreForLevel = targetScoreForLevel,
+                language = language,
+                onSelectLevel = onSelectLevel
+            )
         }
+        item { Box(Modifier.height(px(260f, scale))) }
+    }
+}
+
+/**
+ * Tek seviye satiri: karonun ilgili CEYREGI + hedef hapi + dugum.
+ *
+ * Karo dikeyde dort esit ceyrege bolunuyor ve ceyrek sinirlari, merkez
+ * cizginin x~%50'ye dondugu noktalar -- yani dugum capalari. Ceyrekler alt
+ * alta gelince yol kesintisiz akiyor.
+ */
+@Composable
+private fun PathQuarterRow(
+    theme: MapTheme,
+    level: Int,
+    quarter: Int,
+    unlocked: Boolean,
+    scale: Float,
+    spacingRef: Float,
+    pathLeftRef: Float,
+    pathWRef: Float,
+    nodeCenterRef: Float,
+    targetScoreForLevel: (Int) -> Int,
+    language: AppLanguage,
+    onSelectLevel: (Int) -> Unit
+) {
+    val tile = ImageBitmap.imageResource(theme.path)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(px(spacingRef, scale))
+    ) {
+        // Z=3: yolun bu ceyregi.
+        Canvas(
+            modifier = Modifier
+                .offset(x = px(pathLeftRef, scale))
+                .width(px(pathWRef, scale))
+                .height(px(spacingRef, scale))
+        ) {
+            val qh = tile.height / 4
+            drawImage(
+                image = tile,
+                srcOffset = IntOffset(0, quarter * qh),
+                srcSize = IntSize(tile.width, qh),
+                dstOffset = IntOffset(0, 0),
+                dstSize = IntSize(size.width.toInt(), size.height.toInt())
+            )
+        }
+
+        // Z=4: hedef hapi
+        TargetPillContinuous(
+            theme = theme,
+            level = level,
+            nodeCx = nodeCenterRef,
+            nodeCy = 0f,
+            scale = scale,
+            text = language.pick(
+                tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
+                en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
+                it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
+                fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
+                es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
+            )
+        )
+
+        // Z=5: dugum -- ceyrek sinirinda, yani yolun uzerinde.
+        ProgressionNode(
+            theme = theme,
+            level = level,
+            unlocked = unlocked,
+            nodeCx = nodeCenterRef,
+            nodeCy = 0f,
+            scale = scale,
+            onSelectLevel = onSelectLevel
+        )
     }
 }
 
