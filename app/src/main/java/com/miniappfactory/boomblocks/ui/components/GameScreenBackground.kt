@@ -24,6 +24,7 @@ import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.lerp
 
 // Faz 158 — menulerin ZEMIN katmani.
 //
@@ -60,7 +61,21 @@ fun GameScreenBackground(
     showBlocks: Boolean = true,
     // Ileride eklenecek boyali zemin illustrasyonu.
     painter: Painter? = null,
-    painterAlpha: Float = 1f
+    painterAlpha: Float = 1f,
+    // FAZ 172: gogu LACIVERTE cekme orani (0 = dokunma).
+    //
+    // Kullanicinin gonderdigi harita tasarimlarinda zemin bizimkinden belirgin
+    // sekilde daha KOYU ve daha MAVI: olculdu, hedefte ust ~#004163 ve orta
+    // ~#00163C iken bizde ust ~#015A77 ve genel ton turkuaza kaciyordu. Yolun
+    // ve dugumlerin isimasi bu koyulukta okunuyor; acik turkuaz zeminde
+    // hepsi birbirine giriyordu.
+    //
+    // Parametre olarak eklendi cunku ayni bilesen mod secim ekraninda da
+    // kullaniliyor ve ORASI kullanicinin begendigi haliyle kalmali.
+    skyDarken: Float = 0f,
+    // Haritada zemine serpilen kucuk isik noktalari. Tasarimda var, mod secim
+    // ekraninda yok.
+    showSparkles: Boolean = false
 ) {
     val surfaces = rememberGameSurfaces(skin, darkMode, accentOverride)
     // Faz 159 — URETILEN 3B KUPLER ARTIK BAGLI.
@@ -76,7 +91,7 @@ fun GameScreenBackground(
     val decorBitmaps = if (showBlocks) rememberBlockDecorBitmaps() else emptyList()
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawGameWorld(surfaces, horizonFraction, showBlocks)
+            drawGameWorld(surfaces, horizonFraction, showBlocks, skyDarken, showSparkles)
             if (showBlocks && decorBitmaps.isNotEmpty()) {
                 drawBlockDecor(decorBitmaps, surfaces.isLightSurface)
                 // Kuplerin USTUNE vinyet. Kupler boylece "yuzen cikartma"
@@ -115,20 +130,44 @@ private val SPARKLES = listOf(
 private fun DrawScope.drawGameWorld(
     s: GameSurfaces,
     horizonFraction: Float,
-    showBlocks: Boolean
+    showBlocks: Boolean,
+    skyDarken: Float = 0f,
+    showSparkles: Boolean = false
 ) {
     val w = size.width
     val h = size.height
     if (w <= 0f || h <= 0f) return
 
+    // FAZ 172: gogu laciverte cekme. `skyDarken == 0f` iken ifade kimlik
+    // fonksiyonu, yani bu parametreyi vermeyen ekranlar (mod secim) HIC
+    // etkilenmiyor.
+    val deep = Color(0xFF00102E)
+    fun sky(c: Color) = if (skyDarken <= 0f) c else lerp(c, deep, skyDarken)
+
     // 1) Gok: yukarida accent'e dogru acilan dikey gradyan.
     drawRect(
         brush = Brush.verticalGradient(
-            0f to s.skyTop,
-            0.30f to s.skyMid,
-            1f to s.horizon
+            0f to sky(s.skyTop),
+            0.30f to sky(s.skyMid),
+            1f to sky(s.horizon)
         )
     )
+
+    // 1b) Isik noktalari — tasarimdaki "yildiz tozu". Konumlar SABIT bir
+    // formulden uretiliyor (rastgele degil): her karede ayni yerde duruyorlar,
+    // yani titremiyorlar ve durum tutmuyorlar.
+    if (showSparkles) {
+        for (i in 0 until 46) {
+            val fx = ((i * 37) % 100) / 100f
+            val fy = ((i * 61) % 100) / 100f
+            val r = (1.2f + (i % 3) * 0.9f) * density
+            drawCircle(
+                color = Color.White.copy(alpha = 0.10f + (i % 4) * 0.06f),
+                radius = r,
+                center = Offset(w * fx, h * fy)
+            )
+        }
+    }
 
     // 2) Ambient isima — duz yuzeyi kirip hacim hissi veren en ucuz katman.
     drawCircle(

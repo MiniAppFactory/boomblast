@@ -87,6 +87,7 @@ import com.miniappfactory.boomblocks.ui.components.accentEmblemColors
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.drawscope.translate
 
 // ModeSelectScreen'deki Challenge kart aksanniyla (Color(0xFFFF6B35)) ayni —
 // Pro Mode'un her yerde tutarli bir "marka rengi" olmasi icin.
@@ -165,6 +166,13 @@ fun LevelMapScreen(
             skin = skin,
             darkMode = darkMode,
             accentOverride = listOf(accentColor, accentColor),
+            // FAZ 172: harita zemini mod secim ekranindan DAHA KOYU.
+            // Tasarimda olculdu (hedef ust ~#004163 / orta ~#00163C; bizde ust
+            // ~#015A77 idi). Yolun ve dugumlerin isimasi ancak bu koyulukta
+            // okunuyor; acik turkuaz zeminde hepsi birbirine giriyordu.
+            // Parametre haritaya ozel -- mod secim ekrani aynen kaliyor.
+            skyDarken = 0.45f,
+            showSparkles = true,
             modifier = Modifier.matchParentSize()
         )
         // Faz 124: kullanici "aynısı Pro ve Kariyer modları için de geçerli"
@@ -532,18 +540,24 @@ private fun CareerProgressCard(
 // Genlik 0.30'da kaldi (glow ile birlikte kenar guvenlik payi tutuyor);
 // canlilik SADECE frekanstan (1.05 -> 1.7) geliyor.
 private fun pathXFraction(index: Int): Float =
-    0.5f + 0.30f * sin(index * 1.7f)
+    // FAZ 172: genlik 0.30 -> 0.34. Tasarimdaki S daha genis salinim yapiyor;
+    // dar salinimda yol "hafif kivrilan dikey cizgi" gibi duruyordu.
+    0.5f + 0.34f * sin(index * 1.7f)
 
 // Faz 115n: dugum 72dp -> 60dp (kullanici: "bu kadar büyük olmak zorunda
 // degil"). Oge yuksekligi de orantili daraltildi (124dp -> 96dp) — hem daha
 // fazla dugum ekranda gorunuyor hem yukaridaki daha sik dalga formuluyle
 // birlikte gercekten kivrilan bir yol hissi olusuyor.
-private val LEVEL_PATH_ITEM_HEIGHT = 96.dp
-private val LEVEL_NODE_SIZE = 60.dp
+// FAZ 172: hedef tasarim eldeki ekrandan belirgin sekilde DAHA FERAH.
+// Kullanicinin gonderdigi ekranda bir ekrana ~4 dugum siğiyor, bizde ~7
+// siğiyordu; harita "sikisik liste" gibi duruyordu. Dugum buyudu, dikey
+// aralik acildi.
+private val LEVEL_PATH_ITEM_HEIGHT = 122.dp
+private val LEVEL_NODE_SIZE = 76.dp
 // Dugumun DUSEY merkezi ogenin tepesinden bu kadar asagida — sabit bir dp
 // degeri olarak tutuluyor ki Canvas'taki cizgi ile Column'daki gercek dugum
 // konumu HER ZAMAN birebir ortussun (BiasAlignment ile tahmin degil).
-private val LEVEL_NODE_CENTER_Y = 40.dp
+private val LEVEL_NODE_CENTER_Y = 50.dp
 
 // Faz 115m: 3 durumlu harita rengi. Kullanicinin istegiyle "tamamlandi"
 // YESIL'den ALTIN'a tasindi (mockup'taki gibi), aktif dugum camgobegi,
@@ -601,21 +615,38 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlowRoute(
     // NOT: denetimdeki "yol dugumleri yutuyor" iddiasi DOGRULANMADI ve burada
     // iddia edilmiyor — dugum yolun ustunde, opak ve 60dp.
     val pathScale = density / 3f
-    // FAZ 171: tasarimdaki yol belirgin bir "isikli kurdele"; eldeki hali
-    // ona gore inceydi. Katman sayisi ayni, kalinliklar ~%20 arttirildi ve en
-    // ictekiler beyaza cekildi -- tasarimdaki beyaz ic hat bundan cikiyor.
-    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 32f * pathScale, cap = StrokeCap.Round)
-    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 16f * pathScale, cap = StrokeCap.Round)
-    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f * pathScale, cap = StrokeCap.Round)
-    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f * pathScale, cap = StrokeCap.Round)
+    // FAZ 172 — YOL ARTIK CIFT SERIT.
+    //
+    // Tasarimdaki yol tek bir kalin cizgi degil: aralarinda koyu bir bosluk
+    // olan IKI paralel isikli serit. Tek serit cizdigimizde "boru" gibi
+    // duruyordu; ikiye ayrilinca ayni kalinlikta ama cok daha hafif ve hizli
+    // bir "iz" hissi veriyor -- varlik sayfasindaki 9. kalem (PATH SEGMENTS)
+    // tam olarak bunu gosteriyor.
+    //
+    // Iki serit ayri path DEGIL: ayni egri, once kalin koyu bir taban, sonra
+    // uzerine INCE iki hat cizilerek elde ediliyor. Bezier'i paralel otelemek
+    // (offset curve) matematiksel olarak zahmetli ve kavislerde bozuluyor;
+    // burada seritler dikey olarak kaydiriliyor, ki egrinin egimi cogunlukla
+    // dikey oldugu icin gorsel olarak paralel okunuyor.
+    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 40f * pathScale, cap = StrokeCap.Round)
+    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 22f * pathScale, cap = StrokeCap.Round)
+    val strandOuter = androidx.compose.ui.graphics.drawscope.Stroke(width = 9f * pathScale, cap = StrokeCap.Round)
+    val strandInner = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.5f * pathScale, cap = StrokeCap.Round)
+
     // 1) dis isima — genis, dusuk alfa
-    drawPath(curve, color = color.copy(alpha = 0.30f), style = outerGlow)
-    // 2) koyu taban — yolun "govdesi"
-    drawPath(curve, color = lerp(color, Color.Black, 0.45f).copy(alpha = 0.85f), style = darkBase)
-    // 3) parlak ic hat
-    drawPath(curve, color = color.copy(alpha = 0.95f), style = brightCore)
-    // 4) ince parlaklik — yolun ustunde cam hissi
-    drawPath(curve, color = Color.White.copy(alpha = 0.85f), style = gloss)
+    drawPath(curve, color = color.copy(alpha = 0.28f), style = outerGlow)
+    // 2) koyu govde — iki seridin arasindaki bosluk bu
+    drawPath(curve, color = lerp(color, Color.Black, 0.72f).copy(alpha = 0.95f), style = darkBase)
+
+    // 3) iki serit. `gap` govdenin yariya yakini: seritler govdenin kenarlarina
+    //    oturuyor, ortada koyu bir kanal kaliyor.
+    val gap = 6.5f * pathScale
+    for (dy in listOf(-gap, gap)) {
+        translate(top = dy) {
+            drawPath(curve, color = color.copy(alpha = 0.95f), style = strandOuter)
+            drawPath(curve, color = Color.White.copy(alpha = 0.9f), style = strandInner)
+        }
+    }
 }
 
 // Faz 42: baglanti cizgisi iki parcaya bolunuyor. Faz 115u'ya kadar bolunme
@@ -672,8 +703,15 @@ private fun LevelPathNode(
     // Dugumler uc durumlu renklendirmesini KORUYOR (altin/aksan/mor); degisen
     // yalnizca aralarindaki cizgi.
     val routeColor = accentColor
+    // FAZ 172: halka ust tarafta daha parlak. Tasarimda hem acik hem kilitli
+    // dugumun cevresinde belirgin bir ISIK CEMBERI var; eldeki gradyan altta
+    // %55 alfaya dusup halkayi yariya kadar soluklastiriyordu.
     val borderBrush = Brush.verticalGradient(
-        listOf(lerp(nodeAccent, Color.White, 0.35f), nodeAccent, nodeAccent.copy(alpha = 0.55f))
+        listOf(
+            lerp(nodeAccent, Color.White, 0.55f),
+            lerp(nodeAccent, Color.White, 0.15f),
+            nodeAccent.copy(alpha = 0.80f)
+        )
     )
 
     Box(
@@ -747,8 +785,20 @@ private fun LevelPathNode(
                 completed -> Brush.verticalGradient(
                     listOf(lerp(nodeAccent, Color.White, 0.55f), nodeAccent, lerp(nodeAccent, Color.Black, 0.45f))
                 )
-                unlocked -> Brush.verticalGradient(
-                    listOf(lerp(nodeAccent, Color.White, 0.30f), palette.card, lerp(nodeAccent, Color.Black, 0.20f))
+                // FAZ 172: acik dugum artik DOLU DISK degil HALKA.
+                //
+                // Tasarimda aktif dugum, ortasi KOYU (zemin tonunda) ve
+                // cevresinde kalin parlak bir halka olan bir "isik cemberi";
+                // rakam o koyu boslugun icinde duruyor. Elimizdeki dolu
+                // gradyanli disk, kilitli dugumlerden yalnizca renkle
+                // ayrilıyordu -- silueti aynıydı, o yuzden "su an buradasin"
+                // hissi zayifti.
+                unlocked -> Brush.radialGradient(
+                    colors = listOf(
+                        lerp(palette.background, Color.Black, 0.35f),
+                        lerp(palette.background, Color.Black, 0.20f),
+                        lerp(nodeAccent, Color.Black, 0.45f)
+                    )
                 )
                 // Faz 115l/m: duz tek renk yerine hafif dikey gradyan — ama mor
                 // aksanla, ChatGPT promptunun "hala premium/cazip gorunmeli,
@@ -771,8 +821,12 @@ private fun LevelPathNode(
                     // ciziliyor. Aksi halde Column'daki dugum LEVEL_NODE_CENTER_Y'nin
                     // varsaydigi konumdan kayar ve Canvas'taki yolla hizasi bozulur.
                     .drawBehind {
-                        val glowAlpha = if (isCurrent) 0.45f else 0.28f
-                        val glowPad = if (isCurrent) 14.dp.toPx() else 8.dp.toPx()
+                        // FAZ 172: hedefte aktif dugumun cevresinde GENIS ve
+                        // yumusak bir hale var -- "su an buradasin" isaretini
+                        // asil o veriyor. Eldeki hale dar kaliyordu ve halka
+                        // kalinlastiktan sonra iyice yutulmustu.
+                        val glowAlpha = if (isCurrent) 0.55f else 0.30f
+                        val glowPad = if (isCurrent) 26.dp.toPx() else 12.dp.toPx()
                         // Faz 166 -- OLU KOD CANLANDI. `Brush.radialGradient`e
                         // `radius` VERILMEMISTI; bu durumda gradyan cizim
                         // alaninin `minDimension / 2`sinde, yani dugumun
@@ -793,7 +847,9 @@ private fun LevelPathNode(
                     }
                     .clip(CircleShape)
                     .background(nodeFill)
-                    .border(3.dp, borderBrush, CircleShape),
+                    // Halka kalinligi acik dugumde iki katina cikiyor: tasarimda
+                    // aktif dugumu tasiyan sey renk degil KALINLIK ve isima.
+                    .border(if (unlocked) 6.dp else 3.dp, borderBrush, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (unlocked) {
@@ -854,6 +910,28 @@ private fun LevelPathNode(
             // hale kondu -- hap artik zeminde "duran" bir nesne.
             Box(
                 modifier = Modifier
+                    // FAZ 172: hapin dugume bakan kenarinda kucuk bir UC var
+                    // (tasarimdaki konusma balonu kuyrugu). Kuyruk olmayinca hap
+                    // "serbest yuzen bir etiket" gibi duruyor, hangi dugume ait
+                    // oldugu okunmuyordu. Bizim yerlesimde hap dugumun ALTINDA
+                    // oldugu icin uc YUKARI bakiyor.
+                    .drawBehind {
+                        val half = 7.dp.toPx()
+                        val tip = Path().apply {
+                            moveTo(size.width / 2f - half, 0f)
+                            lineTo(size.width / 2f + half, 0f)
+                            lineTo(size.width / 2f, -half * 1.15f)
+                            close()
+                        }
+                        drawPath(tip, color = Color(0xFF16213A).copy(alpha = 0.96f))
+                        drawPath(
+                            tip,
+                            color = accentColor.copy(alpha = 0.75f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = 1.5.dp.toPx()
+                            )
+                        )
+                    }
                     .gameOuterGlow(
                         accent = accentColor,
                         cornerRadius = 14.dp,
