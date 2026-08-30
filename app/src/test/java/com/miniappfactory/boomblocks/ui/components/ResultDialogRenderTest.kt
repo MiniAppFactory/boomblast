@@ -24,6 +24,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.down
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -194,6 +197,59 @@ class ResultDialogRenderTest {
         }
         rule.waitForIdle()
         save("level_complete", rule.captureWindow())
+    }
+
+    /**
+     * Faz 168 — BASMA YOLUNU GOZLE OLCTURMEK ICIN.
+     *
+     * Kullanici "basma hissi degil asagi kayma hissi cok net" dedi. Miktari
+     * yargilayabilmesi icin butonun DINLENME ve BASILI hallerini yan yana
+     * cikariyoruz. Basma taklit EDILMIYOR: saat durdurulup gercek bir dokunus
+     * gonderiliyor, yani `GameButton`in kendi animasyonu calisiyor.
+     */
+    @Test
+    fun renderButtonPressStates() {
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            Box(
+                modifier = Modifier
+                    .width(411.dp)
+                    .height(260.dp)
+                    .background(Color(0xFF0B1220)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    GameButton(
+                        text = "BAŞLA",
+                        onClick = {},
+                        colors = resultButtonColors(ResultSuccessAccent, ResultOnSuccess),
+                        fontSize = 17.sp,
+                        minHeight = 56.dp,
+                        modifier = Modifier.fillMaxWidth().testTag("btn_a")
+                    )
+                    Spacer(Modifier.height(22.dp))
+                    GameButton(
+                        text = "BAŞLA",
+                        onClick = {},
+                        colors = resultButtonColors(ResultSuccessAccent, ResultOnSuccess),
+                        fontSize = 17.sp,
+                        minHeight = 56.dp,
+                        modifier = Modifier.fillMaxWidth().testTag("btn_b")
+                    )
+                }
+            }
+        }
+        rule.mainClock.advanceTimeBy(300)
+        save("button_rest", rule.captureWindow())
+
+        // Alttaki butonu BASILI TUT: parmak kaldirilmadigi icin `pressed`
+        // durumu kaliyor ve cokme animasyonu sonuna kadar gidiyor.
+        rule.onNodeWithTag("btn_b").performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(300)
+        save("button_pressed", rule.captureWindow())
     }
 }
 

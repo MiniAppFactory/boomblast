@@ -1,5 +1,6 @@
 package com.miniappfactory.boomblocks.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -384,6 +385,14 @@ fun GameIconTile(
 // Buton
 // ---------------------------------------------------------------------------
 
+// FAZ 168: basma yolunun `depth`e orani. 1.0 iken buton yuzu govdenin uzerine
+// TAM oturuyordu ve hareket "basma" degil "kayma" olarak okunuyordu (kullanici
+// geri bildirimi). 0.5'te govde basiliyken de gorunur kaliyor.
+//
+// Bu carpan KALINLIGI degil YOLU belirler: `depth` (varsayilan 5dp) aynen
+// duruyor, yani butonun 3B govdesi hic incelmedi.
+private const val PRESS_TRAVEL_FRACTION = 0.5f
+
 @Immutable
 data class GameButtonColors(
     val top: Color,
@@ -526,9 +535,31 @@ fun GameButton(
     // cignerdi. minHeight carpana BOLUNerek fiziksel yukseklik sabit
     // tutuluyor. `FitToHeight` disinda carpan 1f, yani bu satir etkisiz.
     val fitScale = LocalFitScale.current.coerceIn(0.5f, 1f)
+    // FAZ 168 — BASMA HISSI YUMUSATILDI.
+    //
+    // Kullanici: "Basla tusunda basma hissini vermek icin yazi ve kutusuna
+    // asagi kayma efekti vermissin, guzel olmus ama cok olmus. Basma hissi
+    // degil ASAGI KAYMA hissi cok net, orayi biraz yumusatmak lazim."
+    //
+    // Teshis: yol `depth`in TAMAMI kadardi. Yani basinca butonun yuzu 3B
+    // govdenin uzerine TAM oturuyor, govde tamamen kayboluyordu. Goz bunu
+    // "bastim" degil "asagi kaydi" diye okuyor, cunku gercek bir tusta govde
+    // hicbir zaman tamamen kapanmaz -- biraz cokup DIRENIR.
+    //
+    // Iki degisiklik:
+    //   1. Yol `depth`in yarisi. Govde her zaman gorunur kaliyor, yani buton
+    //      basiliyken de bir NESNE; kalinlik (depth) hic degismedi, sadece
+    //      hareket kisaldi.
+    //   2. Zamanlama `tween(60)` duz/dogrusaldi -- ani basla, ani dur, yani
+    //      "kayma". Cikisi yumusayan bir egri temas hissi veriyor. Birakista
+    //      biraz daha uzun: gercek bir tus geri gelirken yavaslar.
+    val pressTravel = depth * PRESS_TRAVEL_FRACTION
     val sink by animateDpAsState(
-        targetValue = if (pressed && enabled) depth else 0.dp,
-        animationSpec = tween(60),
+        targetValue = if (pressed && enabled) pressTravel else 0.dp,
+        animationSpec = tween(
+            durationMillis = if (pressed && enabled) 70 else 110,
+            easing = FastOutSlowInEasing
+        ),
         label = "gameButtonSink"
     )
     // Faz 159: 0.6 cok saydamdi — kilitli buton zeminde eriyordu. 0.85 hala
@@ -580,6 +611,13 @@ fun GameButton(
                 // (normal akista zaten 0..depth araliginda), yalnizca imkansiz
                 // durum guvenli hale geliyor.
                 .padding(
+                    // `sink` artik en fazla depth/2, yani `depth - sink` zaten
+                    // pozitif. Kelepceler YINE DE duruyor: vc19'daki uretim
+                    // cokmesi (`Padding must be non-negative`) tam olarak bu
+                    // farkin negatife dusmesinden cikmisti ve orada da "olamaz"
+                    // sanilmisti -- `sink` bir ANIMASYON degeri, `depth` bir
+                    // PARAMETRE; ikisi ayri kaynaktan geliyor ve kare arasinda
+                    // ayrisabiliyor.
                     top = sink.coerceIn(0.dp, depth),
                     bottom = (depth - sink).coerceAtLeast(0.dp)
                 )
