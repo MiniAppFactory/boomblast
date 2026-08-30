@@ -27,15 +27,14 @@ class ProgressionMapRenderTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
 
-    @Test
-    fun renderCareer() {
+    private fun render(name: String, theme: MapTheme, label: String, base: Int) {
         rule.setContent {
             ProgressionMapScreen(
-                theme = CareerMapTheme,
-                modeLabel = "KARİYER İLERLEMESİ",
+                theme = theme,
+                modeLabel = label,
                 progress = PlayerProgress(),
                 highestUnlockedLevel = 1,
-                targetScoreForLevel = { 100 + (it - 1) * 5 },
+                targetScoreForLevel = { base + (it - 1) * 5 },
                 language = AppLanguage.TR,
                 darkMode = true,
                 skin = BlastSkin.DEFAULT,
@@ -50,9 +49,18 @@ class ProgressionMapRenderTest {
         val bmp = createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1))
         view.draw(android.graphics.Canvas(bmp))
         val dir = File("build/screen-renders").apply { mkdirs() }
-        File(dir, "career_v2.png").outputStream().use {
+        File(dir, "$name.png").outputStream().use {
             bmp.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
-        println("RENDER_OUT=" + File(dir, "career_v2.png").absolutePath)
+        println("RENDER_OUT=" + File(dir, "$name.png").absolutePath)
     }
+
+    @Test
+    fun renderCareer() = render("v3_career", CareerMapTheme, "KARİYER İLERLEMESİ", 100)
+
+    @Test
+    fun renderEasy() = render("v3_easy", EasyMapTheme, "KOLAY MOD İLERLEMESİ", 100)
+
+    @Test
+    fun renderPro() = render("v3_pro", ProMapTheme, "PRO MOD İLERLEMESİ", 200)
 }

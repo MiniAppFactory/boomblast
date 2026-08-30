@@ -141,6 +141,48 @@ val CareerMapTheme = MapTheme(
 // Artik karo yok: her seviye kendi satirinda, aralari sette gelen S kavisiyle
 // baglaniyor. Kavis yonu her seviyede degisiyor (asagi-sag / asagi-sol).
 
+val EasyMapTheme = MapTheme(
+    back = R.drawable.kb_esy_back,
+    word = R.drawable.kb_esy_word,
+    coin = R.drawable.kb_esy_coin,
+    trophyBtn = R.drawable.kb_esy_trophybtn,
+    settingsBtn = R.drawable.kb_esy_setbtn,
+    panel = R.drawable.kb_esy_panel,
+    trophy = R.drawable.kb_esy_trophy,
+    nodeOpen = R.drawable.kb_esy_node_open,
+    nodeLock = R.drawable.kb_esy_node_lock,
+    pillUp = R.drawable.kb_esy_pill_up,
+    pillTailLeft = R.drawable.kb_esy_pill_l,
+    pillTailRight = R.drawable.kb_esy_pill_r,
+    segLeftToRight = R.drawable.kb_esy_seg_lr,
+    segRightToLeft = R.drawable.kb_esy_seg_rl,
+    accent = Color(0xFF2DD4BF),
+    label = Color(0xFF5EEAD4)
+)
+
+val ProMapTheme = MapTheme(
+    back = R.drawable.kb_pro_back,
+    word = R.drawable.kb_pro_word,
+    coin = R.drawable.kb_pro_coin,
+    trophyBtn = R.drawable.kb_pro_trophybtn,
+    settingsBtn = R.drawable.kb_pro_setbtn,
+    panel = R.drawable.kb_pro_panel,
+    trophy = R.drawable.kb_pro_trophy,
+    nodeOpen = R.drawable.kb_pro_node_open,
+    nodeLock = R.drawable.kb_pro_node_lock,
+    pillUp = R.drawable.kb_pro_pill_up,
+    pillTailLeft = R.drawable.kb_pro_pill_l,
+    pillTailRight = R.drawable.kb_pro_pill_r,
+    // NOT: sette kavis yalnizca MAVI ve MOR ailesinde vardi; Pro'nun sicak
+    // kimliginde bir kavis YOKTU. Mavi kavisin ton kaydirmasi kullaniliyor --
+    // ayni cizimin renk donusumu, yeniden cizim degil. Pro'ya ozel kavis
+    // gelirse bu iki satir degistirilerek dogrudan takilabilir.
+    segLeftToRight = R.drawable.kb_pro_seg_lr,
+    segRightToLeft = R.drawable.kb_pro_seg_rl,
+    accent = Color(0xFFFF7A2F),
+    label = Color(0xFFFFA366)
+)
+
 // FAZ 175b — ZINCIR ARTIK GERCEKTEN BAGLANIYOR.
 //
 // Kullanici: "olmamis ki, bir sag bir sol kavis kullanman lazimdi ki baglansin
@@ -169,10 +211,15 @@ private const val SEG_BOT_X = 0.807f
 private const val SEG_BOT_Y = 0.904f
 
 /** Iki dugum merkezi arasi dikey mesafe (referans px). */
-private const val LEVEL_SPACING = 250f
+// Referanstaki dugum araliklari olculdu: 340, 234, 219 -> ortalama ~264.
+// 285 seciliyor: referansin ferahligini veriyor ama ekrana sigan dugum
+// sayisini gereksiz azaltmiyor.
+private const val LEVEL_SPACING = 285f
 
 /** Kavisin yatay genisligi = yolun salinim genligi. */
-private const val SEG_W = 330f
+// Yolun salinim genligi. Referansta yol x~330..640 arasinda saliniyor,
+// yani ~310; kavisin isima payi da iceride oldugu icin biraz genis tutuluyor.
+private const val SEG_W = 385f
 
 /** Uclarin cakismasi icin gereken kavis yuksekligi. */
 private const val SEG_H = LEVEL_SPACING / (SEG_BOT_Y - SEG_TOP_Y)
@@ -209,7 +256,7 @@ private object Ref {
     const val NODE_OPEN_RATIO = 0.84f
     const val NODE_LOCK_RATIO = 0.79f
 
-    const val PILL_BODY = 278f
+    const val PILL_BODY = 300f
     const val PILL_RATIO = 0.95f
 
     /** Harita, panelin altindan basliyor. */
