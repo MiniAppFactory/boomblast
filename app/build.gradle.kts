@@ -133,8 +133,16 @@ android {
     // IllegalArgumentException: Padding must be non-negative (GameButton'un
     // basilma animasyonunda depth - sink negatife dusuyordu). Yama surumu,
     // cunku icerik degismedi — yalnizca cokme giderildi.
-    versionCode = 20
-    versionName = "1.2.1"
+    // Faz 183-186 (release): versionCode 20 -> 21, versionName 1.2.1 -> 1.2.2.
+    // Kullanici teyidi: vc20 (1.2.1 HOTFIX) Play'e yuklendi, yani TUKENDI --
+    // bkz. yukaridaki KURAL.
+    // Yama surumu: yeni mekanik yok. Icerik, varlik setindeki DILIMLEME
+    // hatalarinin duzeltilmesi (setbtn icinde ikinci buton, pill_l'in kirpilmis
+    // kuyrugu, node_open'in kaymis govdesi), 9 dilim dikisleri, panel/yol
+    // dokusunun temizlenmesi, mod basliklarinin 5 dile acilmasi ve
+    // landing/onboarding ekranlarinin oyunun buton malzemesine gecirilmesi.
+    versionCode = 21
+    versionName = "1.2.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

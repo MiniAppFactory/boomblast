@@ -1,5 +1,43 @@
 # Boom Blocks Changelog
 
+## [1.2.2] - vc21 - Faz 187 (Oyun ekrani ust bari + varlik boyutu regresyonu)
+
+### Changed
+- **Oyun ekraninin ust bari da harita/menu ile ayni malzemede.** Kullanici:
+  "sonsuz modun oyun ekranini yapmamissin." Geri ve ayarlar DUZ MATERIAL
+  VEKTORDU, baslik duz metindi; oysa harita (Faz 174) ve ana menu (Faz 186)
+  raster chrome'a gecmisti.
+  - Geri/ayarlar -> `ChromeAssetButton` + raster set. Set MODA gore seciliyor
+    (`isChallengeMode` -> pro, `isComfortMode` -> esy, digerleri -> car) ki
+    Pro'nun sicak kimliginde camgobegi bir tus durmasin.
+  - Baslik RASTER OLAMAZ ("SEVIYE 37" dinamik; her seviye icin varlik
+    uretilemez) -> uygulamanin kendi `GameEmblemLine` malzemesi.
+    `resultEmblemColors` KULLANILMADI: o receta alt yuzu koyu kirmiziya
+    (#6B0018) cekiyor ve camgobegi baslikta rengi kirletiyordu (cihazda
+    gorulda); dogru helper `accentEmblemColors`.
+- `ChromeAssetButton` + `CHROME_BODY_RATIO` `GameKit`e tasindi; ana menu ve
+  oyun ekrani ayni cizicidan geciyor.
+
+### Fixed
+- **Kendi eklediğim paket boyutu regresyonu.** Faz 183-186'daki uretici
+  betikler ciktilarini `lossless=True` webp yaziyordu; orijinaller KAYIPLIYDI.
+  Olculdu: kb_esy_coin 27.0 -> 65.5 KB, kb_esy_panel 27.9 -> 45.2 KB, AAB
+  10.3 -> 13.5 MB. Degisen tum varliklar q=92 kayipli webp'e cevrildi
+  (`tools/wordart/reencode_webp.py`).
+- Bu islem sirasinda bir zaman asimi `kb_pro_trophybtn.webp`i yarida kesip
+  bozdu; git'ten geri alindi, yeniden kodlandi ve **89 varligin tamami**
+  acilabilirlik icin tarandi (bozuk dosya: 0).
+
+### Release
+- versionCode 20 -> **21**, versionName 1.2.1 -> **1.2.2** (yama).
+  Kullanici teyidi: vc20 (1.2.1 HOTFIX) Play'e yuklendi, yani TUKENDI.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- `gradlew :app:testDebugUnitTest` BUILD SUCCESSFUL (tum suite)
+- Cihaz SM-G965: Sonsuz oyun ekrani ust bari ekran goruntusuyle dogrulandi.
+
+
 ## [Unreleased] - Faz 186 (Ana menu chrome'u haritalarla esitlendi; baslik olcegi harf boyuna gore)
 
 ### Changed

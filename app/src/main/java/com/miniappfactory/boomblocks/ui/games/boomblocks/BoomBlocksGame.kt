@@ -158,9 +158,12 @@ import com.miniappfactory.boomblocks.ui.components.ResultPrimaryBlue
 import com.miniappfactory.boomblocks.ui.components.ResultSecondaryOrange
 import com.miniappfactory.boomblocks.ui.components.ResultActionButton
 import com.miniappfactory.boomblocks.ui.components.ResultStatPanel
+import com.miniappfactory.boomblocks.ui.components.GameEmblemLine
+import com.miniappfactory.boomblocks.ui.components.ChromeAssetButton
 import com.miniappfactory.boomblocks.ui.components.ResultSuccessAccent
 import com.miniappfactory.boomblocks.ui.components.ResultTertiarySlate
 import com.miniappfactory.boomblocks.ui.components.ResultTrophyGlow
+import com.miniappfactory.boomblocks.ui.components.accentEmblemColors
 import com.miniappfactory.boomblocks.ui.components.resultEmblemColors
 import com.miniappfactory.boomblocks.ui.components.resultButtonColors
 import com.miniappfactory.boomblocks.ui.components.ResultOnPrimary
@@ -3312,7 +3315,22 @@ fun BlastTheBlocksGame(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
+                // FAZ 186 — OYUN EKRANI UST BARI DA HARITALARLA AYNI MALZEMEDE.
+                //
+                // Kullanici: "sonsuz modun oyun ekranini yapmamissin." Hakli:
+                // geri ve ayarlar DUZ MATERIAL VEKTORDU, baslik da duz metin;
+                // oysa harita ve ana menu chrome'u raster varliklara gecmisti.
+                // Varlik seti moda gore secilir ki Pro'nun sicak kimliginde
+                // camgobegi bir tus durmasin.
+                ChromeAssetButton(
+                    resId = when {
+                        isChallengeMode -> R.drawable.kb_pro_back
+                        isComfortMode -> R.drawable.kb_esy_back
+                        else -> R.drawable.kb_car_back
+                    },
+                    bodyWidth = 38.dp,
+                    aspect = 1.000f,
+                    contentDescription = "Back",
                     onClick = {
                         if (!isGameOver && !isLevelComplete) {
                             showExitConfirmDialog = true
@@ -3321,43 +3339,56 @@ fun BlastTheBlocksGame(
                         }
                     },
                     modifier = Modifier.testTag("block_blast_back_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = palette.textPrimary
-                    )
-                }
+                )
 
                 // Faz 110b: Header yeniden duzenlemeldi — Level/Endless metni orta konuma,
                 // TEMA butonu Settings menüsüne tasindi. [Back] [LEVEL] [Settings]
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text(
+                    // Baslik burada RASTER OLAMAZ: "SEVIYE 37" gibi DINAMIK bir
+                    // metin ve her seviye icin varlik uretilemez. Bunun yerine
+                    // uygulamanin kendi amblem malzemesi (`GameEmblemLine` --
+                    // sonuc diyalogu basliklariyla AYNI kontur/3B govde/isima
+                    // receti) kullaniliyor. Modun aksani da rengi tasiyor.
+                    val titleAccent = when {
+                        isChallengeMode -> Color(0xFFFF7A2F)
+                        isComfortMode -> Color(0xFF2DD4BF)
+                        else -> NeonCyan
+                    }
+                    GameEmblemLine(
                         text = if (isEndless) {
                             language.pick(tr = "SONSUZ", en = "ENDLESS", it = "INFINITA", fr = "INFINI", es = "INFINITO")
                         } else {
                             language.pick(tr = "SEVİYE $levelNumber", en = "LEVEL $levelNumber", it = "LIVELLO $levelNumber", fr = "NIVEAU $levelNumber", es = "NIVEL $levelNumber")
                         },
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        color = NeonCyan,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        // `resultEmblemColors` DEGIL: o receta alt yuzu koyu
+                        // KIRMIZIYA (#6B0018) cekiyor -- sonuc diyaloglarinin
+                        // kirmizi/yesil aksanlarinda dogru, ama camgobegi bir
+                        // baslikta rengi kirletip soluklastiriyor (cihazda
+                        // gorulda). `accentEmblemColors` tam bu is icin var:
+                        // ust yuz beyaza, alt yuz koyu maviye gidiyor.
+                        colors = accentEmblemColors(
+                            accentPrimary = titleAccent,
+                            accentSecondary = lerp(titleAccent, Color.White, 0.25f),
+                            isLightSurface = false
+                        ),
+                        fontSize = 22.sp,
+                        tightLines = true
                     )
                 }
 
                 // Settings button — oyun icinde Ayarlar'a (ses/tema/dil) erisim
-                IconButton(
+                ChromeAssetButton(
+                    resId = when {
+                        isChallengeMode -> R.drawable.kb_pro_setbtn
+                        isComfortMode -> R.drawable.kb_esy_setbtn
+                        else -> R.drawable.kb_car_setbtn
+                    },
+                    bodyWidth = 38.dp,
+                    aspect = 1.000f,
+                    contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
                     onClick = { showSettingsDialog = true },
-                    modifier = Modifier.size(36.dp).testTag("block_blast_settings_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
-                        tint = palette.textPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    modifier = Modifier.testTag("block_blast_settings_button")
+                )
             }
 
             // Faz 112: HUD 2×3 Grid Redesign

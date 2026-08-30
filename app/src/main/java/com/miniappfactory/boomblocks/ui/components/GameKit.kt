@@ -24,6 +24,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -572,3 +576,55 @@ fun GameScreenHeader(
         }
     }
 }
+
+/**
+ * FAZ 186 — CHROME VARLIKLARI ICIN ORTAK CIZICI.
+ *
+ * Harita ekranlari (Faz 174) jeton/kupa/ayarlar/geri ogelerini RASTER
+ * varliklardan ciziyor; ana menu ve oyun ekrani ise ayni ogeleri Compose'da
+ * uretiyordu. Kullanici ikisinin AYNI olmasini istedi, o yuzden cizim tek
+ * yere alindi.
+ *
+ * Cagiran taraf GOVDE olcusunu verir; isima payi varliklarin normalize
+ * edilmis govde/bitmap oranindan (0.806, bkz.
+ * tools/wordart/normalize_chrome.py) eklenir. Boylece ayni `bodyWidth`
+ * degeri her ekranda AYNI fiziksel boyu ve ayni dokunma hedefini uretir.
+ */
+const val CHROME_BODY_RATIO = 0.806f
+
+@Composable
+fun ChromeAssetButton(
+    resId: Int,
+    bodyWidth: Dp,
+    aspect: Float,
+    contentDescription: String?,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit = {}
+) {
+    val w = bodyWidth / CHROME_BODY_RATIO
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .width(w)
+            .height(w * aspect)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        onClick = onClick
+                    )
+                } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(resId),
+            contentDescription = contentDescription,
+            modifier = Modifier.fillMaxSize()
+        )
+        content()
+    }
+}
+

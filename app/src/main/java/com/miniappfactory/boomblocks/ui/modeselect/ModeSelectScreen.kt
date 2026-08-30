@@ -65,7 +65,7 @@ import com.miniappfactory.boomblocks.ui.components.FitToHeight
 import com.miniappfactory.boomblocks.ui.components.GamePill
 import com.miniappfactory.boomblocks.ui.components.screenBodyTextColor
 import com.miniappfactory.boomblocks.ui.components.GoldPillAccent
-import com.miniappfactory.boomblocks.ui.components.GameImageIconButton
+import com.miniappfactory.boomblocks.ui.components.ChromeAssetButton
 import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
 import com.miniappfactory.boomblocks.ui.components.IconMedallion
 import com.miniappfactory.boomblocks.ui.components.NeonCard
@@ -684,44 +684,6 @@ private fun SubtitleSparkle(surfaces: GameSurfaces) {
  * isima payi buradan eklenir -- boylece dokunma hedegi ve gorsel boy
  * haritalardakiyle birebir ayni kaliyor.
  */
-private const val CHROME_BODY_RATIO = 0.806f
-
-@Composable
-private fun ChromeAssetButton(
-    resId: Int,
-    bodyWidth: Dp,
-    aspect: Float,
-    contentDescription: String?,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit = {}
-) {
-    val w = bodyWidth / CHROME_BODY_RATIO
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        modifier = modifier
-            .width(w)
-            .height(w * aspect)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interaction,
-                        indication = null,
-                        onClick = onClick
-                    )
-                } else Modifier
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(resId),
-            contentDescription = contentDescription,
-            modifier = Modifier.fillMaxSize()
-        )
-        content()
-    }
-}
-
 @Composable
 private fun ModeSelectHeaderActions(
     language: AppLanguage,
