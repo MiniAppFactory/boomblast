@@ -84,6 +84,9 @@ import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
 import com.miniappfactory.boomblocks.ui.components.IconMedallion
 import com.miniappfactory.boomblocks.ui.components.GameEmblemLine
 import com.miniappfactory.boomblocks.ui.components.accentEmblemColors
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 
 // ModeSelectScreen'deki Challenge kart aksanniyla (Color(0xFFFF6B35)) ayni —
 // Pro Mode'un her yerde tutarli bir "marka rengi" olmasi icin.
@@ -413,11 +416,13 @@ private fun CareerProgressCard(
     // LevelGenerator). Gercek bir toplam olmadigi icin "12/50" gibi bir kesir
     // uydurma olurdu -- Faz 115n'de tam da bu yuzden eski kesir kaldirilmisti.
     // Burada ayni tuzaga geri dusme.
-    val modeIcon = when {
-        isChallengeMode -> R.drawable.icon_pro
-        isComfortMode -> R.drawable.icon_comfort
-        else -> R.drawable.icon_career
-    }
+    // FAZ 171: kupa UC MODDA DA ayni. Kullanicinin gonderdigi varlik
+    // sayfasinda tek bir "ilerleme paneli" var ve icinde bu yildizli kupa
+    // duruyor -- panel "hangi mod" degil "ne kadar ilerledin" anlatiyor.
+    // Modu ayiran sey ETIKET ve VURGU RENGI.
+    //
+    // `kb_trophy` (menudeki kucuk mor) ve `kb_dlg_trophy` (kutlama kupasi,
+    // yildizsiz) ile karistirma; ucu ayri cizim.
     val modeLabel = when {
         isChallengeMode -> language.pick(
             tr = "PRO MOD İLERLEMESİ", en = "PRO MODE PROGRESS", it = "PROGRESSO PRO",
@@ -475,26 +480,31 @@ private fun CareerProgressCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Ciplak ikon yerine madalyon: menulerde mod ikonlari da boyle
             // duruyor, kart onlarla ayni aileden okunuyor.
-            IconMedallion(accent = accentColor, size = 46.dp) {
-                Image(
-                    painter = painterResource(modeIcon),
-                    contentDescription = null,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            Image(
+                painter = painterResource(R.drawable.kb_progress_trophy),
+                contentDescription = null,
+                modifier = Modifier.size(50.dp)
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
                     text = modeLabel,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    color = palette.textSecondary
+                    letterSpacing = 0.9.sp,
+                    // FAZ 171: etiket artik gri degil MODUN RENGINDE. Tasarimda
+                    // ust satir camgobegi; gri hali paneli "kapali/pasif"
+                    // gosteriyordu.
+                    color = lerp(accentColor, Color.White, 0.25f)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 // Seviye numarasi artik duz metin degil: ekran basliklariyla
                 // ayni amblem malzemesi (kontur + 3B govde + isima).
-                GameEmblemLine(
+                // FAZ 171: rakam BEYAZ. Once amblem malzemesiyle ve mod
+                // renginde denendi ama o zaman ust etiketle ayni tonda kaliyor
+                // ve panel tek renge dusuyordu; tasarimda kontrast tam olarak
+                // buradan geliyor -- ust satir modun rengi, alt satir beyaz.
+                Text(
                     text = language.pick(
                         tr = "SEVİYE $currentLevel",
                         en = "LEVEL $currentLevel",
@@ -502,14 +512,10 @@ private fun CareerProgressCard(
                         fr = "NIVEAU $currentLevel",
                         es = "NIVEL $currentLevel"
                     ),
-                    colors = accentEmblemColors(
-                        accentPrimary = lerp(accentColor, Color.White, 0.18f),
-                        accentSecondary = accentColor,
-                        isLightSurface = surfaces.isLightSurface
-                    ),
-                    fontSize = 19.sp,
-                    textAlign = TextAlign.Start,
-                    tightLines = true
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.5.sp,
+                    color = Color.White
                 )
             }
         }
@@ -595,18 +601,21 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGlowRoute(
     // NOT: denetimdeki "yol dugumleri yutuyor" iddiasi DOGRULANMADI ve burada
     // iddia edilmiyor — dugum yolun ustunde, opak ve 60dp.
     val pathScale = density / 3f
-    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 26f * pathScale, cap = StrokeCap.Round)
-    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 13f * pathScale, cap = StrokeCap.Round)
-    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f * pathScale, cap = StrokeCap.Round)
-    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f * pathScale, cap = StrokeCap.Round)
+    // FAZ 171: tasarimdaki yol belirgin bir "isikli kurdele"; eldeki hali
+    // ona gore inceydi. Katman sayisi ayni, kalinliklar ~%20 arttirildi ve en
+    // ictekiler beyaza cekildi -- tasarimdaki beyaz ic hat bundan cikiyor.
+    val outerGlow = androidx.compose.ui.graphics.drawscope.Stroke(width = 32f * pathScale, cap = StrokeCap.Round)
+    val darkBase = androidx.compose.ui.graphics.drawscope.Stroke(width = 16f * pathScale, cap = StrokeCap.Round)
+    val brightCore = androidx.compose.ui.graphics.drawscope.Stroke(width = 8f * pathScale, cap = StrokeCap.Round)
+    val gloss = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f * pathScale, cap = StrokeCap.Round)
     // 1) dis isima — genis, dusuk alfa
-    drawPath(curve, color = color.copy(alpha = 0.22f), style = outerGlow)
+    drawPath(curve, color = color.copy(alpha = 0.30f), style = outerGlow)
     // 2) koyu taban — yolun "govdesi"
     drawPath(curve, color = lerp(color, Color.Black, 0.45f).copy(alpha = 0.85f), style = darkBase)
     // 3) parlak ic hat
     drawPath(curve, color = color.copy(alpha = 0.95f), style = brightCore)
     // 4) ince parlaklik — yolun ustunde cam hissi
-    drawPath(curve, color = lerp(color, Color.White, 0.6f).copy(alpha = 0.5f), style = gloss)
+    drawPath(curve, color = Color.White.copy(alpha = 0.85f), style = gloss)
 }
 
 // Faz 42: baglanti cizgisi iki parcaya bolunuyor. Faz 115u'ya kadar bolunme
@@ -653,7 +662,16 @@ private fun LevelPathNode(
         unlocked -> accentColor
         else -> LockedRouteColor
     }
-    val routeColor = nodeAccent
+    // FAZ 171: yol artik DUGUMUN degil MODUN renginde.
+    //
+    // `nodeAccent` kullanildiginda yol dugum dugum renk degistiriyordu:
+    // tamamlanan yerlerde altin, kilitli yerlerde MOR. Kullanicinin
+    // gonderdigi tasarimda ise yol bastan sona TEK bir camgobegi kurdele --
+    // "gidilecek rota" o, kilit durumu dugumun isi.
+    //
+    // Dugumler uc durumlu renklendirmesini KORUYOR (altin/aksan/mor); degisen
+    // yalnizca aralarindaki cizgi.
+    val routeColor = accentColor
     val borderBrush = Brush.verticalGradient(
         listOf(lerp(nodeAccent, Color.White, 0.35f), nodeAccent, nodeAccent.copy(alpha = 0.55f))
     )
@@ -823,27 +841,62 @@ private fun LevelPathNode(
             // Faz 115m: "HEDEF: X + 1 satır" artik ciplak metin degil, kucuk
             // koyu-lacivert bir levha (mockup'taki "small target plaque"),
             // dugumun renginde ince bir kenarligi var.
+            // FAZ 171 — hedef hapi tasarimdaki haline cekildi.
+            //
+            // Renk DUGUMUN degil MODUN aksani: kilitli dugumlerin yaninda hap
+            // da moru aliyordu, oysa tasarimda butun haplar ayni camgobegi.
+            // Kilit durumunu DUGUM anlatiyor, hap sadece hedefi soyluyor.
+            //
+            // Onceki hali tek renkti ve etiketin tamami soluk beyazdi; bilgi
+            // hiyerarsisi yoktu. Tasarimda "HEDEF:" MODUN RENGINDE ve sonrasi
+            // BEYAZ: goz once neye baktigini, sonra kac oldugunu okuyor.
+            // Ayrica kose yaricapi ve kenarlik guclendi, altina hafif bir
+            // hale kondu -- hap artik zeminde "duran" bir nesne.
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F172A).copy(alpha = 0.85f))
-                    .border(1.dp, nodeAccent.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                    .gameOuterGlow(
+                        accent = accentColor,
+                        cornerRadius = 14.dp,
+                        intensity = 0.45f,
+                        layers = 2
+                    )
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF16213A).copy(alpha = 0.96f),
+                                Color(0xFF0B1220).copy(alpha = 0.96f)
+                            )
+                        )
+                    )
+                    .border(1.5.dp, accentColor.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 11.dp, vertical = 5.dp)
             ) {
+                // Faz 72: oynanis kurali "hedef puan + en az 1 satir/sutun
+                // patlatma" — etiket bu kurali acikca yansitiyor, aksi halde
+                // kullanici hedefi gecince neden bitmedigini anlamaz.
+                val prefix = language.pick(
+                    tr = "HEDEF:", en = "TARGET:", it = "OBIETTIVO:",
+                    fr = "OBJECTIF :", es = "OBJETIVO:"
+                )
+                val suffix = language.pick(
+                    tr = "$targetScore + 1 satır",
+                    en = "$targetScore + 1 row",
+                    it = "$targetScore + 1 riga",
+                    fr = "$targetScore + 1 ligne",
+                    es = "$targetScore + 1 fila"
+                )
                 Text(
-                    // Faz 72: oynanis kurali artik "hedef puan + en az 1 satir/sutun
-                    // patlatma" — etiket bu kurali acikca yansitiyor, aksi halde
-                    // kullanici hedefi gecince neden bitmedigini anlamaz.
-                    text = language.pick(
-                        tr = "HEDEF: $targetScore + 1 satır",
-                        en = "TARGET: $targetScore + 1 row",
-                        it = "OBIETTIVO: $targetScore + 1 riga",
-                        fr = "OBJECTIF : $targetScore + 1 ligne",
-                        es = "OBJETIVO: $targetScore + 1 fila"
-                    ),
-                    fontSize = 10.sp,
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = lerp(accentColor, Color.White, 0.2f))) {
+                            append(prefix)
+                        }
+                        append(" ")
+                        withStyle(SpanStyle(color = Color.White)) { append(suffix) }
+                    },
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1,
                     textAlign = TextAlign.Center
                 )
             }
