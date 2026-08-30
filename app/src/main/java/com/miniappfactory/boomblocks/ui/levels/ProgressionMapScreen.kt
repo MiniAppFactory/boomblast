@@ -217,16 +217,46 @@ private const val SEG_BOT_Y = 0.904f
 private const val LEVEL_SPACING = 285f
 
 /** Kavisin yatay genisligi = yolun salinim genligi. */
-// Yolun salinim genligi. Referansta yol x~330..640 arasinda saliniyor,
-// yani ~310; kavisin isima payi da iceride oldugu icin biraz genis tutuluyor.
-private const val SEG_W = 385f
+// FAZ 177 — SALINIM GENISLIGI OLCULDU.
+// Referanstaki yol ekranin ~%32'sini kapliyor. Ilk olcumum 604 (%64) cikmisti
+// ama o maske hedef HAPLARININ camgobegi kenarligini da yol sanmisti; kavis
+// o genislikte yatay bir supurme gibi duruyordu (yukseklik 351, genislik 604).
+// Referansta bir dugum araligi neredeyse KARE: dikey ~264, yatay ~300.
+private const val SEG_W = 330f
 
-/** Uclarin cakismasi icin gereken kavis yuksekligi. */
-private const val SEG_H = LEVEL_SPACING / (SEG_BOT_Y - SEG_TOP_Y)
+/**
+ * Kavisin DIKEY ORTA NOKTASINDA egrinin yatay konumu (bitmap orani).
+ *
+ * Olculdu: y = 0.50H iken egri x = 0.542. Dugumu kutu MERKEZINE koymak bu
+ * yuzden yanlisti -- dugum yolun uzerine degil KENARINA oturuyordu. Kutu artik
+ * dugume gore bu orandan konumlaniyor, yani yol dugumun TAM ALTINDAN geciyor.
+ */
+private const val SEG_MID_X = 0.542f
+
+/**
+ * Uclarin cakismasi icin gereken kavis yuksekligi -- ustune BINDIRME payi.
+ *
+ * Uclar tam cakissa bile birlesme noktasi GORUNUYOR, cunku kavisin uclari
+ * sivrilerek soluyor. %14 fazla yukseklik komsu segmentlerin uclarini
+ * ust uste bindiriyor ve yol kesintisiz tek bir serit gibi okunuyor.
+ */
+private const val SEG_OVERLAP = 1.14f
+private const val SEG_H = LEVEL_SPACING / (SEG_BOT_Y - SEG_TOP_Y) * SEG_OVERLAP
 
 /** Dugum sutunu merkezi ve uc hizasindan dogan kucuk yatay sapma. */
-private const val NODE_CENTER_X = 452f
-private const val NODE_SWING = (SEG_BOT_X - (1f - SEG_TOP_X)) * SEG_W / 2f
+private const val NODE_CENTER_X = 470f
+
+/**
+ * Ardisik dugumler arasi kucuk yatay kayma.
+ *
+ * Kutu artik orta noktaya gore konumlandigi icin zincir sartı degisti:
+ *   LtR alt ucu   = nodeX + (SEG_BOT_X - SEG_MID_X) * W
+ *   RtL ust ucu   = nodeX' + ((1 - SEG_TOP_X) - (1 - SEG_MID_X)) * W
+ * Esitlenince kayma = ((SEG_BOT_X - SEG_MID_X) - (SEG_MID_X - SEG_TOP_X)) * W.
+ * Isaret her satirda degistigi icin iki satirda bir sifirlaniyor.
+ */
+private const val NODE_SWING =
+    ((SEG_BOT_X - SEG_MID_X) - (SEG_MID_X - SEG_TOP_X)) * SEG_W / 2f
 
 
 /**
@@ -517,7 +547,12 @@ private fun LevelRow(
             contentScale = ContentScale.FillBounds,
             modifier = Modifier
                 .offset(
-                    x = px(nodeCx - SEG_W / 2f, scale),
+                    // Kutu, egrinin ORTA NOKTASI dugume denk gelecek sekilde
+                    // konumlaniyor; aynalanan yonde oran da aynalaniyor.
+                    x = px(
+                        nodeCx - (if (leftToRight) SEG_MID_X else 1f - SEG_MID_X) * SEG_W,
+                        scale
+                    ),
                     y = px(nodeCy - SEG_H / 2f, scale)
                 )
                 .width(px(SEG_W, scale))
