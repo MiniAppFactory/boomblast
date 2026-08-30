@@ -127,6 +127,8 @@ class ResultDialogRenderTest {
                         text = "REKLAM İZLE, DEVAM ET",
                         onClick = {},
                         colors = resultButtonColors(ResultPrimaryBlue, ResultOnPrimary),
+                        leadingPainter = painterResource(R.drawable.kb_btn_watchad),
+                        iconSize = 28.dp,
                         minHeight = 54.dp, horizontalPadding = 10.dp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -135,6 +137,8 @@ class ResultDialogRenderTest {
                         text = "YENİDEN BAŞLAT",
                         onClick = {},
                         colors = resultButtonColors(ResultSecondaryOrange, ResultOnSecondary),
+                        leadingPainter = painterResource(R.drawable.kb_btn_retry),
+                        iconSize = 28.dp,
                         fontSize = 14.sp, minHeight = 54.dp, horizontalPadding = 10.dp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -143,6 +147,8 @@ class ResultDialogRenderTest {
                         text = "HARİTAYA DÖN",
                         onClick = {},
                         colors = resultButtonColors(ResultTertiarySlate, Color.White),
+                        leadingPainter = painterResource(R.drawable.kb_btn_map),
+                        iconSize = 28.dp,
                         fontSize = 14.sp, minHeight = 54.dp, horizontalPadding = 10.dp,
                         modifier = Modifier.fillMaxWidth()
                     )

@@ -5642,16 +5642,31 @@ fun BlastTheBlocksGame(
                         ) {
                             if (isRequestingContinueAd) {
                                 androidx.compose.material3.CircularProgressIndicator(
-                                    color = Color.Black,
+                                    color = ResultOnPrimary,
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
+                                // Faz 169: bu butonun ETIKETI duruma gore degisiyor
+                                // (reklamli devam / duz tekrar dene), o yuzden IKONU da
+                                // onunla birlikte degismeli. Film seridi ikonu "reklam
+                                // izleyeceksin" sozu veriyor; hakki tukenmis ya da
+                                // cevrimdisi bir oyuncuya onu gostermek, Faz 166'da
+                                // etiket icin kapatilan yanlis vaadi ikon uzerinden
+                                // geri getirirdi.
+                                val plainRetry =
+                                    isEndless || !adsReachable || continuesUsedInAttempt >= maxRetryContinues
+                                Image(
+                                    painter = painterResource(
+                                        if (plainRetry) R.drawable.kb_btn_retry
+                                        else R.drawable.kb_btn_watchad
+                                    ),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
                                 AdButtonLabel(
-                                    // Faz 166: `!adsReachable` da buraya dusuyor — cevrimdisi
-                                    // oyuncuya izleyemeyecegi bir reklami vaat eden etiket
-                                    // gostermek, butonu hic sunmamaktan daha kotu.
-                                    if (isEndless || !adsReachable || continuesUsedInAttempt >= maxRetryContinues) {
+                                    if (plainRetry) {
                                         // Faz 97: Seviyeli/Pro Mode'da bu denemedeki 3 reklamli
                                         // devam hakki da tukendiyse, buton "TEKRAR DENE"ye
                                         // (zorunlu interstitial'a sarili, reklamsiz degil)
@@ -5686,6 +5701,8 @@ fun BlastTheBlocksGame(
                                 text = language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"),
                                 onClick = { onProModeRestart { resetGame() } },
                                 colors = resultButtonColors(ResultSecondaryOrange, ResultOnSecondary),
+                                leadingPainter = painterResource(R.drawable.kb_btn_retry),
+                                iconSize = 28.dp,
                                 fontSize = 14.sp,
                                 minHeight = 54.dp,
                                 horizontalPadding = 10.dp,
@@ -5699,6 +5716,8 @@ fun BlastTheBlocksGame(
                             text = language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"),
                             onClick = onBack,
                             colors = resultButtonColors(ResultTertiarySlate, Color.White),
+                            leadingPainter = painterResource(R.drawable.kb_btn_map),
+                            iconSize = 28.dp,
                             fontSize = 14.sp,
                             minHeight = 54.dp,
                             horizontalPadding = 10.dp,

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -682,6 +683,17 @@ fun GameButton(
     enabled: Boolean = true,
     fontSize: TextUnit = 16.sp,
     leadingIcon: ImageVector? = null,
+    // FAZ 169: varlik tabanli sol ikon.
+    //
+    // `leadingIcon` bir `ImageVector` ve `tint` ile TEK RENGE boyaniyor.
+    // Sonuc diyaloglarindaki ikonlar (film seridi, donen ok, harita) ise
+    // cok renkli cizimler -- tek renge boyanirlarsa siluete dusup taninmaz
+    // hale gelirler. Bu yuzden ayri bir yol: boyanmadan, oldugu gibi cizilir.
+    //
+    // Ayni ilke Faz 163'te de konulmustu: oyunda bir VARLIK kullaniliyorsa
+    // menude onun yerine Material vektoru koyma.
+    leadingPainter: Painter? = null,
+    iconSize: Dp = 20.dp,
     depth: Dp = 5.dp,
     cornerRadius: Dp = 16.dp,
     minHeight: Dp = 52.dp,
@@ -698,12 +710,19 @@ fun GameButton(
         minHeight = minHeight,
         horizontalPadding = horizontalPadding
     ) {
-        if (leadingIcon != null) {
+        if (leadingPainter != null) {
+            Image(
+                painter = leadingPainter,
+                contentDescription = null,
+                modifier = Modifier.size(iconSize)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        } else if (leadingIcon != null) {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
                 tint = colors.content,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(iconSize)
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
