@@ -1,6 +1,10 @@
 package com.miniappfactory.boomblocks.ui.modeselect
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -658,6 +662,66 @@ private fun SubtitleSparkle(surfaces: GameSurfaces) {
     )
 }
 
+
+/**
+ * FAZ 186 — ANA MENU CHROME'U HARITALARLA AYNI VARLIKLARI KULLANIYOR.
+ *
+ * Kullanici: "main menudeki kupa, coin, ayarlar ikonu modlarin icindeki ile
+ * ayni olsun."
+ *
+ * Ana menude jeton kapsulu `GamePill`, iki tus da `GameImageIconButton`
+ * ile COMPOSE'DA CIZILIYORDU (koyu gövde + accent kenarlik) ve icine yalnizca
+ * kucuk bir ikon (`kb_coin`, `kb_trophy`, `kb_settings`) konuyordu. Harita
+ * ekranlari ise Faz 174'te tamamen RASTER varliklara gecmisti
+ * (`kb_*_coin`, `kb_*_trophybtn`, `kb_*_setbtn`) -- yani ayni uc oge iki
+ * ekranda iki farkli malzemeyle ciziliyordu.
+ *
+ * Ana menu moda bagli olmadigi icin Kariyer (camgobegi) seti kullaniliyor;
+ * menunun kendi lacivert zeminiyle ayni ailede.
+ *
+ * Olcu: varliklarin govde/bitmap orani 0.806 (bkz.
+ * tools/wordart/normalize_chrome.py). Cagiran taraf GOVDE olcusunu verir,
+ * isima payi buradan eklenir -- boylece dokunma hedegi ve gorsel boy
+ * haritalardakiyle birebir ayni kaliyor.
+ */
+private const val CHROME_BODY_RATIO = 0.806f
+
+@Composable
+private fun ChromeAssetButton(
+    resId: Int,
+    bodyWidth: Dp,
+    aspect: Float,
+    contentDescription: String?,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit = {}
+) {
+    val w = bodyWidth / CHROME_BODY_RATIO
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .width(w)
+            .height(w * aspect)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        onClick = onClick
+                    )
+                } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(resId),
+            contentDescription = contentDescription,
+            modifier = Modifier.fillMaxSize()
+        )
+        content()
+    }
+}
+
 @Composable
 private fun ModeSelectHeaderActions(
     language: AppLanguage,
@@ -676,12 +740,22 @@ private fun ModeSelectHeaderActions(
     ) {
         // Jeton kapsulu ayni zamanda bir BUTON (Faz 145: odullu reklam).
         // Yukleme sirasinda spinner gosteriyor, tekrar basilamiyor.
-        GamePill(
-            surfaces = surfaces,
-            accent = GoldPillAccent,
+        ChromeAssetButton(
+            resId = R.drawable.kb_car_coin,
+            bodyWidth = 66.dp,
+            aspect = 0.510f,
+            contentDescription = null,
             onClick = if (isWatchAdLoading) null else onTokenPillClick,
-            modifier = Modifier.testTag("mode_select_token_pill"),
-            leading = {
+            modifier = Modifier.testTag("mode_select_token_pill")
+        ) {
+            // Sayi, kapsulun BOS ALANINA oturuyor: madeni para cizimin
+            // solunda, govdenin ilk %42'sinde. Bos alanin merkezi bitmap
+            // merkezinden +0.195 x govde kadar sagda (haritadaki olcumun
+            // aynisi, bkz. ProgressionMapScreen.Ref.COIN_TEXT_X).
+            Box(
+                modifier = Modifier.offset(x = 66.dp * 0.195f),
+                contentAlignment = Alignment.Center
+            ) {
                 if (isWatchAdLoading) {
                     // Faz 43 dersi: reklam yuklemesi 3-8 sn surebiliyor,
                     // sessiz bekleme "buton bozuk" hissi veriyor.
@@ -691,45 +765,32 @@ private fun ModeSelectHeaderActions(
                         modifier = Modifier.size(14.dp)
                     )
                 } else {
-                    Image(
-                        painter = painterResource(R.drawable.kb_coin),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = "$tokens",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        maxLines = 1
                     )
                 }
             }
-        ) {
-            Text(
-                text = "$tokens",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = if (surfaces.isLightSurface) {
-                    lerp(GoldPillAccent, Color.Black, 0.45f)
-                } else {
-                    GoldPillAccent
-                },
-                maxLines = 1
-            )
         }
 
-        // Faz 161: Material vektor yerine hazir varliklar. Tus GOVDESI ayni
-        // kaldi (koyu kare + accent kenarlik) — degisen sadece icerik.
-        GameImageIconButton(
-            iconRes = R.drawable.kb_trophy,
+        ChromeAssetButton(
+            resId = R.drawable.kb_car_trophybtn,
+            bodyWidth = 40.dp,
+            aspect = 0.970f,
             contentDescription = language.pick(tr = "Görevler", en = "Missions", it = "Missioni", fr = "Missions", es = "Misiones"),
             onClick = onOpenMissions,
-            surfaces = surfaces,
-            accent = NeonPurple,
-            size = 40.dp,
             modifier = Modifier.testTag("mode_select_missions_button")
         )
 
-        GameImageIconButton(
-            iconRes = R.drawable.kb_settings,
+        ChromeAssetButton(
+            resId = R.drawable.kb_car_setbtn,
+            bodyWidth = 40.dp,
+            aspect = 1.000f,
             contentDescription = language.pick(tr = "Ayarlar", en = "Settings", it = "Impostazioni", fr = "Paramètres", es = "Ajustes"),
             onClick = onOpenSettings,
-            surfaces = surfaces,
-            size = 40.dp,
             modifier = Modifier.testTag("mode_select_settings_button")
         )
     }

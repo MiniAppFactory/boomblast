@@ -64,6 +64,11 @@ import com.miniappfactory.boomblocks.data.label
 import com.miniappfactory.boomblocks.data.pick
 import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
+import com.miniappfactory.boomblocks.ui.components.GameButton
+import com.miniappfactory.boomblocks.ui.components.GameSelectableRow
+import com.miniappfactory.boomblocks.ui.components.resultButtonColors
+import com.miniappfactory.boomblocks.ui.theme.GameSurfaces
+import com.miniappfactory.boomblocks.ui.theme.rememberGameSurfaces
 import com.miniappfactory.boomblocks.ui.theme.BlastPalette
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
@@ -160,6 +165,9 @@ fun OnboardingScreen(
     onFinish: () -> Unit
 ) {
     val palette = blastPalette(skin, darkMode)
+    // FAZ 185: bu ekran oyunun malzeme kitini (GameButton/GameSelectableRow)
+    // kullanabilsin diye yuzeyler burada uretiliyor.
+    val surfaces = rememberGameSurfaces(skin, darkMode)
     var currentStep by remember { mutableIntStateOf(0) }
     // Faz 37: kullanici "ilk onboarding sayfasında dil de seçtirelim" dedi —
     // cihaz dili GameStateRepository'de otomatik algilanip varsayilan
@@ -269,6 +277,7 @@ fun OnboardingScreen(
                     LanguagePickerStep(
                         language = language,
                         palette = palette,
+                        surfaces = surfaces,
                         onSelectLanguage = onSelectLanguage,
                         onConfirm = { languageConfirmed = true }
                     )
@@ -405,7 +414,10 @@ fun OnboardingScreen(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .background(
-                                        color = if (index == currentStep) NeonCyan else palette.cardAlt,
+                                        // FAZ 185: pasif nokta `cardAlt` idi ve
+                                        // zeminden neredeyse ayirt edilmiyordu.
+                                        color = if (index == currentStep) NeonCyan
+                                                else NeonCyan.copy(alpha = 0.30f),
                                         shape = CircleShape
                                     )
                                     .testTag("onboarding_step_dot_$index")
@@ -416,7 +428,11 @@ fun OnboardingScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     if (currentStep < onboardingSteps.lastIndex) {
-                        Button(
+                        // FAZ 185: elle kurulan gradyan + duz `Button` yerine
+                        // oyunun `GameButton`i -- kabartma, kontur, dis isima
+                        // ve basma cokmesi menulerle AYNI receteden geliyor.
+                        GameButton(
+                            text = language.pick(tr = "İLERİ", en = "NEXT", it = "AVANTI", fr = "SUIVANT", es = "SIGUIENTE"),
                             // 🔴 Faz 165: sinirsiz artirma COKME uretiyordu.
                             // Butonun GORUNURLUGU kompozisyon zamaninda karar
                             // veriliyor (yukarida `currentStep < lastIndex`), ama
@@ -431,57 +447,24 @@ fun OnboardingScreen(
                             // Her YENI KURULUM bu ekrandan geciyor, yani en pahali
                             // yerdeki cokme.
                             onClick = { currentStep = (currentStep + 1).coerceAtMost(onboardingSteps.lastIndex) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                            shape = RoundedCornerShape(12.dp),
+                            colors = resultButtonColors(NeonCyan, Color(0xFF04222B)),
+                            fontSize = 17.sp,
+                            minHeight = 54.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            lerp(NeonCyan, Color.White, 0.30f),
-                                            NeonCyan,
-                                            lerp(NeonCyan, Color.Black, 0.25f)
-                                        )
-                                    ),
-                                    RoundedCornerShape(12.dp)
-                                )
                                 .testTag("onboarding_next_button")
-                        ) {
-                            Text(
-                                text = language.pick(tr = "İLERİ", en = "NEXT", it = "AVANTI", fr = "SUIVANT", es = "SIGUIENTE"),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        }
+                        )
                     } else {
-                        Button(
+                        GameButton(
+                            text = language.pick(tr = "BAŞLA", en = "START", it = "INIZIA", fr = "COMMENCER", es = "EMPEZAR"),
                             onClick = onFinish,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                            shape = RoundedCornerShape(12.dp),
+                            colors = resultButtonColors(NeonGold, Color(0xFF3B2400)),
+                            fontSize = 17.sp,
+                            minHeight = 54.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            lerp(NeonGold, Color.White, 0.30f),
-                                            NeonGold,
-                                            lerp(NeonGold, Color.Black, 0.25f)
-                                        )
-                                    ),
-                                    RoundedCornerShape(12.dp)
-                                )
                                 .testTag("onboarding_start_button")
-                        ) {
-                            Text(
-                                text = language.pick(tr = "BAŞLA", en = "START", it = "INIZIA", fr = "COMMENCER", es = "EMPEZAR"),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        }
+                        )
                     }
                   }
                 }
@@ -501,6 +484,7 @@ fun OnboardingScreen(
 private fun LanguagePickerStep(
     language: AppLanguage,
     palette: BlastPalette,
+    surfaces: GameSurfaces,
     onSelectLanguage: (AppLanguage) -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -546,33 +530,44 @@ private fun LanguagePickerStep(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // FAZ 185 — kullanici: "landing pageler hala cok pastel tonlu."
+        //
+        // Bu satirlar duz `palette.cardAlt` (#3B4E70) dolgu + ince kenarlikti:
+        // gradyan yok, kabartma yok, isima yok -- ekranin geri kalanindan
+        // (mod kartlari, sonuc diyaloglari) tamamen kopuk, soluk levhalar.
+        // Oyunun kendi `GameSelectableRow`u zaten tam bu isi yapiyordu ve bu
+        // ekran onu hic kullanmamisti: gradyan govde, secilide aksan konturu
+        // ve onay ikonu (renk korlugunde de okunan ikinci kanal).
         AppLanguage.entries.forEach { lang ->
             val selected = lang == language
-            Row(
+            GameSelectableRow(
+                selected = selected,
+                onClick = {
+                    onSelectLanguage(lang)
+                    onConfirm()
+                },
+                surfaces = surfaces,
+                accent = NeonCyan,
+                leading = { Text(text = lang.flag(), fontSize = 22.sp) },
+                // Secili satir zeminden ISIYARAK ayrilsin: `GameSelectableRow`
+                // kendi basina yalnizca kontur + onay ikonu veriyor, o da bu
+                // koyu kartta soluk kaliyordu.
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (selected) NeonCyan.copy(alpha = 0.18f) else palette.cardAlt)
-                    .border(
-                        width = if (selected) 2.dp else 1.dp,
-                        color = if (selected) NeonCyan else palette.cardBorder,
-                        shape = RoundedCornerShape(10.dp)
+                    .then(
+                        if (selected) Modifier.gameOuterGlow(
+                            accent = NeonCyan,
+                            cornerRadius = 14.dp,
+                            intensity = 0.8f,
+                            layers = 2
+                        ) else Modifier
                     )
-                    .clickable {
-                        onSelectLanguage(lang)
-                        onConfirm()
-                    }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .testTag("onboarding_lang_${lang.code}"),
-                verticalAlignment = Alignment.CenterVertically
+                    .testTag("onboarding_lang_${lang.code}")
             ) {
-                Text(text = lang.flag(), fontSize = 20.sp)
-                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = lang.label(),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (selected) NeonCyan else palette.textPrimary
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (selected) lerp(NeonCyan, Color.White, 0.35f) else palette.textPrimary
                 )
             }
         }

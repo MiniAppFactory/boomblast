@@ -43,8 +43,10 @@ import com.miniappfactory.boomblocks.R
 import com.miniappfactory.boomblocks.data.AppLanguage
 import com.miniappfactory.boomblocks.data.PlayerProgress
 import com.miniappfactory.boomblocks.data.pick
+import com.miniappfactory.boomblocks.ui.components.AutoFitLabel
 import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
+import kotlin.math.roundToInt
 
 /**
  * FAZ 174 — ILERLEME HARITASI, TAMAMEN VERILEN GORSELLERLE.
@@ -114,7 +116,20 @@ private fun px(v: Float, scale: Float): Dp = (v * scale).dp
  */
 data class MapTheme(
     val back: Int,
+    /**
+     * Mod basligi TURKCE surumu.
+     *
+     * FAZ 184 — kullanici: "basliklar dil degisince degismiyor, turkce
+     * kaliyor." Haritadaki her metin `language.pick`ten geciyordu ama BASLIK
+     * bir RASTER varlikti ve yazi varligin icine gomuluydu. Diger dillerin
+     * surumleri `tools/wordart/make_word.py` ile, ayni stille uretildi;
+     * Turkce varliklar degistirilmedi.
+     */
     val word: Int,
+    val wordEn: Int,
+    val wordIt: Int,
+    val wordFr: Int,
+    val wordEs: Int,
     val coin: Int,
     val trophyBtn: Int,
     val settingsBtn: Int,
@@ -137,9 +152,22 @@ data class MapTheme(
     val label: Color,
 )
 
+/** Basligin, secili dildeki varligi. */
+fun MapTheme.wordFor(language: AppLanguage): Int = when (language) {
+    AppLanguage.TR -> word
+    AppLanguage.EN -> wordEn
+    AppLanguage.IT -> wordIt
+    AppLanguage.FR -> wordFr
+    AppLanguage.ES -> wordEs
+}
+
 val CareerMapTheme = MapTheme(
     back = R.drawable.kb_car_back,
     word = R.drawable.kb_car_word,
+    wordEn = R.drawable.kb_car_word_en,
+    wordIt = R.drawable.kb_car_word_it,
+    wordFr = R.drawable.kb_car_word_fr,
+    wordEs = R.drawable.kb_car_word_es,
     coin = R.drawable.kb_car_coin,
     trophyBtn = R.drawable.kb_car_trophybtn,
     settingsBtn = R.drawable.kb_car_setbtn,
@@ -172,6 +200,10 @@ val CareerMapTheme = MapTheme(
 val EasyMapTheme = MapTheme(
     back = R.drawable.kb_esy_back,
     word = R.drawable.kb_esy_word,
+    wordEn = R.drawable.kb_esy_word_en,
+    wordIt = R.drawable.kb_esy_word_it,
+    wordFr = R.drawable.kb_esy_word_fr,
+    wordEs = R.drawable.kb_esy_word_es,
     coin = R.drawable.kb_esy_coin,
     trophyBtn = R.drawable.kb_esy_trophybtn,
     settingsBtn = R.drawable.kb_esy_setbtn,
@@ -193,6 +225,10 @@ val EasyMapTheme = MapTheme(
 val ProMapTheme = MapTheme(
     back = R.drawable.kb_pro_back,
     word = R.drawable.kb_pro_word,
+    wordEn = R.drawable.kb_pro_word_en,
+    wordIt = R.drawable.kb_pro_word_it,
+    wordFr = R.drawable.kb_pro_word_fr,
+    wordEs = R.drawable.kb_pro_word_es,
     coin = R.drawable.kb_pro_coin,
     trophyBtn = R.drawable.kb_pro_trophybtn,
     settingsBtn = R.drawable.kb_pro_setbtn,
@@ -305,11 +341,49 @@ private const val NODE_SWING =
  * disina kaciyordu.
  */
 private object Ref {
-    val BACK = floatArrayOf(85f, 118f, 122f * CHROME_SCALE, 0.69f, 0.900f)
-    val WORD = floatArrayOf(327f, 111f, 326f * CHROME_SCALE, 0.85f, 0.402f)
-    val COIN = floatArrayOf(612f, 121f, 162f * CHROME_SCALE, 0.95f, 0.584f)
-    val TROPHY_BTN = floatArrayOf(752f, 119f, 104f * CHROME_SCALE, 0.82f, 1.048f)
-    val SET_BTN = floatArrayOf(858f, 119f, 98f * CHROME_SCALE, 0.94f, 0.681f)
+    // Geri butonu da ayni dilimleme hatasindan payini almisti: bitmap'inin
+    // sag ucunda komsu butondan bir DILIM vardi ve ekranda kelime sanatinin
+    // arkasinda soluk bir dikey cizgi olarak goruluyordu. Varlik normalize
+    // edildi; govde genisligi (129) ve sol payi (20) KORUNDU, degisen sadece
+    // govde/bitmap ve en-boy orani.
+    val BACK = floatArrayOf(85f, 119f, 122f * CHROME_SCALE, 0.806f, 1.000f)
+    // Kullanici iki kez "kolay mod yazisini asagi cek" dedi. Merkez 111 -> 128.
+    // Varlik icindeki kelime blogu bitmap yuksekliginin %52'sinde durdugu icin
+    // blogun ekrandaki merkezi 115 -> 132'ye cikiyor; yazi artik dugme
+    // sirasinin (119) belirgin sekilde ALTINDA oturuyor.
+    val WORD = floatArrayOf(327f, 128f, 326f * CHROME_SCALE, 0.85f, 0.402f)
+    // FAZ 183 — SAG GRUP OLCULEREK YENIDEN HIZALANDI.
+    //
+    // Kullanici: "sagdaki gostergeler olmamis." Uc ayri kok neden vardi ve
+    // ucu de VARLIK DILIMLEME hatasiydi (bkz. tools/wordart/normalize_chrome.py):
+    //   1. `setbtn` bitmap'i IKI buton iceriyordu; ikincisi ekranin sag
+    //      kenarinda "yarim kalmis kutu" olarak goruluyordu.
+    //   2. Govdeler bitmap icinde ORTALI DEGILDI; `AssetImage` bitmap'i Ref
+    //      merkezine oturttugu icin dugmeler kayiyordu (kupa ile disli arasi
+    //      dengesiz bosluk).
+    //   3. Govde/bitmap ve en-boy oranlari uc temada FARKLIYDI, oysa Ref her
+    //      tema icin TEK oran kullaniyor -- en az iki temada olcu yanlisti.
+    //
+    // Varliklar normalize edildi (govde ortali, oran 0.806, tip basina tek
+    // en-boy). Konumlar da yeniden hesaplandi: grup, geri butonunun SOL
+    // payiyla (20) simetrik olacak sekilde SAGA yaslandi ve dugmeler esit
+    // boya (106) + esit araliga (14) cekildi.
+    //   disli : 815..921   kupa : 695..801   jeton : 509..681
+    val COIN = floatArrayOf(595f, 119f, 162f * CHROME_SCALE, 0.806f, 0.510f)
+    val TROPHY_BTN = floatArrayOf(748f, 119f, 100f * CHROME_SCALE, 0.806f, 0.970f)
+    val SET_BTN = floatArrayOf(868f, 119f, 100f * CHROME_SCALE, 0.806f, 1.000f)
+
+    /**
+     * Jeton sayisinin oturdugu BOS ALAN (hapin icinde, madeni paranin sagi).
+     *
+     * Once sabit bir kaydirmayla (`COIN[0] + 14`) yaziliyordu; sayi hapin
+     * icinde ortalanmiyor, sag kenarina dayaniyordu ve dort haneli bir
+     * degerde tasacakti. Alan olculdu: madeni para govdenin ilk %42'sini
+     * kapliyor, geri kalani bos.
+     */
+    const val COIN_TEXT_X = 584f
+    const val COIN_TEXT_W = 88f
+    const val COIN_TEXT_H = 60f
     val PANEL = floatArrayOf(467f, 329f, 811f, 0.94f, 0.739f)
     val TROPHY_BIG = floatArrayOf(162f, 338f, 118f * CHROME_SCALE, 0.89f, 0.943f)
 
@@ -318,8 +392,19 @@ private object Ref {
     const val NODE_OPEN_RATIO = 0.84f
     const val NODE_LOCK_RATIO = 0.79f
 
-    const val PILL_BODY = 300f * MAP_SCALE
-    const val PILL_RATIO = 0.95f
+    // FAZ 183b: 300 -> 277. Kuyruk geri gelince hap GENISLEDI ve iki yandan da
+    // ekran kenarina dayaniyordu (olculdu: sol kenar 7px, sag kenar 10px).
+    // 277 ile iki tarafta da ~40px pay kaliyor.
+    const val PILL_BODY = 277f * MAP_SCALE
+
+    // FAZ 183b: 0.95 -> 0.806. Iki hap varligi da normalize edildi (govde
+    // ortali, ayni pay). Onceden SAG haplar kuyruksuz `pill_l`i kullaniyordu
+    // ve govde/bitmap orani 0.833'tu; yani sag ve sol haplar AYNI `PILL_BODY`
+    // degerine ragmen FARKLI boyda ciziliyordu.
+    const val PILL_RATIO = 0.806f
+
+    /** Normalize edilmis hap bitmap'inin en-boy orani (iki taraf icin ayni). */
+    const val PILL_ASPECT = 0.55f
 
     /** Harita, panelin altindan basliyor. */
     const val MAP_TOP = 470
@@ -388,7 +473,13 @@ fun ProgressionMapScreen(
                 .height(px(228f, scale))
         )
         AssetImage(theme.trophy, Ref.TROPHY_BIG, scale)
-        Column(modifier = Modifier.offset(x = px(238f, scale), y = px(288f, scale))) {
+        // FAZ 183c — kullanici: "bilgi alanindaki yazi cok asagi yapismis, olc."
+        // OLCULDU (cihaz ekran goruntusu, 1080x2220): panelin gorunur kutusu
+        // y=361..551 (yukseklik 190), yazi blogu y=429..531 -- ust bosluk 68,
+        // alt bosluk 20. Ortalamak icin blok 24 cihaz pikseli yukari alinmali;
+        // 1 referans birimi = ekranGenisligi/941 = 1.148 px oldugundan bu 21
+        // referans birimi eder: 288 -> 267.
+        Column(modifier = Modifier.offset(x = px(238f, scale), y = px(267f, scale))) {
             Text(
                 text = modeLabel,
                 color = theme.label,
@@ -410,19 +501,30 @@ fun ProgressionMapScreen(
 
         // 7) Fixed header. Existing handlers are reused.
         AssetImage(theme.back, Ref.BACK, scale, onBack)
-        AssetImage(theme.word, Ref.WORD, scale)
+        AssetImage(theme.wordFor(language), Ref.WORD, scale)
         Box {
             AssetImage(theme.coin, Ref.COIN, scale)
-            Text(
-                text = "${progress.tokens}",
-                color = Color.White,
-                fontSize = (34 * scale).sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.offset(
-                    x = px(Ref.COIN[0] + 14f, scale),
-                    y = px(Ref.COIN[1] - 22f, scale)
+            // Sayi artik sabit kaydirmayla degil, hapin BOS ALANINA ortalanarak
+            // yaziliyor; `AutoFitLabel` sigmayan uzun degerleri (10000+)
+            // olcerek kuculttugu icin tasma da kapaniyor.
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = px(Ref.COIN_TEXT_X, scale),
+                        y = px(Ref.COIN[1] - Ref.COIN_TEXT_H / 2f, scale)
+                    )
+                    .width(px(Ref.COIN_TEXT_W, scale))
+                    .height(px(Ref.COIN_TEXT_H, scale)),
+                contentAlignment = Alignment.Center
+            ) {
+                AutoFitLabel(
+                    text = "${progress.tokens}",
+                    color = Color.White,
+                    maxSizeSp = 34f * scale,
+                    minSizeSp = 15f * scale,
+                    maxLines = 1
                 )
-            )
+            }
         }
         AssetImage(theme.trophyBtn, Ref.TROPHY_BTN, scale, onOpenMissions)
         AssetImage(theme.settingsBtn, Ref.SET_BTN, scale, onOpenSettings)
@@ -623,11 +725,21 @@ private fun ProgressionNode(
             modifier = Modifier.fillMaxSize()
         )
         if (unlocked) {
+            // FAZ 183e — kullanici: "1 rakamini yuvarlak icinde ortala."
+            // Varligin govdesi bitmap'e ortalandiktan SONRA da kucuk bir
+            // kaciklik kaliyordu; olculdu (cihaz, Kolay mod): rakamin murekkep
+            // merkezi halkanin merkezinden 5px SOLDA ve 4px ASAGIDA. Kalan
+            // fark yazi tipinin satir kutusu metriginden geliyor (Text
+            // MURekkebi degil ILERLEMEYI ortaliyor), o yuzden duzeltme burada.
             Text(
                 text = "$level",
                 color = Color.White,
                 fontSize = (62 * scale).sp,
-                fontWeight = FontWeight.Black
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.offset(
+                    x = px(4.4f, scale),
+                    y = px(-3.2f, scale)
+                )
             )
         }
     }
@@ -646,6 +758,15 @@ private fun ProgressionNode(
  * 1-2-3-4 sirasi sol/sag/sol/sag olarak duzgun alterniyor ve haritanin ilk
  * ekraninda "farkli duran" bir oge kalmiyor.
  */
+/**
+ * Haplarin yola dogru iceri alinma miktari (referans birimi).
+ *
+ * 1 referans birimi = ekranGenisligi / 941; kullanicinin cihazinda
+ * 1080 / 941 = 1.148 cihaz pikseli. Kullanici "4px daha yanassin" dedi:
+ * 4 / 1.148 = 3.5 birim, yani 22 -> 25.5.
+ */
+private const val PILL_INSET = 25.5f
+
 @Composable
 private fun TargetPillContinuous(
     theme: MapTheme,
@@ -661,10 +782,19 @@ private fun TargetPillContinuous(
     val w = bitmapW(Ref.PILL_BODY, Ref.PILL_RATIO)
     // tail points LEFT when the pill is on the RIGHT, and vice versa.
     val res = if (labelOnRight) theme.pillTailLeft else theme.pillTailRight
-    val pillAspect = if (labelOnRight) 0.638f else 0.580f
-    val cx = if (labelOnRight) nodeCx + Ref.NODE_BODY / 2f + w / 2f - 10f
-             else nodeCx - Ref.NODE_BODY / 2f - w / 2f + 10f
-    val cy = nodeCy + 18f
+    // FAZ 183b: iki taraf ayni cizimin aynasi oldugu icin en-boy da ayni.
+    val pillAspect = Ref.PILL_ASPECT
+    // FAZ 183g — haplar yola YAKLASTIRILDI.
+    //
+    // Kullanici: "sag ve soldaki bilgi yazilari harita cizgisine biraz
+    // yaklasmali." Onceki tur 2 referans birimiydi (~2px) ve fark edilmiyordu.
+    // OLCULDU (cihaz, 1080 genislik): sag hapin kuyruk ucu ile dugum halkasi
+    // arasi 81px, ekran kenari payi 34px. 22 referans birimi (~25 cihaz
+    // pikseli) iceri alinca bosluk ~56px'e iniyor, kenar payi ~59px'e cikiyor
+    // -- hap yola yaklasiyor ama dugume degmiyor.
+    val cx = if (labelOnRight) nodeCx + Ref.NODE_BODY / 2f + w / 2f - 10f - PILL_INSET
+             else nodeCx - Ref.NODE_BODY / 2f - w / 2f + 10f + PILL_INSET
+    val cy = nodeCy + 18f + if (labelOnRight) 2f else 0f
 
     Box(
         modifier = Modifier
@@ -677,11 +807,21 @@ private fun TargetPillContinuous(
             contentDescription = null,
             modifier = Modifier.fillMaxWidth()
         )
+        // FAZ 183f — kullanici: "sag sol chrome assetlerin metinleri de
+        // ortalansin." Kutu bitmap'in TAMAMINI kapsiyor, bitmap ise
+        // dikdortgen + KUYRUK. Metin kutuya ortalaninca dikdortgenin degil
+        // "dikdortgen+kuyruk"un merkezine oturuyor, yani kuyrugun ters
+        // yonune kayiyor. Olculdu (uc tema): dikdortgenin merkezi bitmap
+        // merkezinden 0.039 x genislik kadar kuyruk YONUNUN TERSINDE.
+        val textShift = w * 0.039f * (if (labelOnRight) 1f else -1f)
         // FAZ 181: punto 25 -> 23 (kullanici: "hedeflerin yazilari 2px
         // azalsin"). Referans birimi oldugu icin ekranda ~2px'e denk geliyor.
         // Satir yuksekligi puntonun ~1.05'i: iki satir hapin govdesinde
         // kaliyor, varsayilan (~1.4x) bosluk hapin disina tasiyordu.
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.offset(x = px(textShift, scale))
+        ) {
             Text(
                 text = topText,
                 color = Color.White,
@@ -705,6 +845,21 @@ private fun TargetPillContinuous(
 /**
  * 9-slice raster blit for the empty progression panel. Corners stay native;
  * only edges/center stretch. No vector redraw is introduced.
+ *
+ * FAZ 183c — DIKISLER KAPATILDI.
+ *
+ * Kullanici: "bilgi kutusunun zemini kirli." Nokta deseni varliktan silindikten
+ * SONRA bile panelde ince dikey/yatay CIZGILER kaliyordu (cihaz ekran
+ * goruntusunde olculdu: panelin sag tarafinda iki dikey, ortasinda bir yatay).
+ *
+ * Kok neden bu fonksiyondaydi, varlikta degil: dokuz parcanin hedef konumu ve
+ * boyu AYRI AYRI `toInt()` ile KIRPILIYORDU. Kirpma yon degistirdiginde iki
+ * komsu parca arasinda 1 piksellik bosluk (ya da bindirme) olusuyor; duz bir
+ * zemin uzerinde bu, gorunur bir cizgi demek.
+ *
+ * Duzeltme: parcalarin hedef SINIRLARI once tek tek yuvarlanip ORTAK sinir
+ * dizisine yaziliyor, genislikler o sinirlardan cikariliyor. Boylece komsu
+ * parcalar tanim geregi ayni pikselde bitip basliyor -- bosluk imkansiz.
  */
 @Composable
 private fun NinePatchImage(
@@ -719,33 +874,42 @@ private fun NinePatchImage(
         val cx = (iw * capFrac).toInt().coerceAtLeast(1)
         val cy = (ih * capFrac).toInt().coerceAtLeast(1)
         val k = size.height / ih
-        val dx = (cx * k)
-        val dy = (cy * k)
-        val midW = (size.width - 2 * dx).coerceAtLeast(1f)
-        val midH = (size.height - 2 * dy).coerceAtLeast(1f)
+        val dx = cx * k
+        val dy = cy * k
 
-        fun part(sx: Int, sy: Int, sw: Int, sh: Int, ox: Float, oy: Float, ow: Float, oh: Float) {
-            if (sw <= 0 || sh <= 0 || ow <= 0f || oh <= 0f) return
-            drawImage(
-                image = img,
-                srcOffset = IntOffset(sx, sy),
-                srcSize = IntSize(sw, sh),
-                dstOffset = IntOffset(ox.toInt(), oy.toInt()),
-                dstSize = IntSize(ow.toInt(), oh.toInt())
-            )
+        // ORTAK sinirlar: her parca bu dizideki iki komsu degerin arasini
+        // doldurur, yani aralarinda bosluk kalamaz.
+        val xs = intArrayOf(
+            0,
+            dx.roundToInt().coerceIn(0, size.width.toInt()),
+            (size.width - dx).roundToInt().coerceIn(0, size.width.toInt()),
+            size.width.roundToInt()
+        )
+        val ys = intArrayOf(
+            0,
+            dy.roundToInt().coerceIn(0, size.height.toInt()),
+            (size.height - dy).roundToInt().coerceIn(0, size.height.toInt()),
+            size.height.roundToInt()
+        )
+        val sxs = intArrayOf(0, cx, iw - cx, iw)
+        val sys = intArrayOf(0, cy, ih - cy, ih)
+
+        for (r in 0..2) {
+            for (c in 0..2) {
+                val sw = sxs[c + 1] - sxs[c]
+                val sh = sys[r + 1] - sys[r]
+                val ow = xs[c + 1] - xs[c]
+                val oh = ys[r + 1] - ys[r]
+                if (sw <= 0 || sh <= 0 || ow <= 0 || oh <= 0) continue
+                drawImage(
+                    image = img,
+                    srcOffset = IntOffset(sxs[c], sys[r]),
+                    srcSize = IntSize(sw, sh),
+                    dstOffset = IntOffset(xs[c], ys[r]),
+                    dstSize = IntSize(ow, oh)
+                )
+            }
         }
-
-        val mw = iw - 2 * cx
-        val mh = ih - 2 * cy
-        part(0, 0, cx, cy, 0f, 0f, dx, dy)
-        part(cx, 0, mw, cy, dx, 0f, midW, dy)
-        part(iw - cx, 0, cx, cy, dx + midW, 0f, dx, dy)
-        part(0, cy, cx, mh, 0f, dy, dx, midH)
-        part(cx, cy, mw, mh, dx, dy, midW, midH)
-        part(iw - cx, cy, cx, mh, dx + midW, dy, dx, midH)
-        part(0, ih - cy, cx, cy, 0f, dy + midH, dx, dy)
-        part(cx, ih - cy, mw, cy, dx, dy + midH, midW, dy)
-        part(iw - cx, ih - cy, cx, cy, dx + midW, dy + midH, dx, dy)
     }
 }
 

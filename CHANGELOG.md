@@ -1,5 +1,181 @@
 # Boom Blocks Changelog
 
+## [Unreleased] - Faz 186 (Ana menu chrome'u haritalarla esitlendi; baslik olcegi harf boyuna gore)
+
+### Changed
+- **Ana menudeki jeton/kupa/ayarlar artik haritalardakiyle AYNI varliklar.**
+  Kullanici: "main menudeki kupa coin ayarlar ikonu modlarin icindeki ile ayni
+  olsun." Kok neden: ana menude uc oge de COMPOSE'DA ciziliyordu (`GamePill` +
+  `GameImageIconButton`: koyu govde + accent kenarlik) ve icine yalnizca kucuk
+  bir ikon (`kb_coin`/`kb_trophy`/`kb_settings`) konuyordu; harita ekranlari
+  ise Faz 174'te tamamen RASTER sete gecmisti. Yani ayni uc oge iki ekranda
+  iki farkli malzemeyle uretiliyordu.
+  Ana menu moda bagli olmadigi icin Kariyer (camgobegi) seti kullanildi.
+  Yeni `ChromeAssetButton` govde olcusunu alip isima payini 0.806 oranindan
+  ekliyor -- dokunma hedefi ve gorsel boy haritadakiyle birebir. Jeton sayisi
+  yine kapsulun bos alanina (bitmap merkezinden +0.195 x govde) oturuyor.
+- **Mod basliklari artik GENISLIGE degil HARF YUKSEKLIGINE gore olcekleniyor.**
+  Kullanici: "kolay mod yazisi pro ve kariyer modunun yazisina gore kucuk."
+  OLCULDU (blok yuksekligi -> ekrandaki referans birimi):
+      kb_car_word (KARIYER, 7 harf)    98px -> 92.8
+      kb_pro_word (PRO MOD, 6 harf)    99px -> 94.4
+      kb_esy_word (KOLAY MOD, 8 harf)  73px -> 69.1   (%26 kucuk)
+  Kok neden: uretici blogu SABIT GENISLIGE (%93) olcekliyordu; kelime uzadikca
+  ayni genisligi daha cok harf paylasiyor ve harf boyu dusuyordu. Artik hedef
+  harf yuksekligi 98px; sigmayan baslik once yatayda SIKISTIRILIYOR (en fazla
+  %80), ancak o da yetmezse boy dusuruluyor. KOLAY MOD 73 -> 96px.
+  Uretilen 12 dil varligi da ayni kuralla yeniden uretildi.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- Cihaz SM-G965: ana menu basligi ve Kolay Mod harita basligi ekran
+  goruntusuyle dogrulandi -- uc mod basligi ayni agirlikta, chrome ikisinde de
+  ayni.
+- Not: ekran goruntusu alabilmek icin cihazda gecici olarak
+  `svc power stayon true` yapildi, is bitince `false`a dondurulda.
+
+
+## [Unreleased] - Faz 185 (Landing/onboarding ekranlari oyunun renk diline gecti)
+
+### Changed
+- Kullanici: "su landing pageler hala cok pastel tonlu." Kok neden RENK
+  SECIMIYDI ve ucu de olculdu:
+  - "KABUL ET" tabani `NeonGreen` = **#4ADE80** (zaten acik bir nane) idi ve
+    ustune `lerp(..., Beyaz, 0.30)` uygulaniyordu -> ekranda pastel nane.
+  - Politika butonu ve dil satirlari duz `palette.cardAlt` = **#3B4E70**
+    (doygunlugu dusuk gri-lacivert) levhalardi: gradyan/kabartma/kontur/isima
+    yok.
+  - Govde metni `palette.textSecondary` = **duz `Color.Gray`** -- doygunlugu
+    sifir.
+  Menuler ve sonuc diyaloglari Faz 158-167'de `GameButton`/`GameSelectableRow`
+  malzemesine gecirilmisti; bu iki ekran o turda ATLANMIS.
+- `TermsAcceptScreen`: iki `Button` da `GameButton`a gecti.
+  - Politika butonu: `resultButtonColors` konturu TABANDAN turettigi icin
+    (lerp(taban, beyaz, 0.50)) lacivert tabanda GRI kontur veriyordu; renkler
+    dogrudan verildi -- derin lacivert govde + tam camgobegi kontur.
+  - Kabul butonu: taban #3ED66A -> **#16A34A**; GameButton ust yuzu beyaza
+    %22 cektigi icin oncekiler #8FE0A0'a dusuyordu.
+  - Govde metni gri yerine `lerp(textPrimary, NeonCyan, 0.25)`.
+- `OnboardingScreen`:
+  - Dil satirlari elle kurulmus duz `Row`du -> oyunun kendi
+    `GameSelectableRow`u (gradyan govde, aksan konturu, onay ikonu = renk
+    korlugunde ikinci ayrim kanali). Secili satira ayrica `gameOuterGlow`.
+  - "ILERI" / "BASLA" butonlari elle gradyanli `Button`du -> `GameButton`
+    (kabartma + kontur + dis isima + basma cokmesi).
+  - Adim noktalarinin pasif hali `cardAlt` idi ve zeminden ayirt edilmiyordu
+    -> `NeonCyan` %30.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- `gradlew :app:testDebugUnitTest` BUILD SUCCESSFUL (tum suite)
+- Cihaz SM-G965: her iki ekran da uygulama verisi silinip bastan yakalandi,
+  once/sonra kesitleri alindi.
+
+
+## [Unreleased] - Faz 184 (Mod basliklari artik dile gore degisiyor)
+
+### Fixed
+- **Harita basligi her dilde Turkce kaliyordu.** Kullanici: "basliklar dil
+  degisince degismiyor, turkce kaliyor."
+  Kok neden: `modeLabel`, hedef haplari, "SEVIYE N" -- haritadaki her METIN
+  zaten `language.pick`ten geciyordu; ama BASLIK bir metin degil RASTER
+  varlikti (`kb_*_word.webp`) ve Turkce yazi varligin icine gomuluydu. Yani
+  Ingilizce oynayan biri "EASY MODE PROGRESS / LEVEL 1" gorurken basligi
+  "KOLAY MOD" olarak goruyordu.
+- Cozum: her mod icin dort dil daha uretildi (`kb_{car,pro,esy}_word_{en,it,fr,es}`,
+  12 varlik). `MapTheme` dil basina varlik tasiyor, `wordFor(language)` seciyor.
+  **Turkce varliklar DEGISTIRILMEDI** -- kullanicinin onayladigi cizimler
+  aynen duruyor.
+- Uretim `tools/wordart/make_word.py` ile: font oyunun kendi
+  `baloo2_extrabold.ttf`si, altin/mor palet `kb_pro_word`den piksel
+  orneklenmis, parildamalar her temanin KENDI Turkce varligindan kesiliyor
+  (Kariyer camgobegi, Pro/Kolay turuncu). Aksanli harfler (A-grave, A-acute,
+  E-grave) fontun cmap'inde dogrulandi, sadelestirme yapilmadi:
+  "MODALITA FACILE", "MODO FACIL", "CARRIERE" tam aksanlariyla yaziliyor.
+- Betikte bir hata da burada yakalandi: calisma tuvali SABIT boyutluydu ve
+  uzun basliklar 300 puntoda tasip CIZIM ANINDA kirpiliyordu ("MODALITA
+  FACILE" -> "IODALITA FACIL"). Tuval artik olculen metin genisligine gore
+  aciliyor.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- Cihaz SM-G965, sistem dili Ingilizce: Kolay Mod haritasinin basligi
+  "EASY MODE" olarak geliyor (ekran goruntusu alindi).
+
+
+## [Unreleased] - Faz 183 (Harita varliklarindaki dilimleme hatalari + hizalama)
+
+Tek kok neden: varlik seti dilimlenirken KOMSU PARCALAR kadraja girmis ya da
+govde bitmap icinde ORTALANMAMIS. Uc kusur da bundan cikti. Hicbir sanat
+yeniden cizilmedi; varliklar kirpildi/ortalandi/aynalandi.
+
+### Fixed
+- **`kb_*_setbtn.webp` icinde IKI buton vardi.** Ikincisi ekranin sag
+  kenarinda "yarim kalmis kutu" olarak goruluyordu (kullanici: "sagdaki
+  gostergeler olmamis"). Ayni sizinti `back` varliginda da vardi -- kelime
+  sanatinin arkasinda soluk bir dikey cizgi olarak.
+- **`kb_*_pill_l.webp`in KUYRUGU tamamen kirpilmisti** (uc temada da x=0'dan
+  basliyor). Sagdaki hedef haplari bu yuzden kuyruksuz duz dikdortgen gibi
+  duruyordu. Varlik `pill_r`den AYNALANARAK uretildi; iki taraf artik birebir
+  ayni cizim. Ayrica iki taraf ayni `PILL_BODY`ye ragmen farkli boyda
+  ciziliyordu (govde/bitmap orani 0.833'e karsi 0.95) -- esitlendi.
+- **`kb_esy_node_open.webp`in govdesi bitmap icinde (+16.5, +14) kaymisti.**
+  Rakam kutuya ortalandigi icin "1" dairenin merkezine oturmuyordu
+  (kullanici: "kolay modun 1 rakamini ortalaman lazim"). Varlik ortalandi;
+  kalan kucuk fark (olculdu: 5px sol, 4px asagi) yazi tipinin satir kutusu
+  metriginden geliyor, kodda telafi edildi.
+- **`NinePatchImage` 1 piksellik DIKISLER birakiyordu.** Dokuz parcanin hedef
+  konum ve boyu ayri ayri `toInt()` ile kirpiliyordu; kirpma yon degistirince
+  komsu parcalar arasinda bosluk olusuyordu. Artik ORTAK sinir dizisi
+  kullaniliyor, bosluk tanim geregi imkansiz.
+
+### Changed
+- **Panel zemini duzlestirildi.** Varlikta yarim ton nokta deseni vardi ve 9
+  dilim gerilmesi bunu dokuya ceviriyordu (kullanici: "bilgi kutusunun zemini
+  kirli"). Ic alan tek duz renge boyandi; maske dikdortgen degil "opak ama
+  parlak olmayan" pikseller oldugu icin yuvarlatilmis kose formunu takip
+  ediyor.
+- **Yolun etrafindaki "hare" kaldirildi.** `kb_*_path.webp` ortada parlak
+  cekirdek + iki yanda centikli koyu bant seklindeydi. Koyu bant geometrik
+  olarak soyuldu (alan %46'ya inene kadar asindirma), uzerine cekirdegin
+  kendi renginden yumusak isima kondu. Cizgi hala parliyor, deseni yok.
+- **Sag ust gosterge grubu yeniden hizalandi.** Kupa ve disli esit boy (106)
+  ve esit aralik (14); grup, geri butonunun sol payiyla (20) simetrik olacak
+  sekilde saga yaslandi. Jeton sayisi sabit kaydirmayla degil hapin BOS
+  ALANINA `AutoFitLabel` ile ortalaniyor (dort haneli degerde de tasmiyor).
+- **Panel yazisi ortalandi.** OLCULDU: panel gorunur kutusu y=361..551, yazi
+  blogu y=429..531 -- ust bosluk 68, alt bosluk 20. Blok 21 referans birimi
+  (24 cihaz pikseli) yukari alindi.
+- **Hap metinleri dikdortgene ortalandi.** Kutu bitmap'in tamamini (dikdortgen
+  + kuyruk) kapsadigi icin metin kuyrugun tersine kayiyordu; olculen 0.039 x
+  genislik telafi edildi.
+- **`PILL_BODY` 300 -> 277.** Kuyruk geri gelince hap genisleyip iki yandan
+  ekran kenarina dayanmisti (olculdu: sol 7px, sag 10px pay kalmisti).
+- **Kelime sanati asagi alindi** (`Ref.WORD` merkezi 111 -> 128).
+- **Haplar yola yaklastirildi** (`PILL_INSET` = 22 referans birimi). Kullanici:
+  "sag ve soldaki bilgi yazilari harita cizgisine biraz yaklasmali."
+  OLCULDU (cihaz, 1080 genislik) once/sonra: sag hapin kuyruk ucu ile dugum
+  arasi 81 -> 58px, ekran kenari payi 32 -> 55px; sol hap 23px saga kaydi,
+  kenar payi 40 -> 62px. Kullanicinin "4px daha yanassin" istegiyle
+  `PILL_INSET` 22 -> 25.5 (1 referans birimi = 1080/941 = 1.148 cihaz
+  pikseli); dogrulandi: sag kuyruk ucu 710 -> 706, sol 134 -> 138.
+
+### Tools
+- `tools/wordart/normalize_chrome.py` — chrome + hap varliklarini normalize
+  eder (komsu parcayi atar, govdeyi ortalar, oranlari esitler).
+- `tools/wordart/center_nodes.py` — dugum govdelerini bitmap'e ortalar.
+- `tools/wordart/flatten_panel.py` — panel ic zeminini duzlestirir.
+- `tools/wordart/plain_path.py` — yol seridinin desenli bandini soyar.
+Hepsi tekrar calistirilabilir ve idempotenttir.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- Cihaz SM-G965 (1080x2220): Kolay/Pro/Kariyer haritalari ekran goruntusuyle
+  dogrulandi; olcumler ekran goruntusu pikselinden alindi (panel kutusu, yazi
+  blogu, hap kenarlari, rakam-halka merkezleri).
+- Teslim: `builds/apk/KaboomBlocks_debug_map_v7_20260830.apk`
+
+
 ## [Unreleased] - Faz 182 ("KOLAY MOD" kelime sanati duzlestirildi)
 
 ### Changed

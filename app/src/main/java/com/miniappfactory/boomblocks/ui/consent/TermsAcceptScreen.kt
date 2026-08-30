@@ -43,6 +43,11 @@ import com.miniappfactory.boomblocks.ui.common.WanderingPiecesBackground
 import com.miniappfactory.boomblocks.ui.components.GameScreenBackground
 import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
 import com.miniappfactory.boomblocks.ui.components.GameWordmark
+import com.miniappfactory.boomblocks.ui.components.GameButton
+import com.miniappfactory.boomblocks.ui.components.resultButtonColors
+import com.miniappfactory.boomblocks.ui.components.GameButtonColors
+import com.miniappfactory.boomblocks.ui.components.ResultSuccessAccent
+import com.miniappfactory.boomblocks.ui.components.ResultOnSuccess
 import com.miniappfactory.boomblocks.ui.theme.BlastSkin
 import com.miniappfactory.boomblocks.ui.theme.NeonCyan
 import com.miniappfactory.boomblocks.ui.theme.NeonGreen
@@ -238,7 +243,11 @@ fun TermsAcceptScreen(
                         es = "Para continuar, acepta la Política de Privacidad y los Términos de Uso."
                     ),
                     fontSize = 14.sp,
-                    color = palette.textSecondary,
+                    // `textSecondary` koyu temada duz `Color.Gray` -- doygunlugu
+                    // sifir ve kontrasti dusuk. Zemin lacivert oldugu icin
+                    // hafif camgobegine cekilmis acik bir ton hem okunur hem
+                    // ekranin geri kalaniyla ayni aileden.
+                    color = lerp(palette.textPrimary, NeonCyan, 0.25f).copy(alpha = 0.92f),
                     textAlign = TextAlign.Center,
                     // Faz 160: FR govde metninin GERCEKTEN iki satira indigi
                     // cihazda gorulemiyordu — bu ekran dil seciminden ONCE
@@ -251,50 +260,64 @@ fun TermsAcceptScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
+                // FAZ 185 — LANDING EKRANLARI OYUNUN DILINE GECTI.
+                //
+                // Kullanici: "su landing pageler hala cok pastel tonlu."
+                // OLCULDU, kok neden renk secimiydi:
+                //   - bu buton duz `palette.cardAlt` (#3B4E70) idi: doygunlugu
+                //     dusuk, kabartmasi/konturu/isimasi olmayan bir levha,
+                //   - govde metni `textSecondary` = duz GRI,
+                //   - "KABUL ET" `NeonGreen` (#4ADE80, zaten acik) idi ve
+                //     ustune `lerp(..., White, 0.30)` uygulaniyordu -> nane
+                //     pastel.
+                // Menuler ve sonuc diyaloglari coktan `GameButton`a gecmisti
+                // (Faz 158-167); bu iki ekran atlanmisti. Artik ayni malzeme:
+                // 3B govde, cam parlakligi, kontur ve dis isima.
+                GameButton(
+                    text = language.pick(tr = "Gizlilik Politikası ve Kullanım Şartları", en = "Privacy Policy & Terms of Use", it = "Informativa sulla Privacy e Termini di Utilizzo", fr = "Politique de Confidentialité et Conditions d'Utilisation", es = "Política de Privacidad y Términos de Uso"),
                     onClick = { openPolicy() },
-                    colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
-                    shape = RoundedCornerShape(10.dp),
+                    // Koyu ve DOYGUN lacivert govde + camgobegi yazi. Ayni
+                    // bilgi hiyerarsisi (ikincil eylem) korunuyor ama artik
+                    // zeminde "duran" bir nesne.
+                    // `resultButtonColors` konturu TABANDAN turetiyor
+                    // (lerp(base, beyaz, 0.50)) -- lacivert bir tabanda bu
+                    // GRI bir kontur veriyor ve buton yine soluk okunuyordu.
+                    // Burada renkler dogrudan veriliyor: derin lacivert govde,
+                    // TAM camgobegi kontur.
+                    colors = GameButtonColors(
+                        top = Color(0xFF17456F),
+                        bottom = Color(0xFF0A2340),
+                        rim = NeonCyan,
+                        shade = Color(0xFF04121F),
+                        content = lerp(NeonCyan, Color.White, 0.30f)
+                    ),
+                    fontSize = 13.sp,
+                    minHeight = 48.dp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("terms_accept_open_policy_button")
-                ) {
-                    Text(
-                        text = language.pick(tr = "Gizlilik Politikası ve Kullanım Şartları", en = "Privacy Policy & Terms of Use", it = "Informativa sulla Privacy e Termini di Utilizzo", fr = "Politique de Confidentialité et Conditions d'Utilisation", es = "Política de Privacidad y Términos de Uso"),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NeonCyan
-                    )
-                }
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Button(
+                // Yesil artik `NeonGreen` (#4ADE80) degil sonuc diyaloglarinin
+                // DOYGUN basari yesili (#3ED66A); ustelik beyaza cekme 0.30 ->
+                // 0.22 (GameButton'in kendi receti), yani yikanmiyor.
+                GameButton(
+                    text = language.pick(tr = "KABUL ET", en = "ACCEPT", it = "ACCETTA", fr = "ACCEPTER", es = "ACEPTAR"),
                     onClick = onAccept,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(12.dp),
+                    // Taban `ResultSuccessAccent` (#3ED66A) idi; GameButton ust
+                    // yuzu beyaza %22 cektigi icin ekranda #8FE0A0'a, yani yine
+                    // NANE PASTELE dusuyordu. Taban doygun/koyu yesile
+                    // (#16A34A) cekildi: ust yuz artik #45B571, alt yuz
+                    // #12823B -- ayni kabartma, cok daha doygun okuma.
+                    colors = resultButtonColors(Color(0xFF16A34A), Color(0xFF04220F)),
+                    fontSize = 17.sp,
+                    minHeight = 56.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    lerp(NeonGreen, Color.White, 0.30f),
-                                    NeonGreen,
-                                    lerp(NeonGreen, Color.Black, 0.25f)
-                                )
-                            ),
-                            RoundedCornerShape(12.dp)
-                        )
                         .testTag("terms_accept_button")
-                ) {
-                    Text(
-                        text = language.pick(tr = "KABUL ET", en = "ACCEPT", it = "ACCETTA", fr = "ACCEPTER", es = "ACEPTAR"),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0F172A)
-                    )
-                }
+                )
             }
         }
     }
