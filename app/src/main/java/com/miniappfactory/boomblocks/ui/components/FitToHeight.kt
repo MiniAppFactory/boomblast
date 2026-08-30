@@ -64,7 +64,12 @@ import androidx.compose.ui.unit.Density
  */
 val LocalFitScale = compositionLocalOf { 1f }
 
-private enum class FitSlot { Probe, ScaledProbe, Content }
+private enum class FitSlot { Probe, ScaledProbe, MinProbe, Content }
+
+// Sigan en buyuk olcegi bulmak icin ikili arama adimi. 4 adim, [0.85, 1.0]
+// araliginda ~0.01 cozunurluk demek -- gozle ayirt edilemeyecek kadar ince,
+// ama her adim bir olcum gecisi oldugu icin daha fazlasi bosuna maliyet.
+private const val SCALE_SEARCH_STEPS = 4
 
 /**
  * Icerigi kullanilabilir yuksekliğe sigdirir; sigdiramazsa kaydirmaya birakir.
@@ -118,37 +123,44 @@ fun FitToHeight(
         }
         val scale = rawScale.coerceIn(minScale, 1f)
 
-        // Faz 166 — HATA DUZELTMESI. Burada `fits = natural * scale <= available`
-        // yaziyordu, yani sigip sigmadigi TAHMIN ediliyordu. Tahmin yanlisti:
+        // Faz 166 — TAHMIN YERINE OLCUM (ve Faz 166e ile duzeltilmis hali).
+        //
+        // SORUN: burada `fits = natural * scale <= available` yaziyordu, yani
+        // sigip sigmadigi TAHMIN ediliyordu ve tahmin sistematik olarak
+        // iyimserdi:
         //
         //   duzen `scale` kadar kuculuyor,
         //   metin ise `textScale = (1 + scale) / 2` kadar (erisilebilirlik payi),
         //   ve textScale > scale.
         //
-        // Yani metin, duzenden DAHA AZ kuculuyor. Yuksekligi cogunlukla metin
-        // belirleyen bir icerikte gercek yukseklik `natural * scale`'i asiyor,
-        // ama tahmin "sigdi" diyordu. `fits = true` ise "kaydirma YOK, chevron
-        // YOK" demek — icerik kirpiliyor ve oyuncunun kaydirma sansi da olmuyor.
-        // Loadout'ta bunun bedeli dogrudan "REKLAM IZLE" kartinin ulasilamaz
-        // hale gelmesi, yani kapanan bir jeton kazanma yolu.
+        // Yani metin duzenden DAHA AZ kuculuyor; yuksekligi cogunlukla metin
+        // belirleyen bir icerikte gercek yukseklik `natural * scale`i asiyor.
         //
-        // Cozum tahmini duzeltmek degil, TAHMINI BIRAKMAK: asagida icerik bir
-        // kez de GERCEK olcekli yogunlukla olculuyor ve karar o olcume gore
-        // veriliyor. minScale'de bile sigmama durumu da ayni olcumden dogal
-        // olarak cikiyor, ayri bir dala gerek kalmiyor.
-        val textScale = (1f + scale) / 2f
-        val scaledDensity = Density(
-            density = density * scale,
-            fontScale = fontScale * (textScale / scale)
+        // ILK DENEME YANLISTI: "olc, sigmiyorsa kaydirmaya dus" yapmistim.
+        // Kullanici bunu aninda yakaladi -- Loadout'ta uc kart da sigarken
+        // ekran kaydirmaya dusuyor ve "REKLAM IZLE" chevron'un altinda
+        // kaliyordu ("burasi bozulmus, 3'u de gozukuyordu, simdi reklam izle
+        // icin scroll gerekiyor"). Tasma ~birkac pikseldi; ona karsilik
+        // kaydirma + 34dp chevron seridi acmak kuru bir zarardi.
+        //
+        // DOGRUSU: kaydirmaya dusmek degil, OLCULEN tasma kadar biraz daha
+        // KUCULTMEK. Tahminin iyimserligi zaten oranseldi, o yuzden tek bir
+        // duzeltme adimi yetiyor: yeni olcek = olcek * (available / olculen).
+        // Kaydirma yalnizca `minScale` alt sinirinda BILE sigmiyorsa devreye
+        // giriyor -- dosyanin bastan beri vaat ettigi davranis.
+        fun densityFor(sc: Float) = Density(
+            density = density * sc,
+            fontScale = fontScale * (((1f + sc) / 2f) / sc)
         )
 
-        val fits = if (scale >= 1f) {
-            natural <= available
-        } else {
-            val scaledProbe = subcompose(FitSlot.ScaledProbe) {
+        // Verilen olcekte icerigin GERCEK yuksekligi. `slotId` her cagriya ayri
+        // bir subcompose yuvasi verir; Compose yuvalari anahtara gore yeniden
+        // kullandigi icin olcum gecisleri arasinda maliyet amorti oluyor.
+        fun measureAt(slotId: Any, sc: Float): Int =
+            subcompose(slotId) {
                 CompositionLocalProvider(
-                    LocalDensity provides scaledDensity,
-                    LocalFitScale provides scale
+                    LocalDensity provides densityFor(sc),
+                    LocalFitScale provides sc
                 ) {
                     content(true)
                 }
@@ -161,20 +173,50 @@ fun FitToHeight(
                         maxHeight = Constraints.Infinity
                     )
                 )
+            }.maxOfOrNull { it.height } ?: 0
+
+        var effectiveScale = scale
+        var fits = natural <= available
+
+        if (scale < 1f && available > 0) {
+            // NEDEN TEK BIR DUZELTME ADIMI YETMIYOR: metin `(1 + s) / 2` kadar
+            // kuculuyor, yani olcek 0.85'e inse bile metin ancak 0.925'e
+            // iniyor. Yukseklik metin agirlikliysa "olculen tasma kadar
+            // kucult" formulu hedefe yakinsiyor ama USTTEN, ve birkac adimda
+            // bile esigi gecmeyebiliyor. Bu yuzden dogrudan ARANIYOR.
+            if (measureAt(FitSlot.ScaledProbe, scale) > available) {
+                if (measureAt(FitSlot.MinProbe, minScale) > available) {
+                    // Alt sinirda BILE sigmiyor -> eski davranis: kaydirma.
+                    effectiveScale = minScale
+                    fits = false
+                } else {
+                    // `lo` her zaman SIGAN, `hi` her zaman SIGMAYAN olcek.
+                    // Amac sigan olceklerin EN BUYUGU: metin olabildigince
+                    // buyuk kalsin, kaydirma da acilmasin.
+                    var lo = minScale
+                    var hi = scale
+                    repeat(SCALE_SEARCH_STEPS) { step ->
+                        val mid = (lo + hi) / 2f
+                        if (measureAt(step, mid) <= available) lo = mid else hi = mid
+                    }
+                    effectiveScale = lo
+                    fits = true
+                }
+            } else {
+                fits = true
             }
-            (scaledProbe.maxOfOrNull { it.height } ?: 0) <= available
         }
 
-        val placeables = if (scale >= 1f) {
+        val placeables = if (effectiveScale >= 1f) {
             subcompose(FitSlot.Content) { content(fits) }
                 .map { it.measure(constraints) }
         } else {
-            // Faz 166: olcumle cizim AYNI yogunluk nesnesini kullaniyor —
-            // ikisinin ayrisabilmesi zaten yukaridaki hatanin kaynagiydi.
+            // Olcumle cizim AYNI yogunlugu kullaniyor — ikisinin ayrisabilmesi
+            // zaten yukaridaki hatanin kaynagiydi.
             subcompose(FitSlot.Content) {
                 CompositionLocalProvider(
-                    LocalDensity provides scaledDensity,
-                    LocalFitScale provides scale
+                    LocalDensity provides densityFor(effectiveScale),
+                    LocalFitScale provides effectiveScale
                 ) {
                     content(fits)
                 }
