@@ -727,9 +727,14 @@ private fun ModeSelectHeaderActions(
                         modifier = Modifier.size(14.dp)
                     )
                 } else {
+                    // FAZ 188: sayi RASTER bir kapsulun icinde duruyor, o
+                    // yuzden punto dp'ye kilitli. `sp` birakilirsa sistem
+                    // yazi boyutu ayari sayiyi buyutur ama kapsulu buyutmez
+                    // ve sayi disari tasar (haritada tabletten gelen hata
+                    // tam olarak buydu; telefonda font_scale=1.3 ile uretildi).
                     Text(
                         text = "$tokens",
-                        fontSize = 13.sp,
+                        fontSize = with(LocalDensity.current) { 13.dp.toSp() },
                         fontWeight = FontWeight.Black,
                         color = Color.White,
                         maxLines = 1

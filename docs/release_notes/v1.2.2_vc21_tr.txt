@@ -1,0 +1,7 @@
+• Mod başlıkları artık senin dilinde görünüyor.
+• Seviye haritası yenilendi: hedef kartları düğüme bakan okuyla, iki satır halinde ve düzgün hizalı.
+• Yol çizgisi ve bilgi paneli temizlendi; lekeli görünüm ve ince çizgiler kalktı.
+• Menü, harita ve oyun ekranındaki jeton/kupa/ayarlar simgeleri artık birebir aynı.
+• Hoş geldin ve dil seçme ekranları daha canlı renklerle yenilendi.
+• "Haritaya Dön" butonunun bazı telefonlarda kesilmesi giderildi.
+• Seviye numarası düğümün tam ortasında.

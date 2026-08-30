@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.miniappfactory.boomblocks.R
@@ -103,6 +104,30 @@ private const val MAP_SCALE = 1.28f
 
 /** Ust bar ve panel icin ayri, daha kucuk bir duzeltme. */
 private const val CHROME_SCALE = 1.06f
+
+/**
+ * FAZ 188 — RASTER KABIN ICINDEKI METIN SISTEM YAZI OLCEGINDEN BAGIMSIZ.
+ *
+ * Kullanici tabletten ekran goruntusu gonderdi: hedef haplarinin yazisi
+ * hapin disina tasiyordu.
+ *
+ * Kok neden EKRAN GENISLIGI DEGILDI (720dp'de yeniden uretmeye calistim,
+ * duzgun ciziliyor). Sorun BIRIM KARISIMI: bu ekrandaki her GORSEL olcu
+ * `px(...)` ile dp cinsinden ve `scale` ile oranlaniyor, ama METIN `.sp`
+ * ile veriliyordu. `sp`, dp'den farkli olarak KULLANICININ SISTEM YAZI
+ * BOYUTU ayariyla da carpilir. Ayar 1.0'in ustundeyse (tabletlerde sik)
+ * yazi buyur, ARDINDAKI RASTER HAP BUYUMEZ -- yazi disari tasar.
+ * Telefonda font_scale'i 1.3 yapinca hata birebir uretildi.
+ *
+ * Cozum: hapin/dugumun/panelin ICINDEKI metin dp'den sp'ye cevriliyor,
+ * yani cizimle AYNI birime kilitleniyor. Bu, erisilebilirlik acisindan
+ * bilincli bir odun: sabit olculu bir varligin icine sigmasi gereken metin
+ * buyuyemez. Ekrandaki SERBEST metinler (oyun ici basliklar, diyaloglar)
+ * `sp` olarak kaliyor ve kullanicinin ayarina uymaya devam ediyor.
+ */
+@Composable
+private fun fixedSp(refUnits: Float, scale: Float): TextUnit =
+    with(LocalDensity.current) { (refUnits * scale).dp.toSp() }
 
 private fun px(v: Int, scale: Float): Dp = (v * scale).dp
 private fun px(v: Float, scale: Float): Dp = (v * scale).dp
@@ -483,9 +508,9 @@ fun ProgressionMapScreen(
             Text(
                 text = modeLabel,
                 color = theme.label,
-                fontSize = (26 * scale).sp,
+                fontSize = fixedSp(26f, scale),
                 fontWeight = FontWeight.Bold,
-                letterSpacing = (1.2f * scale).sp
+                letterSpacing = fixedSp(1.2f, scale)
             )
             Text(
                 text = language.pick(
@@ -494,7 +519,7 @@ fun ProgressionMapScreen(
                     es = "NIVEL $highestUnlockedLevel"
                 ),
                 color = Color.White,
-                fontSize = (46 * scale).sp,
+                fontSize = fixedSp(46f, scale),
                 fontWeight = FontWeight.Black
             )
         }
@@ -517,11 +542,15 @@ fun ProgressionMapScreen(
                     .height(px(Ref.COIN_TEXT_H, scale)),
                 contentAlignment = Alignment.Center
             ) {
+                // AutoFitLabel `Float` sp bekliyor; degerler yine dp'den
+                // cevriliyor ki sistem yazi olcegi hapin icindeki sayiyi
+                // sisirmesin (bkz. `fixedSp` notu).
+                val density = LocalDensity.current
                 AutoFitLabel(
                     text = "${progress.tokens}",
                     color = Color.White,
-                    maxSizeSp = 34f * scale,
-                    minSizeSp = 15f * scale,
+                    maxSizeSp = with(density) { (34f * scale).dp.toSp().value },
+                    minSizeSp = with(density) { (15f * scale).dp.toSp().value },
                     maxLines = 1
                 )
             }
@@ -734,7 +763,7 @@ private fun ProgressionNode(
             Text(
                 text = "$level",
                 color = Color.White,
-                fontSize = (62 * scale).sp,
+                fontSize = fixedSp(62f, scale),
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.offset(
                     x = px(4.4f, scale),
@@ -825,16 +854,16 @@ private fun TargetPillContinuous(
             Text(
                 text = topText,
                 color = Color.White,
-                fontSize = (23 * scale).sp,
-                lineHeight = (24 * scale).sp,
+                fontSize = fixedSp(23f, scale),
+                lineHeight = fixedSp(24f, scale),
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )
             Text(
                 text = bottomText,
                 color = Color.White,
-                fontSize = (23 * scale).sp,
-                lineHeight = (24 * scale).sp,
+                fontSize = fixedSp(23f, scale),
+                lineHeight = fixedSp(24f, scale),
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )

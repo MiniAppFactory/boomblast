@@ -1,5 +1,35 @@
 # Boom Blocks Changelog
 
+## [Unreleased] - Faz 188 (Raster kabin icindeki metin sistem yazi olceginden ayrildi)
+
+### Fixed
+- **Tablette hedef haplarinin yazisi hapin disina tasiyordu** (kullanici ekran
+  goruntusu gonderdi).
+  - Once EKRAN GENISLIGI dusunuldu ve ELENDI: telefon 720dp'ye ayarlanip
+    (`wm density 240`) yeniden uretilmeye calisildi, harita duzgun ciziliyor.
+  - Gercek kok neden BIRIM KARISIMI: bu ekrandaki her GORSEL olcu `px(...)`
+    ile dp cinsinden ve `scale` ile oranlaniyor, ama METIN `.sp` ile
+    veriliyordu. `sp`, dp'den farkli olarak KULLANICININ SISTEM YAZI BOYUTU
+    ayariyla da carpilir; ayar 1.0'in ustundeyse yazi buyur, ardindaki RASTER
+    HAP BUYUMEZ. Telefonda `font_scale 1.3` yapilinca hata BIREBIR URETILDI.
+  - Duzeltme: hap/dugum/panel/jeton ICINDEKI metin `fixedSp()` ile dp'den
+    sp'ye cevriliyor, yani cizimle AYNI birime kilitleniyor. Ayni hata ana
+    menudeki raster jeton kapsulunde de vardi (Faz 186'da olusmustu),
+    o da kapatildi.
+  - Bilincli odun: sabit olculu bir varligin icine sigmasi gereken metin
+    kullanicinin yazi boyutu ayarini takip edemez. Ekrandaki SERBEST metinler
+    (oyun ici baslik, diyaloglar, menu) `sp` olarak kaldi ve ayara uymaya
+    devam ediyor.
+
+### Evidence
+- Hata uretimi: `settings put system font_scale 1.3` + `wm density 240`
+  -> hap yazisi tasiyor (ekran goruntusu).
+- Duzeltme sonrasi ayni ayarlarda yazi hapin icinde (once/sonra kesiti).
+- Cihaz ayarlari geri alindi (font_scale 1.0, density 480); telefon
+  gorunumunun degismedigi ayrica dogrulandi.
+- `gradlew :app:assembleDebug` + `:app:testDebugUnitTest` BUILD SUCCESSFUL.
+
+
 ## [1.2.2] - vc21 - Faz 187 (Oyun ekrani ust bari + varlik boyutu regresyonu)
 
 ### Changed
