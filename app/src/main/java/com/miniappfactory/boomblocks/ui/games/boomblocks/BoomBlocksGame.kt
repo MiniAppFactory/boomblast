@@ -147,6 +147,26 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import androidx.compose.foundation.Image
+import com.miniappfactory.boomblocks.ui.components.GameButton
+import com.miniappfactory.boomblocks.ui.components.gameButtonColors
+import com.miniappfactory.boomblocks.ui.components.gameOuterGlow
+import com.miniappfactory.boomblocks.ui.components.ResultDialogSurface
+import com.miniappfactory.boomblocks.ui.components.ResultDialogTitle
+import com.miniappfactory.boomblocks.ui.components.ResultFailAccent
+import com.miniappfactory.boomblocks.ui.components.ResultPrimaryBlue
+import com.miniappfactory.boomblocks.ui.components.ResultSecondaryOrange
+import com.miniappfactory.boomblocks.ui.components.ResultStatPanel
+import com.miniappfactory.boomblocks.ui.components.ResultSuccessAccent
+import com.miniappfactory.boomblocks.ui.components.ResultTertiarySlate
+import com.miniappfactory.boomblocks.ui.components.ResultTrophyGlow
+import com.miniappfactory.boomblocks.ui.components.resultEmblemColors
+import com.miniappfactory.boomblocks.ui.components.resultButtonColors
+import com.miniappfactory.boomblocks.ui.components.ResultOnPrimary
+import com.miniappfactory.boomblocks.ui.components.ResultOnSecondary
+import com.miniappfactory.boomblocks.ui.components.ResultOnSuccess
+import kotlin.math.PI
+import androidx.compose.ui.graphics.StrokeCap
 
 data class BlockShape(
     val id: Int,
@@ -383,7 +403,33 @@ data class ConfettiPiece(
     val startDelay: Float,
     val drift: Float,
     val rotationSpeed: Float,
-    val color: Color
+    val color: Color,
+    // Faz 167: konfeti artik duz daire degil, TAKLA ATAN SERIT.
+    //
+    // Kullanici: "level complete cikinca konfeti/havai fisek efektleri bile
+    // konabilir." Eskisi 6 PIKSELLIK (dp degil) sabit dairelerdi: hem cansiz,
+    // hem de yogunlugu yuksek cihazlarda gozle gorulemeyecek kadar kucuk --
+    // bu denetimde LevelMapScreen'de bulunan ham-piksel hatasinin aynisi.
+    val sizeDp: Float,
+    val aspect: Float,
+    val spin: Float
+)
+
+/**
+ * Faz 167 — havai fisek patlamasi.
+ *
+ * Konfetiden AYRI bir sey: konfeti yukaridan asagi akar (surekli, sakin),
+ * havai fisek TEK bir noktadan disa patlar (ani, vurgulu). Ikisi birlikte
+ * "kutlama" hissini veriyor; tek basina konfeti sadece "bir seyler dusuyor".
+ */
+data class FireworkBurst(
+    val xFraction: Float,
+    val yFraction: Float,
+    val startDelay: Float,
+    val color: Color,
+    val sparkCount: Int,
+    val spread: Float,
+    val rotation: Float
 )
 
 val BLOCK_COLORS = listOf(
@@ -1714,6 +1760,7 @@ fun BlastTheBlocksGame(
     // skor/yildiz sayilarindan ibaretti (tasarim onerisi: rakip oyunlarda en
     // yuksek motivasyon aninin ozel bir gorseli olmaliydi).
     var confettiPieces by remember { mutableStateOf<List<ConfettiPiece>>(emptyList()) }
+    var fireworkBursts by remember { mutableStateOf<List<FireworkBurst>>(emptyList()) }
     val confettiProgress = remember { Animatable(0f) }
     var armedBooster by remember { mutableStateOf<BoosterType?>(null) }
     val availableBoosterCounts = remember {
@@ -2395,17 +2442,37 @@ fun BlastTheBlocksGame(
             // Zafer sesi de burada calar — onceden placeShape icinde t=0'da
             // caliyordu ve patlama sesinin uzerine biniyordu.
             SoundManager.playSuccess(soundEnabled)
-            confettiPieces = List(36) {
+            confettiPieces = List(54) {
                 ConfettiPiece(
                     xFraction = Random.nextFloat(),
-                    startDelay = Random.nextFloat() * 0.3f,
+                    startDelay = Random.nextFloat() * 0.35f,
                     drift = (Random.nextFloat() - 0.5f) * 60f,
                     rotationSpeed = Random.nextFloat() * 6f + 2f,
-                    color = BLOCK_COLORS[Random.nextInt(BLOCK_COLORS.size)]
+                    color = BLOCK_COLORS[Random.nextInt(BLOCK_COLORS.size)],
+                    sizeDp = 5f + Random.nextFloat() * 5f,
+                    // Kimi serit, kimi kare: hepsi ayni olursa goz bunu
+                    // "desen" olarak okuyor, kutlama gibi degil.
+                    aspect = 0.35f + Random.nextFloat() * 1.1f,
+                    spin = (Random.nextFloat() - 0.5f) * 1440f
+                )
+            }
+            // Patlamalar ust yariya dagitiliyor: diyalog kartinin ARKASINDA
+            // kalip cerceveden tasan bir isik halesi gibi okunuyorlar.
+            fireworkBursts = List(5) { i ->
+                FireworkBurst(
+                    xFraction = 0.15f + Random.nextFloat() * 0.7f,
+                    yFraction = 0.12f + Random.nextFloat() * 0.45f,
+                    // Sirayla patlasinlar; hepsi ayni anda patlarsa tek bir
+                    // flas gibi gorunuyor.
+                    startDelay = i * 0.11f + Random.nextFloat() * 0.05f,
+                    color = BLOCK_COLORS[Random.nextInt(BLOCK_COLORS.size)],
+                    sparkCount = 12 + Random.nextInt(7),
+                    spread = 90f + Random.nextFloat() * 70f,
+                    rotation = Random.nextFloat() * 360f
                 )
             }
             confettiProgress.snapTo(0f)
-            confettiProgress.animateTo(1f, animationSpec = tween(1600, easing = FastOutSlowInEasing))
+            confettiProgress.animateTo(1f, animationSpec = tween(2300, easing = LinearEasing))
         }
     }
 
@@ -5442,29 +5509,83 @@ fun BlastTheBlocksGame(
                 // TEKRARI gereksiz yer kaplıyordu.
                 Box(contentAlignment = Alignment.TopEnd) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = palette.card),
-                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = ResultDialogSurface),
+                        shape = RoundedCornerShape(28.dp),
                         modifier = Modifier
                             .fillMaxWidth(0.85f)
                             .padding(16.dp)
-                            .border(2.dp, NeonMagenta, RoundedCornerShape(20.dp))
+                            // Faz 167: kullanici "butonlarin tasarimi oyunun yeni
+                            // tasarimindan uzak" dedi ve hedef mockup'i verdi. Diyalog
+                            // artik menulerle AYNI dili konusuyor: dis parlama + kalin
+                            // neon cerceve + 3B kabartmali butonlar.
+                            .gameOuterGlow(
+                                accent = ResultFailAccent,
+                                cornerRadius = 28.dp,
+                                intensity = 1f
+                            )
+                            .border(3.dp, ResultFailAccent, RoundedCornerShape(28.dp))
                     ) {
                         Column(
-                            modifier = Modifier.padding(24.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = if (isEndless) {
-                                    language.pick(tr = "OYUN BİTTİ", en = "GAME OVER", it = "GIOCO FINITO", fr = "PARTIE TERMINÉE", es = "JUEGO TERMINADO")
-                                } else {
-                                    language.pick(tr = "SEVİYE BAŞARISIZ", en = "LEVEL FAILED", it = "LIVELLO FALLITO", fr = "NIVEAU ÉCHOUÉ", es = "NIVEL FALLIDO")
-                                },
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeonMagenta
+                            // Faz 167 — IKI SATIR ARTIK KAZA DEGIL, HIYERARSI.
+                            //
+                            // Kullanici: "Seviye Basarisiz yazisinda ikinci satir
+                            // olmasinda falan gozumu yoran bir sey var." Sorun iki
+                            // satir olmasi degildi; duz bir metnin GELISIGUZEL
+                            // sarilmasiydi — iki satir esit agirlikta, ortasiz,
+                            // konturısız. Mockup'ta da iki satir var ama ikisi ayni
+                            // seyi soylemiyor: ust satir kucuk ve sakin, alt satir
+                            // buyuk ve olayin kendisi.
+                            //
+                            // Menulerdeki `GameEmblemLine` malzemesi kullaniliyor,
+                            // yani kontur + 3B govde + isima -- baslik artik ekranin
+                            // geri kalaniyla ayni dilde.
+                            val failTop = if (isEndless) {
+                                language.pick(tr = "OYUN", en = "GAME", it = "GIOCO", fr = "PARTIE", es = "JUEGO")
+                            } else {
+                                language.pick(tr = "SEVİYE", en = "LEVEL", it = "LIVELLO", fr = "NIVEAU", es = "NIVEL")
+                            }
+                            val failBottom = if (isEndless) {
+                                language.pick(tr = "BİTTİ", en = "OVER", it = "FINITO", fr = "TERMINÉE", es = "TERMINADO")
+                            } else {
+                                language.pick(tr = "BAŞARISIZ", en = "FAILED", it = "FALLITO", fr = "ÉCHOUÉ", es = "FALLIDO")
+                            }
+                            ResultDialogTitle(
+                                topLine = failTop,
+                                bottomLine = failBottom,
+                                colors = resultEmblemColors(ResultFailAccent)
                             )
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Image(
+                                painter = painterResource(R.drawable.kb_dlg_heartbreak),
+                                contentDescription = null,
+                                modifier = Modifier.size(96.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Faz 167: skor/hedef paneli GERI GELDI.
+                            //
+                            // Faz 95d'de "arka planda zaten ayni bilgi var" diye
+                            // kaldirilmisti; ama diyalog acilinca arka plan %85
+                            // siyahla perdeleniyor ve o kartlar okunmuyor (kullanicinin
+                            // gonderdigi ekran goruntusunde de sadece silik bir golge).
+                            // Yeni panel eski "Skor + dev rakam" blogundan cok daha
+                            // kompakt: tek satir, iki sutun.
+                            ResultStatPanel(
+                                leftLabel = language.pick(tr = "SKOR", en = "SCORE", it = "PUNTEGGIO", fr = "SCORE", es = "PUNTUACIÓN"),
+                                leftValue = "$score",
+                                leftColor = Color.White,
+                                rightLabel = if (isEndless) null else language.pick(tr = "HEDEF", en = "TARGET", it = "OBIETTIVO", fr = "OBJECTIF", es = "OBJETIVO"),
+                                rightValue = if (isEndless) null else "$targetScore",
+                                rightColor = ResultFailAccent
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             // Faz 103: Pro Mode'da rewarded devam haklari (3) bitince bu
                             // buton "TEKRAR DENE"ye donuyordu ve tam sifirlama yapiyordu —
@@ -5479,7 +5600,7 @@ fun BlastTheBlocksGame(
                             val hideRetryButton = isChallengeMode && continuesUsedInAttempt >= maxRetryContinues
 
                             if (!hideRetryButton) {
-                            Button(
+                            GameButton(
                             // Faz 103: Sonsuz Mod'da "TEKRAR DENE" dogrudan resetGame()
                             // cagiriyordu — hic reklam yok, bedava sifirlama. Seviyeli/Pro'da
                             // ayni durumda zorunlu interstitial vardi, yani asimetrikti ve
@@ -5506,18 +5627,17 @@ fun BlastTheBlocksGame(
                                 } else handleRetryWithAd()
                             },
                             enabled = !isRequestingContinueAd,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
-                            shape = RoundedCornerShape(12.dp),
-                            // Faz 127: bkz. AdButtonLabel — varsayilan 24dp yatay ic bosluk
-                            // uzun cevirilerde metin alanini gereksiz daraltiyordu.
-                            contentPadding = PaddingValues(horizontal = 10.dp),
-                            // Faz 95d: kullanici "kutu esnek olmasın, farklı boylarda kutular
-                            // olur, puntoyu küçült ve kutu yüksekliğini SABİT artır" dedi —
-                            // 3 buton (bu + asagidaki YENİDEN BAŞLA + HARİTAYA DÖN) artik
-                            // AYNI sabit 52dp yukseklikte, tutarli.
+                            // Faz 167: BIRINCIL eylem. Mockup'ta mavi, cunku oyuncuyu
+                            // oyunda TUTAN secenek bu; turuncu "yeniden baslat" ve
+                            // notr "haritaya don" ondan sonra geliyor.
+                            colors = resultButtonColors(ResultPrimaryBlue, ResultOnPrimary),
+                            // Faz 95d: 3 buton AYNI sabit yukseklikte, tutarli.
+                            minHeight = 54.dp,
+                            // Faz 127: bkz. AdButtonLabel — genis yatay ic bosluk uzun
+                            // cevirilerde metin alanini gereksiz daraltiyordu.
+                            horizontalPadding = 10.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
                                 .testTag("block_blast_restart_confirm")
                         ) {
                             if (isRequestingContinueAd) {
@@ -5562,31 +5682,28 @@ fun BlastTheBlocksGame(
                         // Ikisi de ayni bedele gelince kafa karisikligi da bitiyor.
                         if (isChallengeMode) {
                             if (!hideRetryButton) Spacer(modifier = Modifier.height(8.dp))
-                            Button(
+                            GameButton(
+                                text = language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"),
                                 onClick = { onProModeRestart { resetGame() } },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(52.dp)
-                            ) {
-                                Text(
-                                    text = language.pick(tr = "YENİDEN BAŞLAT", en = "RESTART", it = "RICOMINCIA", fr = "RECOMMENCER", es = "REINICIAR"),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
+                                colors = resultButtonColors(ResultSecondaryOrange, ResultOnSecondary),
+                                fontSize = 14.sp,
+                                minHeight = 54.dp,
+                                horizontalPadding = 10.dp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Button(
+                        GameButton(
+                            text = language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"),
                             onClick = onBack,
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardAlt),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(52.dp)
-                        ) {
-                            Text(language.pick(tr = "HARİTAYA DÖN", en = "BACK TO MAP", it = "TORNA ALLA MAPPA", fr = "RETOUR À LA CARTE", es = "VOLVER AL MAPA"), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
-                        }
+                            colors = resultButtonColors(ResultTertiarySlate, Color.White),
+                            fontSize = 14.sp,
+                            minHeight = 54.dp,
+                            horizontalPadding = 10.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
                 }
@@ -5617,65 +5734,155 @@ fun BlastTheBlocksGame(
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val progress = confettiProgress.value
                         if (progress >= 1f) return@Canvas
+
+                        // NOT: `this.density` -- dis kapsamdaki
+                        // `val density = LocalDensity.current` (bir Density
+                        // NESNESI) ayni adi tasidigi icin cıplak `density`
+                        // onu secip derlemeyi kiriyor. Buradaki alici
+                        // DrawScope ve onun `density`si Float.
+                        // --- HAVAI FISEK: tek noktadan disa patlayan kivilcimlar ---
+                        // Konfetiden ONCE ciziliyor ki serit yagmuru onlerinin
+                        // ustunde kalsin, derinlik hissi olussun.
+                        fireworkBursts.forEach { burst ->
+                            val local = ((progress - burst.startDelay) / 0.45f).coerceIn(0f, 1f)
+                            if (local <= 0f || local >= 1f) return@forEach
+                            // Disa acilis hizli baslayip yavasliyor (patlama
+                            // egrisi); duz dogrusal olursa "genisleyen daire"
+                            // gibi duruyor, patlama gibi degil.
+                            val ease = 1f - (1f - local) * (1f - local)
+                            val cx = size.width * burst.xFraction
+                            val cy = size.height * burst.yFraction
+                            val radius = burst.spread * this.density * ease
+                            val alpha = (1f - local).coerceIn(0f, 1f)
+                            val sparkLen = 7f * this.density * (1f - local * 0.55f)
+                            for (i in 0 until burst.sparkCount) {
+                                val angle = burst.rotation + i * (360f / burst.sparkCount)
+                                val rad = angle * PI.toFloat() / 180f
+                                val dx = cos(rad)
+                                val dy = sin(rad)
+                                // Yercekimi: kivilcimlar sonda hafifce dusuyor.
+                                val sag = 26f * this.density * local * local
+                                val px = cx + dx * radius
+                                val py = cy + dy * radius + sag
+                                drawLine(
+                                    color = burst.color.copy(alpha = alpha),
+                                    start = Offset(px, py),
+                                    end = Offset(px + dx * sparkLen, py + dy * sparkLen),
+                                    strokeWidth = 2.5f * this.density,
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                            // Patlamanin cekirdegindeki flas.
+                            if (local < 0.35f) {
+                                drawCircle(
+                                    color = Color.White.copy(alpha = (1f - local / 0.35f) * 0.75f),
+                                    radius = 9f * this.density * (1f - local / 0.35f),
+                                    center = Offset(cx, cy)
+                                )
+                            }
+                        }
+
+                        // --- KONFETI: takla atarak dusen seritler ---
                         confettiPieces.forEach { piece ->
                             val local = ((progress - piece.startDelay) / (1f - piece.startDelay)).coerceIn(0f, 1f)
                             if (local <= 0f) return@forEach
                             val y = size.height * local
                             val x = size.width * piece.xFraction + sin(local * piece.rotationSpeed) * piece.drift
-                            val alpha = (1f - local).coerceIn(0f, 1f)
-                            drawCircle(
-                                color = piece.color.copy(alpha = alpha),
-                                radius = 6f,
-                                center = Offset(x, y)
-                            )
+                            // Sonun son ceyreginde soluyor; bastan soldurmak
+                            // kutlamayi cilizlastiriyordu.
+                            val alpha = ((1f - local) / 0.25f).coerceIn(0f, 1f)
+                            val w = piece.sizeDp * this.density
+                            val h = w * piece.aspect
+                            rotate(degrees = piece.spin * local, pivot = Offset(x, y)) {
+                                drawRect(
+                                    color = piece.color.copy(alpha = alpha),
+                                    topLeft = Offset(x - w / 2f, y - h / 2f),
+                                    size = Size(w, h)
+                                )
+                            }
                         }
                     }
                 }
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = palette.card),
-                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = ResultDialogSurface),
+                    shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .padding(16.dp)
-                        .border(2.dp, NeonGreen, RoundedCornerShape(20.dp))
+                        .gameOuterGlow(
+                            accent = ResultSuccessAccent,
+                            cornerRadius = 28.dp,
+                            intensity = 1f
+                        )
+                        .border(3.dp, ResultSuccessAccent, RoundedCornerShape(28.dp))
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = language.pick(tr = "SEVİYE TAMAMLANDI!", en = "LEVEL COMPLETE!", it = "LIVELLO COMPLETATO!", fr = "NIVEAU TERMINÉ!", es = "¡NIVEL COMPLETADO!"),
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NeonGreen
+                        ResultDialogTitle(
+                            topLine = language.pick(tr = "SEVİYE", en = "LEVEL", it = "LIVELLO", fr = "NIVEAU", es = "NIVEL"),
+                            bottomLine = language.pick(tr = "TAMAMLANDI!", en = "COMPLETE!", it = "COMPLETATO!", fr = "TERMINÉ!", es = "COMPLETADO!"),
+                            colors = resultEmblemColors(ResultSuccessAccent)
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Faz 45: kullanici "yıldız mantığı yok, hedef başarma mantığı
-                        // var" dedi — bu modal zaten SADECE hedefe ulasilinca aciliyor
-                        // (yani her zaman "basari"), dereceli bir yildiz puanlamasi
-                        // anlamsizdi. 3 yildizlik satir yerine tek bir kupa gosteriliyor.
-                        Text(text = "🏆", fontSize = 48.sp)
+                        // var" dedi — bu modal zaten SADECE hedefe ulasilinca aciliyor,
+                        // dereceli bir yildiz puanlamasi anlamsizdi. Tek bir kupa.
+                        //
+                        // Faz 167: kupa artik 🏆 EMOJISI degil. Emoji her cihazda
+                        // farkli ciziliyor (Samsung/Pixel/emoji surumu) ve oyunun geri
+                        // kalaninin ciziminden kopuktu. `kb_dlg_trophy` kullanicinin
+                        // gonderdigi varlik paketinden alindi; menudeki mor `kb_trophy`
+                        // ile karistirma, o bir MENU ikonu (kucuk, mor), bu ise
+                        // kutlama kupasi.
+                        Box(contentAlignment = Alignment.Center) {
+                            // Kupanin arkasindaki sicak isima: mockup'ta kupa
+                            // "isik saciyor", duz bir gorsel bunu vermiyordu.
+                            Canvas(modifier = Modifier.size(150.dp)) {
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            ResultTrophyGlow.copy(alpha = 0.42f),
+                                            Color.Transparent
+                                        ),
+                                        radius = size.minDimension / 2f
+                                    ),
+                                    radius = size.minDimension / 2f
+                                )
+                            }
+                            Image(
+                                painter = painterResource(R.drawable.kb_dlg_trophy),
+                                contentDescription = null,
+                                modifier = Modifier.size(104.dp)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(language.pick(tr = "Skor", en = "Score", it = "Punteggio", fr = "Score", es = "Puntuación"), fontSize = 14.sp, color = palette.textSecondary)
-                        Text("$score", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                        ResultStatPanel(
+                            leftLabel = language.pick(tr = "SKOR", en = "SCORE", it = "PUNTEGGIO", fr = "SCORE", es = "PUNTUACIÓN"),
+                            leftValue = "$score",
+                            leftColor = Color.White,
+                            rightLabel = null,
+                            rightValue = null,
+                            rightColor = Color.White
+                        )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        Button(
+                        GameButton(
+                            text = language.pick(tr = "DEVAM ET", en = "CONTINUE", it = "CONTINUA", fr = "CONTINUER", es = "CONTINUAR"),
                             onClick = onLevelCompleteContinue,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
-                            shape = RoundedCornerShape(12.dp),
+                            colors = resultButtonColors(ResultSuccessAccent, ResultOnSuccess),
+                            fontSize = 17.sp,
+                            minHeight = 56.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp)
                                 .testTag("level_complete_continue_button")
-                        ) {
-                            Text(language.pick(tr = "DEVAM ET", en = "CONTINUE", it = "CONTINUA", fr = "CONTINUER", es = "CONTINUAR"), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        }
+                        )
                     }
                 }
             }

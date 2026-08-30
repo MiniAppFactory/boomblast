@@ -1,6 +1,7 @@
 package com.miniappfactory.boomblocks.ads
 
 import android.widget.FrameLayout
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -84,4 +85,50 @@ fun BannerAdView(modifier: Modifier = Modifier) {
             .height(adSize.height.dp),
         factory = { container }
     )
+}
+
+/**
+ * Faz 167 — BANNER ALANI RIZA COZULMEDEN DE REZERVE EDILIR.
+ *
+ * Kullanicinin teshisi:
+ *
+ *   "fit to height yaparken muhtemelen bottom ad alanini cikartmayi
+ *    unutuyorsun, o birkac milisaniye sonra basiliyor. Telefonun height'i
+ *    eksi banner height'ina sigdirmalisin."
+ *
+ * Dogruydu. `BannerAdView` Faz 108'den beri KENDI yuksekligini rezerve
+ * ediyor, ama cagri noktalari onu `if (adsConsentResolved) { ... }` icine
+ * sariyordu -- yani riza cozulene kadar (UMP callback'i, kotu durumda 4
+ * saniyelik guvenlik agi) bilesen kompozisyonda HIC YOKTU. O sirada ustteki
+ * `Modifier.weight(1f)` alani EKRANIN TAMAMINI aliyor, `FitToHeight` "sigdi"
+ * diye karar veriyor; saniyeler sonra banner belirince alan ~50-60dp
+ * kisaliyor ve karar geriye donuk yanlis hale geliyordu.
+ *
+ * Bu bilesen alani HER ZAMAN ayirir; reklam yalnizca riza gelince icine
+ * oturur. Boylece `FitToHeight` ilk kareden itibaren DOGRU yukseklikle
+ * calisiyor ve duzen hic oynamıyor.
+ *
+ * Not: Faz 108'in gerekcesi de aynen gecerli -- parmagin altinda olusan
+ * duzen kaymasi kazara reklam tiklamasinin en bilinen uretim yoludur.
+ */
+@Composable
+fun BannerAdSlot(adsConsentResolved: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val adWidthDp = configuration.screenWidthDp
+    val adSize = remember(adWidthDp) {
+        AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidthDp)
+    }
+
+    if (adsConsentResolved) {
+        BannerAdView(modifier = modifier)
+    } else {
+        // Bos ama TAM BOYUTTA yer tutucu: riza gelince banner buraya oturur,
+        // ustteki icerik yeniden olculmez.
+        Spacer(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(adSize.height.dp)
+        )
+    }
 }

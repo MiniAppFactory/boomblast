@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.miniappfactory.boomblocks.ads.AdsConsent
+import com.miniappfactory.boomblocks.ads.BannerAdSlot
 import com.miniappfactory.boomblocks.ads.BannerAdView
 import com.miniappfactory.boomblocks.ads.InterstitialAdManager
 import com.miniappfactory.boomblocks.ads.RewardedAdManager
@@ -201,9 +202,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                             }
                         )
                     }
-                    if (adsConsentResolved) {
-                        BannerAdView()
-                    }
+                    BannerAdSlot(adsConsentResolved)
                 }
 
                 if (!progress.hasAcceptedTerms) {
@@ -242,9 +241,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -289,9 +286,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -421,9 +416,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
-                }
+                BannerAdSlot(adsConsentResolved, modifier = Modifier.padding(top = 16.dp))
             }
         }
 
@@ -450,9 +443,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -493,9 +484,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -640,9 +629,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
-                }
+                BannerAdSlot(adsConsentResolved, modifier = Modifier.padding(top = 16.dp))
             }
         }
 
@@ -672,9 +659,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -719,9 +704,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -852,9 +835,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
-                }
+                BannerAdSlot(adsConsentResolved, modifier = Modifier.padding(top = 16.dp))
             }
         }
 
@@ -1001,9 +982,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView(modifier = Modifier.padding(top = 16.dp))
-                }
+                BannerAdSlot(adsConsentResolved, modifier = Modifier.padding(top = 16.dp))
             }
         }
 
@@ -1019,9 +998,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -1070,9 +1047,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
 
@@ -1086,9 +1061,7 @@ fun AppNavigation(viewModel: BlastViewModel, retroViewModel: RetroViewModel, ads
                         onBack = { navController.popBackStack() }
                     )
                 }
-                if (adsConsentResolved) {
-                    BannerAdView()
-                }
+                BannerAdSlot(adsConsentResolved)
             }
         }
     }
