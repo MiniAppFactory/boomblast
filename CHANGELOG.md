@@ -1,5 +1,62 @@
 # Boom Blocks Changelog
 
+## [Unreleased] - Faz 182 ("KOLAY MOD" kelime sanati duzlestirildi)
+
+### Changed
+- **`kb_esy_word.webp` yeniden uretildi (430x315 -> 430x175).** Kullanici:
+  "kolay mod yazisi yanlis, pro ve kariyerin yazildigi gibi olmali, duz."
+  Eldeki varlik IKI SATIRDI (KOLAY altin / MOD camgobegi + kup); PRO ve
+  Kariyer tek satir altin. Iki satirlik varliktan "KOLAY"i kesip almak mumkun
+  degildi -- iki kelimenin mor konturu tek govdede birlesmis.
+  - Uretici betik: `tools/wordart/make_esy_word.py` (yeniden uretilebilir).
+  - Tarz TAHMIN EDILMEDI: altin gradyan, mor kontur ve dip serit renkleri
+    `kb_pro_word.webp`den PIKSEL ORNEKLENDI; font oyunun kendi basik fontu
+    (`res/font/baloo2_extrabold.ttf`); parildamalar dogrudan PRO varligindan
+    KESILDI (kenarlari yumusatilarak), yeniden cizilmedi.
+  - En-boy 0.733 -> 0.407. `Ref.WORD` 0.402 varsayiyor; eski oran kelime
+    sanatini yukari kaydiriyordu, artik Kariyer/Pro ile ayni hizada.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL
+- Cihaz (SM-G965): Kolay Mod haritasi ekran goruntusu -- kelime tek satir,
+  altin, Pro/Kariyer ile ayni olcu ve hizada.
+
+## [Unreleased] - Faz 181 (Harita hedef haplari + basarisiz diyalogu yuksekligi)
+
+### Changed
+- **Harita: 1. seviyenin hedef hapi artik istisna degil.** Once dugumun ALTINDA,
+  yukari bakan kuyruklu `pillUp` varligiyla duruyordu; simdi digerleri gibi
+  dugumle AYNI HIZADA, yaninda. Tek seviye = SOL, cift seviye = SAG, yani
+  1-2-3-4 sirasi duzgun alterniyor (`ProgressionMapScreen.TargetPillContinuous`).
+- **Harita: hedef metni iki satir.** "HEDEF: 100 + 1 satir" tek satirda hapi
+  gereginden genis birakiyordu. Artik puan ust satirda, "+ 1 satir" kurali alt
+  satirda; satir yuksekligi puntoya kelepcelendi (varsayilan ~1.4x bosluk
+  metni hapin disina tasiriyordu). Bes dilin hepsi bolundu.
+- **Harita: hedef puntosu 25 -> 23 referans birimi** (kullanici: "hedeflerin
+  yazilari 2px azalsin" — cihaz olceginde ~2px'e denk geliyor).
+- **Sonuc diyalogu: skor/hedef paneli alcaldi (~24dp).** Kullanici cihazda
+  "HARITAYA DON" butonunun yarisinin kesildigini gosterdi. Kok neden: diyalog
+  Column'u 360x740dp ekranda (banner + durum/gezinme cubugu dusulunce ~590dp)
+  ekrandan uzundu ve Compose kalan yeri SON cocuga veriyor — buton 54dp yerine
+  ~37dp olculup yazisi ortadan kirpiliyordu. Panel dolgusu 12 -> 8dp, etiket
+  12 -> 11sp, rakam 30 -> 26sp, ayirici 38 -> 30dp; hepsine lineHeight
+  kelepcesi kondu (`ResultDialogKit.ResultStatPanel`).
+
+### Testing
+- `ResultDialogRenderTest.Backdrop` artik olcu parametresi aliyor ve yeni
+  `renderLevelFailedNarrow` testi kullanicinin cihaz olcusunde (360x590dp)
+  render aliyor — 411x760dp'lik eski arka plan bu hatayi hic uretemiyordu.
+
+### Evidence
+- `gradlew :app:assembleDebug` BUILD SUCCESSFUL -> `app-debug.apk` (28.0 MB)
+- `gradlew :app:testDebugUnitTest --tests "*ResultDialogRenderTest*"`
+  BUILD SUCCESSFUL -> `build/dialog-renders/level_failed_narrow.png`
+  (uc buton da tam gorunuyor)
+- Cihaz (SM-G965, 1080x2220 @480dpi): APK kuruldu, Kariyer haritasi ekran
+  goruntusu alindi — 1. seviye hapi solda, dugumle ayni hizada, metin iki
+  satir.
+- Teslim: `builds/apk/KaboomBlocks_debug_map_pill_dialog_20260830.apk`
+
 ## [Unreleased] - Faz 162 (Gorsel tur: zemin/kart doygunlugu, 3B ucusan parcalar, neon kenarlik)
 
 ### Changed

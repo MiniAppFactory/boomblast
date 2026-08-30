@@ -75,12 +75,26 @@ class ResultDialogRenderTest {
         println("RENDER_OUT=" + File(dir, "$name.png").absolutePath)
     }
 
+    /**
+     * FAZ 181 — ARKA PLAN ARTIK CIHAZIN GERCEK OLCUSUNU DE ALABILIYOR.
+     *
+     * Varsayilan 411x760dp, kullanicinin SM-G965 (1080x2220 @480dpi = 360x740dp)
+     * cihazinda "HARITAYA DON" butonunun YARIDAN KESILDIGI hatayi
+     * UREMIYORDU: 411dp'de icerik zaten siğiyordu. Reklam banneri + durum
+     * cubugu + gezinme cubugu dusulunce diyaloga kalan yer ~590dp; hatayi
+     * goren olcu bu.
+     */
     @Composable
-    private fun Backdrop(accent: Color, content: @Composable () -> Unit) {
+    private fun Backdrop(
+        accent: Color,
+        widthDp: Int = 411,
+        heightDp: Int = 760,
+        content: @Composable () -> Unit
+    ) {
         Box(
             modifier = Modifier
-                .width(411.dp)
-                .height(760.dp)
+                .width(widthDp.dp)
+                .height(heightDp.dp)
                 .background(Color(0xFF05070E))
                 .testTag("shot"),
             contentAlignment = Alignment.Center
@@ -157,6 +171,60 @@ class ResultDialogRenderTest {
         }
         rule.waitForIdle()
         save("level_failed", rule.captureWindow())
+    }
+
+    /**
+     * Kullanicinin cihazindaki dar/kisa yerlesim. Uc buton da TAM gorunmeli;
+     * "HARITAYA DON" butonunun kirpilmasi burada yakalanir.
+     */
+    @Test
+    fun renderLevelFailedNarrow() {
+        rule.setContent {
+            Backdrop(ResultFailAccent, widthDp = 360, heightDp = 590) {
+                DialogCard(ResultFailAccent) {
+                    ResultDialogTitle("SEVİYE", "BAŞARISIZ", resultEmblemColors(ResultFailAccent))
+                    Spacer(Modifier.height(10.dp))
+                    Image(
+                        painter = painterResource(R.drawable.kb_dlg_heartbreak),
+                        contentDescription = null,
+                        modifier = Modifier.size(96.dp)
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    ResultStatPanel(
+                        leftLabel = "SKOR", leftValue = "73", leftColor = Color.White,
+                        rightLabel = "HEDEF", rightValue = "200", rightColor = ResultFailAccent
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    ResultActionButton(
+                        text = "REKLAM İZLE, DEVAM ET",
+                        onClick = {},
+                        colors = resultButtonColors(ResultPrimaryBlue, ResultOnPrimary),
+                        iconRes = R.drawable.kb_btn_watchad,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ResultActionButton(
+                        text = "YENİDEN BAŞLAT",
+                        onClick = {},
+                        colors = resultButtonColors(ResultSecondaryOrange, ResultOnSecondary),
+                        iconRes = R.drawable.kb_btn_retry,
+                        maxSizeSp = 15f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ResultActionButton(
+                        text = "HARİTAYA DÖN",
+                        onClick = {},
+                        colors = resultButtonColors(ResultTertiarySlate, Color.White),
+                        iconRes = R.drawable.kb_btn_map,
+                        maxSizeSp = 15f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        rule.waitForIdle()
+        save("level_failed_narrow", rule.captureWindow())
     }
 
     @Test

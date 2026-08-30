@@ -375,7 +375,16 @@ fun ResultStatPanel(
             .fillMaxWidth()
             .background(ResultPanelFill, RoundedCornerShape(18.dp))
             .border(1.dp, ResultPanelBorder, RoundedCornerShape(18.dp))
-            .padding(vertical = 12.dp),
+            // FAZ 181 — PANEL ALCALDI.
+            //
+            // Kullanici (cihaz ekran goruntusuyle): "kalp emojisi altindaki
+            // skor ve hedef blogu height daralmali ki asagidaki haritaya don
+            // butonu gozuksun." Teshis: diyalog Column'u ekrandan uzundu ve
+            // Compose kalan yeri SON cocuga veriyor -- "HARITAYA DON" butonu
+            // 54dp yerine ~37dp olcuup yazisi ORTADAN kesiliyordu. Panel
+            // (dolgu 24dp + 12sp etiket + 30sp rakam) blogun en yuksek
+            // parcasiydi; burada ~24dp geri kazaniliyor.
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -384,7 +393,7 @@ fun ResultStatPanel(
             Box(
                 modifier = Modifier
                     .width(1.dp)
-                    .height(38.dp)
+                    .height(30.dp)
                     .background(ResultPanelBorder)
             )
             StatColumn(rightLabel, rightValue, rightColor, Modifier.weight(1f))
@@ -405,14 +414,19 @@ private fun StatColumn(
     ) {
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
+            // Satir yuksekligi puntoya kelepcelendi: varsayilan yazi tipi
+            // metrigi etiket+rakam icin ~14dp fazladan bosluk ekliyordu ve
+            // kazanilmak istenen yer tam orasi.
+            lineHeight = 13.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.sp,
             color = Color(0xFF8FA0BF)
         )
         Text(
             text = value,
-            fontSize = 30.sp,
+            fontSize = 26.sp,
+            lineHeight = 30.sp,
             fontWeight = FontWeight.Black,
             color = valueColor
         )

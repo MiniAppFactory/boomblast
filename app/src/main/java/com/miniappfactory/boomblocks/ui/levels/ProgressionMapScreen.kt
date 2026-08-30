@@ -566,12 +566,21 @@ private fun PathQuarterRow(
             nodeCx = nodeCenterRef,
             nodeCy = 0f,
             scale = scale,
-            text = language.pick(
-                tr = "HEDEF: ${targetScoreForLevel(level)} + 1 satır",
-                en = "TARGET: ${targetScoreForLevel(level)} + 1 row",
-                it = "OBIETTIVO: ${targetScoreForLevel(level)} + 1 riga",
-                fr = "OBJECTIF : ${targetScoreForLevel(level)} + 1 ligne",
-                es = "OBJETIVO: ${targetScoreForLevel(level)} + 1 fila"
+            // FAZ 181: hedef artik TEK satirda degil IKI satirda. Puan ust
+            // satirda (goz once ona bakiyor), "+ 1 satir" kurali altinda.
+            topText = language.pick(
+                tr = "HEDEF: ${targetScoreForLevel(level)}",
+                en = "TARGET: ${targetScoreForLevel(level)}",
+                it = "OBIETTIVO: ${targetScoreForLevel(level)}",
+                fr = "OBJECTIF : ${targetScoreForLevel(level)}",
+                es = "OBJETIVO: ${targetScoreForLevel(level)}"
+            ),
+            bottomText = language.pick(
+                tr = "+ 1 satır",
+                en = "+ 1 row",
+                it = "+ 1 riga",
+                fr = "+ 1 ligne",
+                es = "+ 1 fila"
             )
         )
 
@@ -625,8 +634,17 @@ private fun ProgressionNode(
 }
 
 /**
- * First target label sits below the first node. Later labels alternate left
- * and right, while the PATH itself stays continuous underneath the node.
+ * Hedef etiketi dugumun YANINDA, dugumle AYNI HIZADA duruyor; taraf her
+ * seviyede degisiyor (tek seviye sol, cift seviye sag), yol ise dugumun
+ * ALTINDAN kesintisiz gecmeye devam ediyor.
+ *
+ * FAZ 181 - 1. SEVIYE ARTIK ISTISNA DEGIL.
+ *
+ * Once 1. seviyenin hapi dugumun ALTINDA (yukari bakan kuyruklu `pillUp`
+ * varligiyla) duruyordu. Kullanici: "1. levelin hedefi de digerleri gibi kendi
+ * hizasinda gostersin." Tek seviye oldugu icin dogal yeri SOL taraf -- boylece
+ * 1-2-3-4 sirasi sol/sag/sol/sag olarak duzgun alterniyor ve haritanin ilk
+ * ekraninda "farkli duran" bir oge kalmiyor.
  */
 @Composable
 private fun TargetPillContinuous(
@@ -635,32 +653,18 @@ private fun TargetPillContinuous(
     nodeCx: Float,
     nodeCy: Float,
     scale: Float,
-    text: String
+    topText: String,
+    bottomText: String
 ) {
-    val isFirst = level == 1
     // Reference alternates labels around an almost-vertical node chain.
     val labelOnRight = level % 2 == 0
     val w = bitmapW(Ref.PILL_BODY, Ref.PILL_RATIO)
-    val res = when {
-        isFirst -> theme.pillUp
-        labelOnRight -> theme.pillTailLeft   // tail points LEFT, toward node
-        else -> theme.pillTailRight          // tail points RIGHT, toward node
-    }
-    val pillAspect = when {
-        isFirst -> 0.501f
-        labelOnRight -> 0.638f
-        else -> 0.580f
-    }
-    val cx = when {
-        isFirst -> nodeCx
-        labelOnRight -> nodeCx + Ref.NODE_BODY / 2f + w / 2f - 10f
-        else -> nodeCx - Ref.NODE_BODY / 2f - w / 2f + 10f
-    }
-    val cy = if (isFirst) {
-        nodeCy + Ref.NODE_BODY / 2f + 48f
-    } else {
-        nodeCy + 18f
-    }
+    // tail points LEFT when the pill is on the RIGHT, and vice versa.
+    val res = if (labelOnRight) theme.pillTailLeft else theme.pillTailRight
+    val pillAspect = if (labelOnRight) 0.638f else 0.580f
+    val cx = if (labelOnRight) nodeCx + Ref.NODE_BODY / 2f + w / 2f - 10f
+             else nodeCx - Ref.NODE_BODY / 2f - w / 2f + 10f
+    val cy = nodeCy + 18f
 
     Box(
         modifier = Modifier
@@ -673,13 +677,28 @@ private fun TargetPillContinuous(
             contentDescription = null,
             modifier = Modifier.fillMaxWidth()
         )
-        Text(
-            text = text,
-            color = Color.White,
-            fontSize = (25 * scale).sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
+        // FAZ 181: punto 25 -> 23 (kullanici: "hedeflerin yazilari 2px
+        // azalsin"). Referans birimi oldugu icin ekranda ~2px'e denk geliyor.
+        // Satir yuksekligi puntonun ~1.05'i: iki satir hapin govdesinde
+        // kaliyor, varsayilan (~1.4x) bosluk hapin disina tasiyordu.
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = topText,
+                color = Color.White,
+                fontSize = (23 * scale).sp,
+                lineHeight = (24 * scale).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = bottomText,
+                color = Color.White,
+                fontSize = (23 * scale).sp,
+                lineHeight = (24 * scale).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+        }
     }
 }
 
